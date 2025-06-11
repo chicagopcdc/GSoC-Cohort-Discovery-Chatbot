@@ -1,0 +1,10 @@
+Query: query GetPeople($filter: JSON) { 
+    people(filter: $filter) { 
+      consortium
+      submitter_id
+      sex
+      race
+      ethnicity
+    }
+  }
+Explanation: This GraphQL query retrieves information about people who are Multiracial and between the ages of 0 and 18. It fetches fields like consortium, submitter ID, sex, race, and ethnicity based on the provided criteria.

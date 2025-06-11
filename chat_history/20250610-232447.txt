@@ -1,0 +1,10 @@
+Query: query {
+  people(filter: {race: "Multiracial", age_gte: 0, age_lte: 18}) {
+    consortium
+    submitterId
+    sex
+    race
+    ethnicity
+  }
+}
+Explanation: This GraphQL query retrieves information about people who are multiracial and between the ages of 0 and 18. For each person that meets these criteria, it fetches their consortium, submitter ID, sex, race, and ethnicity.
