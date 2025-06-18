@@ -1,5 +1,1 @@
-Help me generate a GraphQL query that pulls data about people who meet specific criteria. 
-The criteria are: Their race is Multiracial. They are between the ages of 0 and 18. 
-The query retrieves information like their consortium, submitter ID, sex, race, and ethnicity. 
-- Construct the query using the `$filter` variable for dynamic filtering.
-- Make sure the query fetches the following fields mentioned in query.
+What proportion of patients with malignant peripheral nerve sheath tumor and Neurofibromatosis Type 1 within the data portal are females?

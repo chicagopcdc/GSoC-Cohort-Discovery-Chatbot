@@ -1,0 +1,42 @@
+# Environment variables
+.env
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Chainlit
+.chainlit/
+
+# Local history
+chat_history/
+
+# OS specific
+.DS_Store
+.vscode/
+*.swp
+*.swo
+
+# Log files
+*.log
