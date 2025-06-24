@@ -2,7 +2,6 @@
 # Whether to enable telemetry (default: true). No personal data is collected.
 enable_telemetry = true
 
-
 # List of environment variables to be provided by each user to use the app.
 user_env = []
 
@@ -11,6 +10,9 @@ session_timeout = 3600
 
 # Enable third parties caching (e.g LangChain cache)
 cache = false
+
+# Enable persistent chat history
+persistent_chat_history = true
 
 # Authorized origins
 allow_origins = ["*"]
@@ -53,10 +55,10 @@ edit_message = true
 
 [UI]
 # Name of the assistant.
-name = "Assistant"
+name = "PCDC GraphQL 助手"
 
 # Description of the assistant. This is used for HTML tags.
-# description = ""
+description = "将自然语言转换为GraphQL查询的AI助手"
 
 # Large size content are by default collapsed for a cleaner ui
 default_collapse_content = true

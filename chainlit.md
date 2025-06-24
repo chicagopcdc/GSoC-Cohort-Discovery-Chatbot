@@ -1,14 +1,23 @@
-# Welcome to Chainlit! 🚀🤖
+# PCDC GraphQL Query Generator
 
-Hi there, Developer! 👋 We're excited to have you on board. Chainlit is a powerful tool designed to help you prototype, debug and share applications built on top of LLMs.
+Welcome to the PCDC GraphQL Query Generator!
 
-## Useful Links 🔗
+This tool helps you convert natural language queries into GraphQL query statements, making it easier to use in the PCDC data portal.
 
-- **Documentation:** Get started with our comprehensive [Chainlit Documentation](https://docs.chainlit.io) 📚
-- **Discord Community:** Join our friendly [Chainlit Discord](https://discord.gg/k73SQ3FyUh) to ask questions, share your projects, and connect with other developers! 💬
+## How to Use
 
-We can't wait to see what you create with Chainlit! Happy coding! 💻😊
+1. Enter your query, for example: "Find all cases from the INRG consortium"
+2. The system will generate the appropriate GraphQL query and variables
+3. You can directly copy the generated code for your query
 
-## Welcome screen
+## Configuration
 
-To modify the welcome screen, edit the `chainlit.md` file at the root of your project. If you do not want a welcome screen, just leave this file empty.
+# Enable session persistence
+persistent: true
+
+# Enable chat history
+persistent_chat_history: true
+
+# Client-side session storage (no database needed)
+chat_history:
+  client_side: true
