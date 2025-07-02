@@ -12,16 +12,20 @@ pip install -r requirements.txt
 2. Set up your OpenAI API key in the `.env` file:
 ```
 OPENAI_API_KEY=your_api_key_here
+DATABASE_URL=postgresql://postgres:your_postgresql_address
 ```
 
 ## Running the Application
 
 Start the server:
 ```bash
-python app.py
+bash run.sh
 ```
-
 The server will run at http://localhost:8000
+To login, you can use any of follwing accounts:
+username: test password: test
+username: admin password: admin
+username: user password: user123
 
 ## API Usage
 
@@ -42,42 +46,4 @@ curl -X POST "http://localhost:8000/convert" \
 }
 ```
 
-## Frontend Demo
 
-You can also test the application using a simple HTML frontend.
-
-### index.html
-
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>LangChain GraphQL Demo</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 40px; }
-    input, button { font-size: 1em; }
-    #result { margin-top: 20px; white-space: pre-wrap; }
-  </style>
-</head>
-<body>
-  <h2>LangChain GraphQL Demo</h2>
-  <input id="queryInput" type="text" placeholder="Enter your question..." size="40">
-  <button onclick="sendQuery()">Send</button>
-  <div id="result"></div>
-  <script>
-    async function sendQuery() {
-      const text = document.getElementById('queryInput').value;
-      document.getElementById('result').innerText = 'Loading...';
-      const res = await fetch('http://localhost:8000/convert', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text })
-      });
-      const data = await res.json();
-      document.getElementById('result').innerText = JSON.stringify(data, null, 2);
-    }
-  </script>
-</body>
-</html>
-``` 
