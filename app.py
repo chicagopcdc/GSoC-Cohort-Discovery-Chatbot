@@ -48,6 +48,90 @@ try:
 except Exception as e:
     print(f"Failed to load PCDC schema: {str(e)}")
 
+def process_dotted_paths(variables):
+    """
+    dot-separated paths to nested structure
+    e.g. {"disease_characteristics.bulky_nodal_aggregate": ["No"]} to
+    {"nested": {"path": "disease_characteristics", "AND": [{"IN": {"bulky_nodal_aggregate": ["No"]}}]}}
+    """
+    if not isinstance(variables, dict):
+        return variables
+    
+    result = {}
+    dotted_paths = {}
+    
+    # collect all dot-separated paths and group by parent path
+    for key, value in list(variables.items()):
+        if "." in key:
+            parts = key.split(".", 1)
+            parent, child = parts[0], parts[1]
+            
+            if parent not in dotted_paths:
+                dotted_paths[parent] = []
+            
+            # check if value is a list (corresponding to IN operation)
+            if isinstance(value, list):
+                dotted_paths[parent].append({"IN": {child: value}})
+            else:
+                # non-list value
+                dotted_paths[parent].append({child: value})
+            
+            # remove dot-separated path from original dict
+            del variables[key]
+        elif isinstance(value, dict):
+            # recursive process nested dict
+            variables[key] = process_dotted_paths(value)
+    
+    # build nested structure
+    for parent, conditions in dotted_paths.items():
+        nested_obj = {
+            "nested": {
+                "path": parent,
+                "AND": conditions
+            }
+        }
+        
+        # if result already has nested structure for this parent path, merge them
+        if parent in result and "nested" in result[parent]:
+            result[parent]["nested"]["AND"].extend(conditions)
+        else:
+            result[parent] = nested_obj
+    
+    # merge processed results
+    result.update(variables)
+    
+    return result
+
+def process_variables_string(variables_string):
+    """
+    directly process dot-separated paths on variables string, no need to parse to dict first
+    """
+    try:
+        # try standard processing first
+        vars_dict = json.loads(variables_string)
+        
+        # recursive process dot-separated paths
+        if isinstance(vars_dict, dict):
+            # if it is a dict, start processing
+            processed_vars = process_dotted_paths(vars_dict)
+            
+            # ensure filter wrapper layer is included
+            if "filter" not in processed_vars:
+                processed_vars = {"filter": processed_vars}
+            
+            return json.dumps(processed_vars)
+        else:
+            # if not a dict, return original string
+            return variables_string
+    except json.JSONDecodeError:
+        # if cannot parse JSON, return original string
+        print(f"Error decoding JSON string: {variables_string}")
+        return variables_string
+    except Exception as e:
+        # other errors, return original string
+        print(f"Error processing variables string: {str(e)}")
+        return variables_string
+
 # Set up route
 @app.post("/convert")
 async def convert_to_graphql(query: Query):
@@ -163,10 +247,26 @@ async def convert_to_graphql(query: Query):
             f.write(f"Variables: {result.get('variables', '')}\n")
             f.write(f"Explanation: {result.get('explanation', '')}")
         
-        # Ensure variables is string type
+        # process and format variables
         variables = result.get("variables", "{}")
+        
+        # check variable type and process accordingly
         if isinstance(variables, dict):
-            variables = json.dumps(variables)
+            # process dot-separated paths, convert to nested structure
+            processed_vars = process_dotted_paths(variables)
+            
+            # ensure variables are wrapped in the format required by GraphQL API
+            if "filter" not in processed_vars:
+                processed_vars = {"filter": processed_vars}
+            
+            variables = json.dumps(processed_vars)
+        else:
+            # if variables is a string, use special string processing function
+            variables = process_variables_string(variables)
+        
+        # save processed variables for debugging
+        with open(f"chat_history/{timestamp}_processed.txt", "w") as f:
+            f.write(variables)
         
         return GraphQLResponse(
             query=result.get("query", ""),
