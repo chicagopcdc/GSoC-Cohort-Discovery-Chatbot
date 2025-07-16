@@ -14,6 +14,7 @@ from schema_parser import parse_pcdc_schema, extract_relevant_schema, standardiz
 from query_builder import build_graphql_filter, extract_query_conditions, build_graphql_query, analyze_query_complexity, decompose_query, combine_results
 from context_manager import session_manager
 from prompt_builder import create_enhanced_prompt, create_nested_query_prompt
+from filter_utils import getFilterState, getGQLFilter, SchemaTypeHandler
 
 # Load environment variables
 load_dotenv()
@@ -42,8 +43,12 @@ llm = ChatOpenAI(
 node_properties = {}
 term_mappings = {}
 
+# 创建SchemaTypeHandler实例
+schema_handler = None
+
 try:
     node_properties, term_mappings = parse_pcdc_schema("pcdc-schema-prod-20250114.json")
+    schema_handler = SchemaTypeHandler(node_properties)
     print(f"Successfully loaded PCDC schema, node count: {len(node_properties)}")
 except Exception as e:
     print(f"Failed to load PCDC schema: {str(e)}")
@@ -148,6 +153,7 @@ async def convert_to_graphql(query: Query):
         
         # Extract relevant schema information
         relevant_schema = extract_relevant_schema(standardized_query, node_properties)
+        # print(f"relevant schema: {relevant_schema}")
         
         result = None
         
@@ -249,21 +255,24 @@ async def convert_to_graphql(query: Query):
         
         # process and format variables
         variables = result.get("variables", "{}")
-        
-        # check variable type and process accordingly
-        if isinstance(variables, dict):
-            # process dot-separated paths, convert to nested structure
-            processed_vars = process_dotted_paths(variables)
-            
-            # ensure variables are wrapped in the format required by GraphQL API
-            if "filter" not in processed_vars:
-                processed_vars = {"filter": processed_vars}
-            
-            variables = json.dumps(processed_vars)
+
+        # === 新增：用getFilterState+getGQLFilter标准化 ===
+        # 1. 解析LLM生成的variables为dict
+        if isinstance(variables, str):
+            try:
+                variables_dict = json.loads(variables)
+            except Exception:
+                variables_dict = {}
         else:
-            # if variables is a string, use special string processing function
-            variables = process_variables_string(variables)
-        
+            variables_dict = variables
+        # 2. 反解为FilterState
+        filter_state = getFilterState(variables_dict)
+        # 3. 正向生成标准GQL filter (使用schema_handler自动处理所有字段类型)
+        gql_filter = getGQLFilter(filter_state, schema_handler)
+        # 4. 包裹成{"filter": ...}结构
+        variables = json.dumps({"filter": gql_filter} if gql_filter is not None else {})
+        # === 结束 ===
+
         # save processed variables for debugging
         with open(f"chat_history/{timestamp}_processed.txt", "w") as f:
             f.write(variables)

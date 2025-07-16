@@ -31,6 +31,7 @@ Please construct the GraphQL query according to the following structure:
 6. Return both the query and variables separately
 7. IMPORTANT: For fields that belong to nested entities (e.g., histologies.histology, tumor_assessments.tumor_site), use the "nested" structure in the variables
 8. IMPORTANT: Values for fields like sex, race, consortium should use proper capitalization (e.g., "Male", "Female", "Asian", "White", "INRG")
+9. NOTE: Your generated variables will be automatically standardized to match the frontend format, so focus on expressing the query intent correctly rather than perfect syntax
 
 Example for a simple query "Subjects who are multiracial":
 
