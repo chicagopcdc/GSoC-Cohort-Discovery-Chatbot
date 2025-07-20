@@ -136,7 +136,8 @@ def standardize_terms(user_input, term_mappings):
 
 if __name__ == "__main__":
     # Test code
-    node_properties, term_mappings = parse_pcdc_schema("pcdc-schema-prod-20250114.json")
+    schema_file_path = "../../schema/gitops.json"
+    node_properties, term_mappings = parse_pcdc_schema(schema_file_path)
     print("Parsing complete")
     print(f"Node count: {len(node_properties)}")
     print(f"Term mappings count: {len(term_mappings)}")

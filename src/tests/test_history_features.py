@@ -3,7 +3,7 @@
 Test script for ChromaDB history features
 """
 
-from chromadb_history_reader import ChromaDBHistoryReader
+from db.ChromaDB.chromadb_history_reader import ChromaDBHistoryReader
 import json
 
 def test_history_reader():
@@ -76,7 +76,7 @@ def test_formatting():
     sys.path.append('.')
     
     try:
-        from chainlit_app import format_history_message
+        from furina.langchain_demo.GSOC_COHORT_CLONE.src.frontend.chainlit_app import format_history_message
         formatted = format_history_message(mock_msg)
         print("Formatted message:")
         print("-" * 30)

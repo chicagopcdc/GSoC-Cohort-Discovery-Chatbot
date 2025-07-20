@@ -10,11 +10,12 @@ from langchain_openai import ChatOpenAI
 import json
 
 # Import custom modules
-from schema_parser import parse_pcdc_schema, extract_relevant_schema, standardize_terms
-from query_builder import build_graphql_filter, extract_query_conditions, build_graphql_query, analyze_query_complexity, decompose_query, combine_results
-from context_manager import session_manager
-from prompt_builder import create_enhanced_prompt, create_nested_query_prompt
-from filter_utils import getFilterState, getGQLFilter, SchemaTypeHandler
+from utils.schema_parser import *
+from utils.query_builder import *
+from utils.context_manager import session_manager
+from utils.prompt_builder import *
+from utils.filter_utils import *
+from utils.filter_utils import parse_llm_response
 
 # Load environment variables
 load_dotenv()
@@ -29,29 +30,7 @@ class Query(BaseModel):
 # Define output model
 class GraphQLResponse(BaseModel):
     query: str
-    explanation: Optional[str] = None
     variables: str = "{}"
-
-# Create LangChain components
-llm = ChatOpenAI(
-    model="gpt-3.5-turbo",
-    temperature=0,
-    api_key=os.getenv("OPENAI_API_KEY")
-)
-
-# Load PCDC schema
-node_properties = {}
-term_mappings = {}
-
-# 创建SchemaTypeHandler实例
-schema_handler = None
-
-try:
-    node_properties, term_mappings = parse_pcdc_schema("pcdc-schema-prod-20250114.json")
-    schema_handler = SchemaTypeHandler(node_properties)
-    print(f"Successfully loaded PCDC schema, node count: {len(node_properties)}")
-except Exception as e:
-    print(f"Failed to load PCDC schema: {str(e)}")
 
 def process_dotted_paths(variables):
     """
@@ -137,9 +116,68 @@ def process_variables_string(variables_string):
         print(f"Error processing variables string: {str(e)}")
         return variables_string
 
-# Set up route
+'''
+    Todo:
+        1. Change graphql format to aggregation query rather than line level query.
+            转换要求：
+                1. 使用 _aggregation 包装整个查询
+                2. 删除 offset 和 first 参数
+                3. 将 accessibility 改为 all
+                4. 对每个字段使用 histogram 统计: field { histogram { key count } }
+                5. 删除 subject_submitter_id(ID 在聚合中无意义)
+                6. 保持 filter 和 variables 不变
+        2. 前后端代码分离
+        3. Simple mapping from user input to schema property.
+'''
+# Main convert function
 @app.post("/convert")
 async def convert_to_graphql(query: Query):
+    # Load PCDC schema
+    node_properties = {}
+    term_mappings = {}
+    schema_handler = None
+    schema_file_path = "../../schema/gitops.json"
+    
+    llm = ChatOpenAI(
+        model="gpt-3.5-turbo",
+        temperature=0,
+        api_key=os.getenv("OPENAI_API_KEY")
+    )
+
+    def convert_line_level_query_to_aggregation_query(line_level_query):
+        ''' 
+        In order to return non-empty data, convert line level query to aggregation query because:
+            The user associated with that API key is a normal user so any query will work for aggregation only and will return zero results for line level data which is the normal behavior for any user.
+        '''
+        prompt = f"""
+            Here is the line level query: \n
+            {line_level_query} \n
+            Change level query GraphQL format to aggregation query
+            Requirements:
+            1. Use _aggregation to wrap the entire query
+            2. Remove offset and first parameters
+            3. Change accessibility to all
+            4. Use histogram statistics for each field: field {{ histogram {{ key count }} }}
+            5. Remove subject_submitter_id (ID is meaningless in aggregation)
+            6. Add _totalCount to show total count
+            7. Keep filter and variables same as line level query
+            8. Return single line JSON format
+
+            Example for "Male subjects":
+            {{
+                "query": "query ($filter: JSON) {{ _aggregation {{ subject(accessibility: all, filter: $filter) {{ consortium {{ histogram {{ key count }} }} sex {{ histogram {{ key count }} }} _totalCount }} }} }}",
+                "variables": {{"filter": {{"AND": [{{"IN": {{"sex": ["Male"]}}}}]}}}}
+            }}
+            """
+        result = llm.invoke(prompt)
+        return result
+
+    try:
+        node_properties, term_mappings = parse_pcdc_schema(schema_file_path)
+        schema_handler = SchemaTypeHandler(node_properties)
+        print(f"Successfully loaded PCDC schema, node count: {len(node_properties)}")
+    except Exception as e:
+        print(f"Failed to load PCDC schema: {str(e)}")
     try:
         # Get or create session
         session_id = query.session_id if query.session_id else str(uuid.uuid4())
@@ -153,10 +191,10 @@ async def convert_to_graphql(query: Query):
         
         # Extract relevant schema information
         relevant_schema = extract_relevant_schema(standardized_query, node_properties)
-        # print(f"relevant schema: {relevant_schema}")
+        # print(f"relevant schema: {relevant_schema} \n")
         
         result = None
-        
+        aggregation_query_mode = True
         if complexity == "complex":
             # Handle complex query
             query_parts = decompose_query(standardized_query)
@@ -169,70 +207,47 @@ async def convert_to_graphql(query: Query):
                 node_schema = extract_relevant_schema(node, node_properties)
                 comprehensive_schema.update(node_schema)
             
-            # Get conversation history
-            conversation_history = memory.get_formatted_context()
+            # # LLM has its own memory, don't need to feed conversation_history again.
+            # conversation_history = memory.get_formatted_context()
             
-            # Create prompt with enhanced schema to generate a single nested query
-            prompt_text = create_enhanced_prompt(standardized_query, comprehensive_schema, conversation_history)
+            # Create prompt with enhanced schema to generate a line level/aggregation query
+            prompt_text = create_enhanced_prompt(standardized_query, comprehensive_schema)
             
             # Call LLM
             response = llm.invoke(prompt_text)
-            
+            if aggregation_query_mode:
+                print(f"convert line level query to aggregation query.")
+                response = convert_line_level_query_to_aggregation_query(response)
+
             # Parse results
             try:
                 result = json.loads(response.content)
                 
                 # Update session memory
-                memory.add_message({"role": "user", "content": standardized_query})
-                memory.add_message({"role": "assistant", "content": response.content})
+                # memory.add_message({"role": "user", "content": standardized_query})
+                # memory.add_message({"role": "assistant", "content": response.content})
             except Exception as e:
-                print(f"Failed to parse complex query result: {str(e)}")
-                
-                # If parsing as JSON fails, try to extract the query and variables
-                content = response.content
-                query_match = re.search(r'```graphql\s*(.*?)\s*```', content, re.DOTALL)
-                variables_match = re.search(r'```json\s*(.*?)\s*```', content, re.DOTALL)
-                
-                query_str = query_match.group(1) if query_match else ""
-                variables_str = variables_match.group(1) if variables_match else "{}"
-                
-                result = {
-                    "query": query_str,
-                    "variables": variables_str,
-                    "explanation": "Query and variables extracted from response"
-                }
-                
-                print(f"Extracted content: {content}")
+                # Use the utility function to parse the response
+                result = parse_llm_response(response.content, "Complex query")
         else:
             # Handle simple query
-            conversation_history = memory.get_formatted_context()
+            # conversation_history = memory.get_formatted_context()
             
             # Create prompt
-            prompt_text = create_enhanced_prompt(standardized_query, relevant_schema, conversation_history)
+            prompt_text = create_enhanced_prompt(standardized_query, relevant_schema)
             
             # Call LLM
             response = llm.invoke(prompt_text)
+            if aggregation_query_mode:
+                print(f"convert line level query to aggregation query.")
+                response = convert_line_level_query_to_aggregation_query(response)
             
             # Parse results
             try:
                 result = json.loads(response.content)
             except Exception as json_error:
-                # If parsing as JSON fails, try to extract the query and variables
-                content = response.content
-                query_match = re.search(r'```graphql\s*(.*?)\s*```', content, re.DOTALL)
-                variables_match = re.search(r'```json\s*(.*?)\s*```', content, re.DOTALL)
-                
-                query_str = query_match.group(1) if query_match else ""
-                variables_str = variables_match.group(1) if variables_match else "{}"
-                
-                result = {
-                    "query": query_str,
-                    "variables": variables_str,
-                    "explanation": "Query and variables extracted from response"
-                }
-                
-                print(f"Error parsing JSON response: {str(json_error)}")
-                print(f"Extracted content: {content}")
+                # Use the utility function to parse the response
+                result = parse_llm_response(response.content, "Simple query")
             
             # Update session memory
             memory.add_message({"role": "user", "content": query.text})
@@ -251,12 +266,11 @@ async def convert_to_graphql(query: Query):
             f.write(f"Standardized Query: {standardized_query}\n")
             f.write(f"GraphQL Query: {result.get('query', '')}\n")
             f.write(f"Variables: {result.get('variables', '')}\n")
-            f.write(f"Explanation: {result.get('explanation', '')}")
         
         # process and format variables
         variables = result.get("variables", "{}")
 
-        # === 新增：用getFilterState+getGQLFilter标准化 ===
+        # === 简化处理：直接使用LLM生成的variables ===
         # 1. 解析LLM生成的variables为dict
         if isinstance(variables, str):
             try:
@@ -265,12 +279,14 @@ async def convert_to_graphql(query: Query):
                 variables_dict = {}
         else:
             variables_dict = variables
-        # 2. 反解为FilterState
-        filter_state = getFilterState(variables_dict)
-        # 3. 正向生成标准GQL filter (使用schema_handler自动处理所有字段类型)
-        gql_filter = getGQLFilter(filter_state, schema_handler)
-        # 4. 包裹成{"filter": ...}结构
-        variables = json.dumps({"filter": gql_filter} if gql_filter is not None else {})
+            
+        # 2. 确保variables有正确的结构
+        if variables_dict and "filter" not in variables_dict:
+            # 如果没有filter包装，添加它
+            variables = json.dumps({"filter": variables_dict})
+        else:
+            # 已经有正确结构或为空，直接使用
+            variables = json.dumps(variables_dict) if variables_dict else "{}"
         # === 结束 ===
 
         # save processed variables for debugging
@@ -280,7 +296,6 @@ async def convert_to_graphql(query: Query):
         return GraphQLResponse(
             query=result.get("query", ""),
             variables=variables,
-            explanation=result.get("explanation", "")
         )
     except Exception as e:
         print(f"Error in convert_to_graphql: {str(e)}")

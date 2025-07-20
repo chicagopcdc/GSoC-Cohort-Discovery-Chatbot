@@ -35,7 +35,7 @@ class ChromaDBManager:
         
         Args:
             user_query: User's original query
-            llm_response: LLM response dict containing query, variables, explanation
+            llm_response: LLM response dict containing query, variables
             session_id: Session identifier
             metadata: Additional metadata
             
@@ -61,8 +61,6 @@ class ChromaDBManager:
                     doc_metadata["query_type"] = "graphql"
                 if llm_response.get('variables'):
                     doc_metadata["has_variables"] = True
-                if llm_response.get('explanation'):
-                    doc_metadata["has_explanation"] = True
             
             # Add additional metadata if provided
             if metadata:
@@ -94,8 +92,6 @@ class ChromaDBManager:
                 content_parts.append(f"GraphQL Query: {llm_response['query']}")
             if llm_response.get('variables'):
                 content_parts.append(f"Variables: {llm_response['variables']}")
-            if llm_response.get('explanation'):
-                content_parts.append(f"Explanation: {llm_response['explanation']}")
         else:
             content_parts.append(f"Response: {str(llm_response)}")
         
