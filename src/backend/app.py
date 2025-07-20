@@ -117,18 +117,6 @@ def process_variables_string(variables_string):
         return variables_string
 
 '''
-    Todo:
-        1. Change graphql format to aggregation query rather than line level query.
-            转换要求：
-                1. 使用 _aggregation 包装整个查询
-                2. 删除 offset 和 first 参数
-                3. 将 accessibility 改为 all
-                4. 对每个字段使用 histogram 统计: field { histogram { key count } }
-                5. 删除 subject_submitter_id(ID 在聚合中无意义)
-                6. 保持 filter 和 variables 不变
-        2. 前后端代码分离
-        3. Simple mapping from user input to schema property.
-'''
 # Main convert function
 @app.post("/convert")
 async def convert_to_graphql(query: Query):
