@@ -135,7 +135,6 @@ def combine_results(results, original_query):
     return {
         "query": "",
         "variables": {},
-        "explanation": "No valid query could be generated."
     }
 
 if __name__ == "__main__":

@@ -21,7 +21,7 @@ print(f"   Status: {'OK' if sqlite3.sqlite_version >= '3.35.0' else 'Too old'}")
 
 # Test 3: Check which ChromaDB manager is being used
 print("\n=== Checking ChromaDB Manager ===")
-from ChromaDB import ChromaDBManager
+from db.ChromaDB import ChromaDBManager
 
 # Create an instance
 manager = ChromaDBManager()

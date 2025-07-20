@@ -24,7 +24,6 @@ while true; do
   # Extract fields and beautify display
   graphql_query=$(echo $response | python -c "import sys, json; print(json.loads(sys.stdin.read())['query'])")
   variables=$(echo $response | python -c "import sys, json; print(json.loads(sys.stdin.read())['variables'])")
-  explanation=$(echo $response | python -c "import sys, json; print(json.loads(sys.stdin.read()).get('explanation', ''))")
   
   # Format output
   echo ""
@@ -33,9 +32,6 @@ while true; do
   echo ""
   echo "======== Query Variables ========"
   echo "$variables" | python -m json.tool
-  echo ""
-  echo "======== Explanation ========"
-  echo "$explanation"
   echo ""
   echo "(Query history saved to chat_history folder)"
 done 

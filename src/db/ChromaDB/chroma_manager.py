@@ -122,8 +122,6 @@ class ChromaDBManager:
                 content_parts.append(f"GraphQL Query: {llm_response['query']}")
             if llm_response.get('variables'):
                 content_parts.append(f"Variables: {llm_response['variables']}")
-            if llm_response.get('explanation'):
-                content_parts.append(f"Explanation: {llm_response['explanation']}")
         else:
             content_parts.append(f"Response: {str(llm_response)}")
         

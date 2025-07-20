@@ -4,8 +4,13 @@ import os
 from datetime import datetime
 import uuid
 from dotenv import load_dotenv
+import json
+import httpx
 
 load_dotenv()
+
+# Backend API URL
+BACKEND_URL = "http://localhost:8000"
 
 # Authentication using Chainlit's built-in password auth
 @cl.password_auth_callback
@@ -77,30 +82,76 @@ async def main(message: cl.Message):
     msg = cl.Message(content="🤔 Processing your query...")
     await msg.send()
     
-    # Simulate processing
-    import asyncio
-    await asyncio.sleep(1)
-    
-    # Generate mock response
-    response = f"""✅ **Query Processed**
+    try:
+        # Get session ID
+        session_id = cl.user_session.get("session_id")
+        
+        # Call backend API using HTTP
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{BACKEND_URL}/convert",
+                json={
+                    "text": message.content,
+                    "session_id": session_id
+                },
+                headers={"Content-Type": "application/json"},
+                timeout=30.0
+            )
+            response.raise_for_status()
+            result = response.json()
+        
+        # Format the response
+        query_str = result.get("query", "")
+        variables_str = result.get("variables", "{}")
+        
+        # Try to format variables JSON for better display
+        try:
+            variables_obj = json.loads(variables_str)
+            formatted_variables = json.dumps(variables_obj, indent=2)
+        except:
+            formatted_variables = variables_str
+        
+        response_content = f"""✅ **GraphQL Query Generated**
 
 **Input**: {message.content}
 
-**Generated GraphQL**:
+**Generated GraphQL Query**:
 ```graphql
-query GetData {{
-  users(filter: {{ /* your conditions */ }}) {{
-    id
-    name
-    age
-  }}
-}}
+{query_str}
+```
+
+**Variables**:
+```json
+{formatted_variables}
 ```
 
 **Session Info**: Message #{count} from {user.identifier}"""
+        
+    except httpx.TimeoutException:
+        response_content = f"""⏰ **Request Timeout**
+
+The query took too long to process. Please try again with a simpler query.
+
+**Input**: {message.content}"""
+        
+    except httpx.HTTPStatusError as e:
+        response_content = f"""❌ **API Error**
+
+Failed to process your query. Status: {e.response.status_code}
+
+**Input**: {message.content}
+**Error**: {e.response.text if hasattr(e.response, 'text') else 'Unknown error'}"""
+        
+    except Exception as e:
+        response_content = f"""❌ **Processing Error**
+
+An error occurred while processing your query.
+
+**Input**: {message.content}
+**Error**: {str(e)}"""
     
-    # Update the message
-    msg.content = response
+    # Update the message with the result
+    msg.content = response_content
     await msg.update()
 
 @cl.on_chat_resume

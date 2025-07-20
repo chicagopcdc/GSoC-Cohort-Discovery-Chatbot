@@ -14,6 +14,7 @@ filter_utils.py - GraphQL过滤器转换工具
 import json
 from typing import Dict, List, Any, Optional, Union, Tuple
 import logging
+import re
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -370,5 +371,78 @@ def getFilterState(gql_filter: Optional[GqlFilter]) -> Optional[FilterState]:
     return None
 
 
+def parse_llm_response(response_content: str, query_type: str = "") -> Dict[str, Any]:
+    """
+    解析LLM响应内容，提取query和variables
+    
+    Args:
+        response_content: LLM响应的原始内容
+        query_type: 查询类型标识（用于日志）
+        
+    Returns:
+        包含query和variables的字典
+    """
+    try:
+        # 尝试直接解析JSON
+        result = json.loads(response_content)
+        logger.info(f"{query_type} - Successfully parsed JSON directly")
+        return result
+    except Exception as e:
+        logger.warning(f"{query_type} - Failed to parse JSON: {str(e)}")
+        
+        # 尝试修复不完整的JSON
+        content = response_content.strip()
+        if not content.endswith('}'):
+            content += '}'
+        
+        try:
+            # 尝试解析修复后的内容
+            result = json.loads(content)
+            logger.info(f"{query_type} - Fixed and parsed JSON successfully")
+            return result
+        except:
+            # 如果还是失败，手动提取
+            logger.warning(f"{query_type} - Still failed to parse, extracting manually")
+            result = {
+                "query": "",
+                "variables": "{}"
+            }
+            
+            # 尝试从内容中提取query和variables
+            try:
+                # 查找 "query": "..." 模式
+                query_match = re.search(r'"query":\s*"([^"]*)"', content)
+                if query_match:
+                    result["query"] = query_match.group(1)
+                
+                # 查找 "variables": {...} 模式（处理嵌套对象）
+                variables_start = content.find('"variables":')
+                if variables_start != -1:
+                    # 找到"variables"后的开括号
+                    brace_start = content.find('{', variables_start)
+                    if brace_start != -1:
+                        # 计算括号数量来找到匹配的闭括号
+                        brace_count = 0
+                        end_pos = brace_start
+                        for i, char in enumerate(content[brace_start:], brace_start):
+                            if char == '{':
+                                brace_count += 1
+                            elif char == '}':
+                                brace_count -= 1
+                                if brace_count == 0:
+                                    end_pos = i
+                                    break
+                        
+                        if brace_count == 0:  # 找到匹配的闭括号
+                            variables_str = content[brace_start:end_pos + 1]
+                            result["variables"] = variables_str
+                            
+            except Exception as extract_error:
+                logger.error(f"{query_type} - Failed to extract: {str(extract_error)}")
+            
+            logger.info(f"{query_type} - Final extracted result: {result}")
+            return result
+
+
 # 导出的主要函数
-__all__ = ['getGQLFilter', 'getFilterState', 'SchemaTypeHandler', 'FILTER_TYPE'] 
+__all__ = ['getGQLFilter', 'getFilterState', 'SchemaTypeHandler', 'FILTER_TYPE', 'parse_llm_response'] 
