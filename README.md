@@ -34,11 +34,11 @@ This project is a GraphQL generation agent that converts natural language querie
 │   │   ├── start.sh            # Backend startup script
 │   │   ├── interactive_demo.sh 
 │   │   └── utils/             
-│   │       ├── prompt_builder.py    # AI prompt construction
+│   │       ├── prompt_builder.py    
 │   │       ├── filter_utils.py      # Query or response filtering utilities
-│   │       ├── schema_parser.py     # GraphQL schema parsing
-│   │       ├── query_builder.py     # GraphQL query construction
-│   │       └── context_manager.py   # Context management
+│   │       ├── schema_parser.py    
+│   │       ├── query_builder.py     
+│   │       └── context_manager.py   
 │   │
 │   ├── db/                      
 │   │   └── ChromaDB/           
@@ -80,7 +80,7 @@ DATABASE_URL=postgresql://postgres:your_postgresql_address
 First, start the backend API server:
 ```bash
 cd src/backend/
-python app.py
+python -m uvicorn app:app --reload
 ```
 The backend API will run at http://localhost:8000
 
@@ -96,8 +96,8 @@ curl -X POST "http://localhost:8000/convert" \
 #### Example Response
 ```json
 {
-    "query": "query { users { name email } }",
-    "explanation": "This query will return the names and email addresses of all users"
+    "query": "query ($filter: JSON) { _aggregation { subject(accessibility: all, filter: $filter) { consortium { histogram { key count } } race { histogram { key count } } _totalCount } } }",
+    "variables": "{'AND': [{'IN': {'race': ['Asian']}}]}"
 }
 ```
 ### 3. Run the Application Frontend
