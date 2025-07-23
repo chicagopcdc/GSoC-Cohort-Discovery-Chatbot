@@ -116,7 +116,6 @@ def process_variables_string(variables_string):
         print(f"Error processing variables string: {str(e)}")
         return variables_string
 
-'''
 # Main convert function
 @app.post("/convert")
 async def convert_to_graphql(query: Query):
