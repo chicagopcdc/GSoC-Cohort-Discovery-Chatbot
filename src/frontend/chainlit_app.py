@@ -86,9 +86,9 @@ async def main(message: cl.Message):
         # Get session ID
         session_id = cl.user_session.get("session_id")
         
-        # Call backend API using HTTP
+        # Step 1: Call /convert API to generate GraphQL query
         async with httpx.AsyncClient() as client:
-            response = await client.post(
+            convert_response = await client.post(
                 f"{BACKEND_URL}/convert",
                 json={
                     "text": message.content,
@@ -97,12 +97,12 @@ async def main(message: cl.Message):
                 headers={"Content-Type": "application/json"},
                 timeout=30.0
             )
-            response.raise_for_status()
-            result = response.json()
+            convert_response.raise_for_status()
+            convert_result = convert_response.json()
         
-        # Format the response
-        query_str = result.get("query", "")
-        variables_str = result.get("variables", "{}")
+        # Extract query and variables from convert result
+        query_str = convert_result.get("query", "")
+        variables_str = convert_result.get("variables", "{}")
         
         # Try to format variables JSON for better display
         try:
@@ -110,8 +110,32 @@ async def main(message: cl.Message):
             formatted_variables = json.dumps(variables_obj, indent=2)
         except:
             formatted_variables = variables_str
+            variables_obj = {}
         
-        response_content = f"""✅ **GraphQL Query Generated**
+        # Step 2: Call /query API to execute the GraphQL query
+        query_result = None
+        query_error = None
+        
+        if query_str.strip():  # Only execute if we have a valid query
+            try:
+                async with httpx.AsyncClient() as client:
+                    query_response = await client.post(
+                        f"{BACKEND_URL}/query",
+                        json={
+                            "query": query_str,
+                            "variables": variables_obj,
+                            "use_cached_token": True
+                        },
+                        headers={"Content-Type": "application/json"},
+                        timeout=30.0
+                    )
+                    query_response.raise_for_status()
+                    query_result = query_response.json()
+            except Exception as e:
+                query_error = str(e)
+        
+        # Format the complete response
+        response_content = f"""✅ **GraphQL Query Generated & Executed**
 
 **Input**: {message.content}
 
@@ -123,7 +147,40 @@ async def main(message: cl.Message):
 **Variables**:
 ```json
 {formatted_variables}
-```
+```"""
+
+        # Add query execution results
+        if query_result:
+            if query_result.get("success", False):
+                query_data = query_result.get("data", {})
+                formatted_data = json.dumps(query_data, indent=2)
+                response_content += f"""
+
+**Query Execution**: ✅ **Success**
+```json
+{formatted_data}
+```"""
+            else:
+                errors = query_result.get("errors", [])
+                formatted_errors = json.dumps(errors, indent=2)
+                response_content += f"""
+
+**Query Execution**: ❌ **Failed**
+**Errors**:
+```json
+{formatted_errors}
+```"""
+        elif query_error:
+            response_content += f"""
+
+**Query Execution**: ❌ **Error**
+**Error**: {query_error}"""
+        elif not query_str.strip():
+            response_content += f"""
+
+**Query Execution**: ⚠️ **Skipped** (No valid query generated)"""
+        
+        response_content += f"""
 
 **Session Info**: Message #{count} from {user.identifier}"""
         
