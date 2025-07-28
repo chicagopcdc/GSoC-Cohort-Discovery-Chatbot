@@ -37,6 +37,7 @@ This project is a GraphQL generation agent that converts natural language querie
 │   │   └── utils/             
 │   │       ├── prompt_builder.py    
 │   │       ├── filter_utils.py      # Query or response filtering utilities
+│   │       ├── credential_helper.py  # Generate token for guppy/graphql API
 │   │       ├── schema_parser.py    
 │   │       ├── query_builder.py     
 │   │       └── context_manager.py   
