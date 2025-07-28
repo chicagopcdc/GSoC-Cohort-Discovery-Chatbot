@@ -19,8 +19,9 @@
 This project is a GraphQL generation agent that converts natural language queries into GraphQL queries using AI. Below is the project structure:
 
 ```
-├── README.md                    
-├── requirements.txt
+├── README.md  
+├── frontend_requirements.txt                  
+├── backend_requirements.txt
 ├── .env                        # OpenAI key & postgresql url
 │
 ├── src/    
