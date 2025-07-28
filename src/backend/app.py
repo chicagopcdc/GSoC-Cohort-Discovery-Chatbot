@@ -2,7 +2,8 @@ import os
 import time
 import uuid
 import re
-from typing import Optional
+import httpx
+from typing import Dict, Any, Optional
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -15,12 +16,17 @@ from utils.query_builder import *
 from utils.context_manager import session_manager
 from utils.prompt_builder import *
 from utils.filter_utils import *
-from utils.filter_utils import parse_llm_response
+from utils.credential_helper import *
+
 
 # Load environment variables
 load_dotenv()
 
 app = FastAPI()
+
+BASE_URL = "https://portal-dev.pedscommons.org"
+GRAPHQL_ENDPOINT = f"{BASE_URL}/guppy/graphql"
+GUPPY_ACCESS_TOKEN = "eyJhbGciOiJSUzI1NiIsImtpZCI6ImZlbmNlX2tleV8yMDIyLTA5LTE1VDE2OjE5OjUwWiIsInR5cCI6IkpXVCJ9.eyJwdXIiOiJhY2Nlc3MiLCJpc3MiOiJodHRwczovL3BvcnRhbC1kZXYucGVkc2NvbW1vbnMub3JnL3VzZXIiLCJhdWQiOlsiaHR0cHM6Ly9wb3J0YWwtZGV2LnBlZHNjb21tb25zLm9yZy91c2VyIiwiZ29vZ2xlX2xpbmsiLCJ1c2VyIiwib3BlbmlkIiwiZGF0YSIsImdhNGdoX3Bhc3Nwb3J0X3YxIiwiZmVuY2UiLCJnb29nbGVfc2VydmljZV9hY2NvdW50IiwiZ29vZ2xlX2NyZWRlbnRpYWxzIiwiYWRtaW4iXSwiaWF0IjoxNzUzNTg4NDY3LCJleHAiOjE3NTM1OTIwNjcsImp0aSI6IjMwZTZmMWI1LTc4MjktNDZiZi04YTI0LTgwNTNlMDNhMGZhYiIsInNjb3BlIjpbImdvb2dsZV9saW5rIiwidXNlciIsIm9wZW5pZCIsImRhdGEiLCJnYTRnaF9wYXNzcG9ydF92MSIsImZlbmNlIiwiZ29vZ2xlX3NlcnZpY2VfYWNjb3VudCIsImdvb2dsZV9jcmVkZW50aWFscyIsImFkbWluIl0sImNvbnRleHQiOnsidXNlciI6eyJuYW1lIjoiZ3JhZ2xpYTAxQGdtYWlsLmNvbSIsImlzX2FkbWluIjp0cnVlLCJnb29nbGUiOnsicHJveHlfZ3JvdXAiOm51bGx9fX0sImF6cCI6IiIsInN1YiI6IjIifQ.VxQdRWarOzz5j947exC_yqGtoy2ieJ_0CLzseG0eQpV6dL7Vv2ObDvcNynE6tX8uTRQTrbMGy8DnnD36ZD0ux84R2pDseL-TgPrkW9euCfAMAewg0E1MmOvCU9AYun1qwJKTVPyme4IhBzeZvfpn5PU7Om6iAKT9KFAkh8n-rc6p_oqrG3vV9pOmh-aUnLgTLt94gCbXzK_rjAbndo6zELYBiu8vev7RQZIKc5itHDYXqZmRSE258jQU6CoglyFG69JwfXfcZRNTbv5u0gk9qdQ3DYPbXaBrMS1vKJUkvHShJcFBra74HNefNcwHeiB_-AW8vqW30MX03JzsWpcLpA"
 
 # Define input model
 class Query(BaseModel):
@@ -31,6 +37,19 @@ class Query(BaseModel):
 class GraphQLResponse(BaseModel):
     query: str
     variables: str = "{}"
+
+class GraphQLQuery(BaseModel):
+    """Model for GraphQL query request"""
+    query: str
+    variables: Optional[Dict[str, Any]] = None
+    use_cached_token: Optional[bool] = True
+
+class GraphQLHttpResponse(BaseModel):
+    """Model for GraphQL query response"""
+    data: Optional[Dict[str, Any]] = None
+    errors: Optional[list] = None
+    success: bool
+    message: Optional[str] = None
 
 def process_dotted_paths(variables):
     """
@@ -287,6 +306,100 @@ async def convert_to_graphql(query: Query):
     except Exception as e:
         print(f"Error in convert_to_graphql: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+    
+async def execute_graphql_query(
+    query: str,
+    variables: Optional[Dict[str, Any]] = None,
+    token: str = None
+) -> Dict[str, Any]:
+    """
+    Execute GraphQL query via the guppy endpoint
+    
+    Args:
+        query: GraphQL query string
+        variables: Optional query variables
+        token: Access token (if not provided, will be fetched)
+        
+    Returns:
+        Query results
+    """
+    if not token:
+        token = await generate_access_token()
+    
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {token}"
+    }
+    payload = {
+        "query": query
+    }
+    if variables:
+        payload["variables"] = variables
+    
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            response = await client.post(
+                GRAPHQL_ENDPOINT,
+                headers=headers,
+                json=payload
+            )
+            
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPStatusError as e:
+            raise HTTPException(
+                status_code=e.response.status_code,
+                detail=f"GraphQL query failed: {e.response.text}"
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to execute query: {str(e)}"
+            )
+
+
+@app.post("/query", response_model=GraphQLHttpResponse)
+async def run_graphql_query(query_request: GraphQLQuery) -> GraphQLHttpResponse:
+    """
+    Run GraphQL query via guppy/graphql API
+    
+    Args:
+        query_request: GraphQL query request containing query and optional variables
+        
+    Returns:
+        GraphQLResponse with query results
+    """
+    try:
+        # Execute the query
+        result = await execute_graphql_query(
+            query=query_request.query,
+            variables=query_request.variables,
+            token=GUPPY_ACCESS_TOKEN
+        )
+        
+        # Check if there are errors in the response
+        if "errors" in result and result["errors"]:
+            return GraphQLHttpResponse(
+                data=result.get("data"),
+                errors=result["errors"],
+                success=False,
+                message="Query executed with errors"
+            )
+        
+        return GraphQLHttpResponse(
+            data=result.get("data"),
+            success=True,
+            message="Query executed successfully"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error: {str(e)}"
+        )
 
 # Add session management routes
 @app.post("/sessions/create")

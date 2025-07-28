@@ -65,9 +65,22 @@ This project is a GraphQL generation agent that converts natural language querie
 
 ## Getting Started
 ### 1. Installation
-1. After cloning the project, install dependencies:
+1. After cloning the project, install dependencies:  
+You need to build frontend env and backend env seperately, because ```gen3``` and ```chainlit``` have version conflict on ```aiofiles```.  
+
+Build frontend venv
 ```bash
-pip install -r requirements.txt
+python3 -m venv frontend_env
+source frontend_env/bin/activate
+pip install --upgrade pip
+pip install -r frontend_requirements.txt
+```
+Build backend venv
+```bash
+python3 -m venv backend_env
+source backend_env/bin/activate
+pip install --upgrade pip
+pip install -r backend_requirements.txt
 ```
 
 2. Set up your OpenAI API key in the `.env` file:
@@ -77,8 +90,9 @@ DATABASE_URL=postgresql://postgres:your_postgresql_address
 ```
 
 ### 2. Run the Application Backend
-First, start the backend API server:
+First, make sure you start the backend server in ```backend_env```:
 ```bash
+source backend_env/bin/activate
 cd src/backend/
 python -m uvicorn app:app --reload
 ```
@@ -88,20 +102,36 @@ The backend API will run at http://localhost:8000
 ```bash
 cd src/backend/
 ```
+##### 1. Convert user input to GraphQL:
 ```bash
 curl -X POST "http://localhost:8000/convert" \
      -H "Content-Type: application/json" \
      -d '{"text": "I want to query all male patients"}'
 ```
-#### Example Response
+##### Example Response
 ```json
 {
     "query": "query ($filter: JSON) { _aggregation { subject(accessibility: all, filter: $filter) { consortium { histogram { key count } } race { histogram { key count } } _totalCount } } }",
     "variables": "{'AND': [{'IN': {'race': ['Asian']}}]}"
 }
 ```
-### 3. Run the Application Frontend
+##### 2. Get query GraphQL result:
 ```bash
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "query ($filter: JSON) { _aggregation { subject(accessibility: all, filter: $filter) { consortium { histogram { key count } } sex { histogram { key count } } _totalCount } } }",
+    "variables": {"filter": {"AND": [{"IN": {"sex": ["Male"]}}]}}
+  }'
+```
+##### Example Response
+```json
+{"data":{"_aggregation":{"subject":{"consortium":{"histogram":[{"key":"INSTRuCT","count":52},{"key":"NODAL","count":44},{"key":"INRG","count":42},{"key":"INTERACT","count":38},{"key":"HIBISCUS","count":37},{"key":"MaGIC","count":33},{"key":"ALL","count":32}]},"sex":{"histogram":[{"key":"Other","count":60},{"key":"Male","count":48},{"key":"Undifferentiated","count":45},{"key":"Female","count":43},{"key":"Unknown","count":35},{"key":"Not Reported","count":31},{"key":"no data","count":57}]},"_totalCount":319}}}}
+```
+### 3. Run the Application Frontend
+First, make sure you start the frontend server in ```frontend_env```:
+```bash
+source frontend_env/bin/activate
 bash src/frontend/run.sh
 ```
 It will run at http://localhost:8082
