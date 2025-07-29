@@ -1,0 +1,5 @@
+{
+    "output_path": "./",
+    "log_path": "./",
+    "log_block_size": 800
+}

@@ -3,419 +3,438 @@ import time
 import uuid
 import re
 import httpx
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
+from langchain.memory import ConversationBufferMemory
+from langchain.schema import HumanMessage, AIMessage, SystemMessage
 import json
+import glob
+from collections import defaultdict
 
-# Import custom modules
-from utils.schema_parser import *
-from utils.query_builder import *
-from utils.context_manager import session_manager
-from utils.prompt_builder import *
-from utils.filter_utils import *
-from utils.credential_helper import *
-
+# Import only the needed function for log processing
+from utils.log_handler import partition_log_into_blocks
 
 # Load environment variables
 load_dotenv()
 
 app = FastAPI()
 
-BASE_URL = "https://portal-dev.pedscommons.org"
-GRAPHQL_ENDPOINT = f"{BASE_URL}/guppy/graphql"
-GUPPY_ACCESS_TOKEN = "eyJhbGciOiJSUzI1NiIsImtpZCI6ImZlbmNlX2tleV8yMDIyLTA5LTE1VDE2OjE5OjUwWiIsInR5cCI6IkpXVCJ9.eyJwdXIiOiJhY2Nlc3MiLCJpc3MiOiJodHRwczovL3BvcnRhbC1kZXYucGVkc2NvbW1vbnMub3JnL3VzZXIiLCJhdWQiOlsiaHR0cHM6Ly9wb3J0YWwtZGV2LnBlZHNjb21tb25zLm9yZy91c2VyIiwiZ29vZ2xlX2xpbmsiLCJ1c2VyIiwib3BlbmlkIiwiZGF0YSIsImdhNGdoX3Bhc3Nwb3J0X3YxIiwiZmVuY2UiLCJnb29nbGVfc2VydmljZV9hY2NvdW50IiwiZ29vZ2xlX2NyZWRlbnRpYWxzIiwiYWRtaW4iXSwiaWF0IjoxNzUzNTg4NDY3LCJleHAiOjE3NTM1OTIwNjcsImp0aSI6IjMwZTZmMWI1LTc4MjktNDZiZi04YTI0LTgwNTNlMDNhMGZhYiIsInNjb3BlIjpbImdvb2dsZV9saW5rIiwidXNlciIsIm9wZW5pZCIsImRhdGEiLCJnYTRnaF9wYXNzcG9ydF92MSIsImZlbmNlIiwiZ29vZ2xlX3NlcnZpY2VfYWNjb3VudCIsImdvb2dsZV9jcmVkZW50aWFscyIsImFkbWluIl0sImNvbnRleHQiOnsidXNlciI6eyJuYW1lIjoiZ3JhZ2xpYTAxQGdtYWlsLmNvbSIsImlzX2FkbWluIjp0cnVlLCJnb29nbGUiOnsicHJveHlfZ3JvdXAiOm51bGx9fX0sImF6cCI6IiIsInN1YiI6IjIifQ.VxQdRWarOzz5j947exC_yqGtoy2ieJ_0CLzseG0eQpV6dL7Vv2ObDvcNynE6tX8uTRQTrbMGy8DnnD36ZD0ux84R2pDseL-TgPrkW9euCfAMAewg0E1MmOvCU9AYun1qwJKTVPyme4IhBzeZvfpn5PU7Om6iAKT9KFAkh8n-rc6p_oqrG3vV9pOmh-aUnLgTLt94gCbXzK_rjAbndo6zELYBiu8vev7RQZIKc5itHDYXqZmRSE258jQU6CoglyFG69JwfXfcZRNTbv5u0gk9qdQ3DYPbXaBrMS1vKJUkvHShJcFBra74HNefNcwHeiB_-AW8vqW30MX03JzsWpcLpA"
-
-# Define input model
-class Query(BaseModel):
-    text: str
+# Define input model for interaction analysis
+class InteractionAnalysisRequest(BaseModel):
+    log_files: Optional[List[str]] = None
+    templates_path: Optional[str] = "./template/"
     session_id: Optional[str] = None
 
-# Define output model
-class GraphQLResponse(BaseModel):
-    query: str
-    variables: str = "{}"
-
-class GraphQLQuery(BaseModel):
-    """Model for GraphQL query request"""
-    query: str
-    variables: Optional[Dict[str, Any]] = None
-    use_cached_token: Optional[bool] = True
-
-class GraphQLHttpResponse(BaseModel):
-    """Model for GraphQL query response"""
-    data: Optional[Dict[str, Any]] = None
-    errors: Optional[list] = None
+# Define output model for interaction analysis
+class InteractionAnalysisResponse(BaseModel):
+    interaction_pairs: str
+    dispatched_interactions: str
     success: bool
     message: Optional[str] = None
 
-def process_dotted_paths(variables):
-    """
-    dot-separated paths to nested structure
-    e.g. {"disease_characteristics.bulky_nodal_aggregate": ["No"]} to
-    {"nested": {"path": "disease_characteristics", "AND": [{"IN": {"bulky_nodal_aggregate": ["No"]}}]}}
-    """
-    if not isinstance(variables, dict):
-        return variables
-    
-    result = {}
-    dotted_paths = {}
-    
-    # collect all dot-separated paths and group by parent path
-    for key, value in list(variables.items()):
-        if "." in key:
-            parts = key.split(".", 1)
-            parent, child = parts[0], parts[1]
-            
-            if parent not in dotted_paths:
-                dotted_paths[parent] = []
-            
-            # check if value is a list (corresponding to IN operation)
-            if isinstance(value, list):
-                dotted_paths[parent].append({"IN": {child: value}})
-            else:
-                # non-list value
-                dotted_paths[parent].append({child: value})
-            
-            # remove dot-separated path from original dict
-            del variables[key]
-        elif isinstance(value, dict):
-            # recursive process nested dict
-            variables[key] = process_dotted_paths(value)
-    
-    # build nested structure
-    for parent, conditions in dotted_paths.items():
-        nested_obj = {
-            "nested": {
-                "path": parent,
-                "AND": conditions
-            }
-        }
-        
-        # if result already has nested structure for this parent path, merge them
-        if parent in result and "nested" in result[parent]:
-            result[parent]["nested"]["AND"].extend(conditions)
-        else:
-            result[parent] = nested_obj
-    
-    # merge processed results
-    result.update(variables)
-    
-    return result
+# Define input model for diagnosis
+class DiagnoseRequest(BaseModel):
+    log_files: Optional[List[str]] = None
+    templates_path: Optional[str] = None
+    session_id: Optional[str] = None
 
-def process_variables_string(variables_string):
-    """
-    directly process dot-separated paths on variables string, no need to parse to dict first
-    """
-    try:
-        # try standard processing first
-        vars_dict = json.loads(variables_string)
-        
-        # recursive process dot-separated paths
-        if isinstance(vars_dict, dict):
-            # if it is a dict, start processing
-            processed_vars = process_dotted_paths(vars_dict)
-            
-            # ensure filter wrapper layer is included
-            if "filter" not in processed_vars:
-                processed_vars = {"filter": processed_vars}
-            
-            return json.dumps(processed_vars)
-        else:
-            # if not a dict, return original string
-            return variables_string
-    except json.JSONDecodeError:
-        # if cannot parse JSON, return original string
-        print(f"Error decoding JSON string: {variables_string}")
-        return variables_string
-    except Exception as e:
-        # other errors, return original string
-        print(f"Error processing variables string: {str(e)}")
-        return variables_string
+# Define output model for diagnosis
+class DiagnoseResponse(BaseModel):
+    results: Dict[str, List[str]]
+    success: bool
+    message: Optional[str] = None
 
-# Main convert function
-@app.post("/convert")
-async def convert_to_graphql(query: Query):
-    # Load PCDC schema
-    node_properties = {}
-    term_mappings = {}
-    schema_handler = None
-    schema_file_path = "../../schema/gitops.json"
+def process_log_inputs(inputs: List[str]) -> List[str]:
+    """
+    Process input arguments which can be files or folders.
+    Returns a list of log file paths.
+    """
+    log_files = []
     
-    llm = ChatOpenAI(
-        model="gpt-3.5-turbo",
-        temperature=0,
-        api_key=os.getenv("OPENAI_API_KEY")
+    for input_path in inputs:
+        if os.path.isfile(input_path):
+            # It's a single file
+            log_files.append(input_path)
+            print(f"Added file: {input_path}")
+        elif os.path.isdir(input_path):
+            # It's a directory, get all files in it
+            folder_files = glob.glob(os.path.join(input_path, "*"))
+            folder_files = [f for f in folder_files if os.path.isfile(f)]
+            log_files.extend(folder_files)
+            print(f"Added {len(folder_files)} files from folder: {input_path}")
+            for f in folder_files:
+                print(f"  - {f}")
+        else:
+            print(f"Warning: {input_path} is neither a file nor a directory, skipping...")
+    
+    return log_files
+
+async def pattern_dispatcher(llm: ChatOpenAI, interaction_pairs: str, conversation_memory: ConversationBufferMemory) -> str:
+    """
+    Dispatch interaction pairs to bug categories using context-aware LLM
+    """
+    # interaction type -> three csi bug categories
+    dispatcher = {
+        "resource_invocation": "resource_leak",
+        "abnormal_usage": "resource_contention",
+        "shared_object": "semantic_inconsistency"
+    }
+    
+    prompt = (
+        "Based on the cross-component interaction pairs you identified from logs in the previous step formatted as a list of tuples like: '{ [component_A]: [component_B], ... }' \n"
+        f"{interaction_pairs} \n"
+        "your task is to classify each pair into one of the following **interaction patterns**:\n"
+
+        "Interaction Patterns (Enum: resource_invocation, abnormal_usage, shared_object):\n"
+        "  - resource_invocation: [component_A] invokes [component_B], which utilizes a [resource].\n"
+        "  - abnormal_usage: [component_A] and [component_B] both exhibit abnormal usage on a shared [resource].\n"
+        "  - shared_object: [component_A] and [component_B] both use the same [resource] (e.g., shared file, memory, or object).\n\n"
+        "[resource] can be system resource such as memory, socket, I/O, disk usage, or abstract resource such as file, container. \n"
+        "Your output must be a structured JSON object in the following format:\n"
+        '{\n'
+        '  "[interaction_pattern]": ([component_A], [component_B], [resource])\n'
+        '}\n\n'
+
+        "Instructions:\n"
+        "1. For each valid interaction pair, determine the correct interaction pattern from the enum.\n"
+        "2. Provide **regular expressions** that can be used to extract relevant log lines for each interaction.\n"
+        "3. Describe your **reasoning process** for assigning the interaction type.\n"
+        "4. Explicitly state any **assumptions** you make during classification or pattern matching.\n\n"
+
+        "Please ensure the final output is a valid JSON object that contains all detected interaction patterns, with structured entries, reasoning, assumptions, and associated regexes."
     )
-
-    def convert_line_level_query_to_aggregation_query(line_level_query):
-        ''' 
-        In order to return non-empty data, convert line level query to aggregation query because:
-            The user associated with that API key is a normal user so any query will work for aggregation only and will return zero results for line level data which is the normal behavior for any user.
-        '''
-        prompt = f"""
-            Here is the line level query: \n
-            {line_level_query} \n
-            Change level query GraphQL format to aggregation query
-            Requirements:
-            1. Use _aggregation to wrap the entire query
-            2. Remove offset and first parameters
-            3. Change accessibility to all
-            4. Use histogram statistics for each field: field {{ histogram {{ key count }} }}
-            5. Remove subject_submitter_id (ID is meaningless in aggregation)
-            6. Add _totalCount to show total count
-            7. Keep filter and variables same as line level query
-            8. Return single line JSON format
-
-            Example for "Male subjects":
-            {{
-                "query": "query ($filter: JSON) {{ _aggregation {{ subject(accessibility: all, filter: $filter) {{ consortium {{ histogram {{ key count }} }} sex {{ histogram {{ key count }} }} _totalCount }} }} }}",
-                "variables": {{"filter": {{"AND": [{{"IN": {{"sex": ["Male"]}}}}]}}}}
-            }}
-            """
-        result = llm.invoke(prompt)
-        return result
-
-    try:
-        node_properties, term_mappings = parse_pcdc_schema(schema_file_path)
-        schema_handler = SchemaTypeHandler(node_properties)
-        print(f"Successfully loaded PCDC schema, node count: {len(node_properties)}")
-    except Exception as e:
-        print(f"Failed to load PCDC schema: {str(e)}")
-    try:
-        # Get or create session
-        session_id = query.session_id if query.session_id else str(uuid.uuid4())
-        memory = session_manager.get_or_create_session(session_id)
-        
-        # Standardize user input
-        standardized_query = standardize_terms(query.text, term_mappings)
-        
-        # Analyze query complexity
-        complexity = analyze_query_complexity(standardized_query)
-        
-        # Extract relevant schema information
-        relevant_schema = extract_relevant_schema(standardized_query, node_properties)
-        # print(f"relevant schema: {relevant_schema} \n")
-        
-        result = None
-        aggregation_query_mode = True
-        if complexity == "complex":
-            # Handle complex query
-            query_parts = decompose_query(standardized_query)
-            
-            # Create a comprehensive schema that includes all related nodes
-            comprehensive_schema = relevant_schema.copy()
-            
-            # Add schema information for related nodes
-            for node in query_parts["related_nodes"]:
-                node_schema = extract_relevant_schema(node, node_properties)
-                comprehensive_schema.update(node_schema)
-            
-            # # LLM has its own memory, don't need to feed conversation_history again.
-            # conversation_history = memory.get_formatted_context()
-            
-            # Create prompt with enhanced schema to generate a line level/aggregation query
-            prompt_text = create_enhanced_prompt(standardized_query, comprehensive_schema)
-            
-            # Call LLM
-            response = llm.invoke(prompt_text)
-            if aggregation_query_mode:
-                print(f"convert line level query to aggregation query.")
-                response = convert_line_level_query_to_aggregation_query(response)
-
-            # Parse results
-            try:
-                result = json.loads(response.content)
-                
-                # Update session memory
-                # memory.add_message({"role": "user", "content": standardized_query})
-                # memory.add_message({"role": "assistant", "content": response.content})
-            except Exception as e:
-                # Use the utility function to parse the response
-                result = parse_llm_response(response.content, "Complex query")
-        else:
-            # Handle simple query
-            # conversation_history = memory.get_formatted_context()
-            
-            # Create prompt
-            prompt_text = create_enhanced_prompt(standardized_query, relevant_schema)
-            
-            # Call LLM
-            response = llm.invoke(prompt_text)
-            if aggregation_query_mode:
-                print(f"convert line level query to aggregation query.")
-                response = convert_line_level_query_to_aggregation_query(response)
-            
-            # Parse results
-            try:
-                result = json.loads(response.content)
-            except Exception as json_error:
-                # Use the utility function to parse the response
-                result = parse_llm_response(response.content, "Simple query")
-            
-            # Update session memory
-            memory.add_message({"role": "user", "content": query.text})
-            memory.add_message({"role": "assistant", "content": json.dumps(result)})
-        
-        # Save results to file
-        timestamp = time.strftime("%Y%m%d-%H%M%S")
-        file_path = f"chat_history/{timestamp}.txt"
-        print(f"Results saved to: {file_path}")
-        
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        
-        # Save query and results
-        with open(file_path, "w") as f:
-            f.write(f"Query: {query.text}\n")
-            f.write(f"Standardized Query: {standardized_query}\n")
-            f.write(f"GraphQL Query: {result.get('query', '')}\n")
-            f.write(f"Variables: {result.get('variables', '')}\n")
-        
-        # process and format variables
-        variables = result.get("variables", "{}")
-
-        # === 简化处理：直接使用LLM生成的variables ===
-        # 1. 解析LLM生成的variables为dict
-        if isinstance(variables, str):
-            try:
-                variables_dict = json.loads(variables)
-            except Exception:
-                variables_dict = {}
-        else:
-            variables_dict = variables
-            
-        # 2. 确保variables有正确的结构
-        if variables_dict and "filter" not in variables_dict:
-            # 如果没有filter包装，添加它
-            variables = json.dumps({"filter": variables_dict})
-        else:
-            # 已经有正确结构或为空，直接使用
-            variables = json.dumps(variables_dict) if variables_dict else "{}"
-        # === 结束 ===
-
-        # save processed variables for debugging
-        with open(f"chat_history/{timestamp}_processed.txt", "w") as f:
-            f.write(variables)
-        
-        return GraphQLResponse(
-            query=result.get("query", ""),
-            variables=variables,
-        )
-    except Exception as e:
-        print(f"Error in convert_to_graphql: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
     
-async def execute_graphql_query(
-    query: str,
-    variables: Optional[Dict[str, Any]] = None,
-    token: str = None
-) -> Dict[str, Any]:
+    # Add to memory and get response
+    conversation_memory.chat_memory.add_user_message(prompt)
+    
+    # Get all messages from memory to maintain context
+    messages = conversation_memory.chat_memory.messages
+    response = llm.invoke(messages)
+    
+    # Add response to memory
+    conversation_memory.chat_memory.add_ai_message(response.content)
+    
+    return response.content
+
+def load_templates_recursive(templates_path: str) -> Dict[str, str]:
     """
-    Execute GraphQL query via the guppy endpoint
-    
-    Args:
-        query: GraphQL query string
-        variables: Optional query variables
-        token: Access token (if not provided, will be fetched)
-        
-    Returns:
-        Query results
+    Recursively load template files from a directory or a single file.
+    Returns a dictionary mapping template_id to template_content.
     """
-    if not token:
-        token = await generate_access_token()
+    templates = {}
     
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {token}"
-    }
-    payload = {
-        "query": query
-    }
-    if variables:
-        payload["variables"] = variables
-    
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    if os.path.isfile(templates_path):
+        # Single template file
+        template_id = os.path.basename(templates_path).replace('.txt', '').replace('.template', '')
         try:
-            response = await client.post(
-                GRAPHQL_ENDPOINT,
-                headers=headers,
-                json=payload
-            )
-            
-            response.raise_for_status()
-            return response.json()
-        except httpx.HTTPStatusError as e:
-            raise HTTPException(
-                status_code=e.response.status_code,
-                detail=f"GraphQL query failed: {e.response.text}"
-            )
+            with open(templates_path, 'r', encoding='utf-8') as f:
+                templates[template_id] = f.read().strip()
+            print(f"Loaded template: {template_id}")
         except Exception as e:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to execute query: {str(e)}"
-            )
-
-
-@app.post("/query", response_model=GraphQLHttpResponse)
-async def run_graphql_query(query_request: GraphQLQuery) -> GraphQLHttpResponse:
-    """
-    Run GraphQL query via guppy/graphql API
+            print(f"Error loading template file {templates_path}: {e}")
     
-    Args:
-        query_request: GraphQL query request containing query and optional variables
-        
-    Returns:
-        GraphQLResponse with query results
+    elif os.path.isdir(templates_path):
+        # Recursively find all template files in directory and subdirectories
+        for root, dirs, files in os.walk(templates_path):
+            for file in files:
+                if file.endswith('.txt') or file.endswith('.template'):
+                    file_path = os.path.join(root, file)
+                    # Create template ID based on relative path
+                    relative_path = os.path.relpath(file_path, templates_path)
+                    template_id = relative_path.replace(os.sep, '_').replace('.txt', '').replace('.template', '')
+                    
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            templates[template_id] = f.read().strip()
+                        print(f"Loaded template: {template_id} from {relative_path}")
+                    except Exception as e:
+                        print(f"Error loading template file {file_path}: {e}")
+    
+    else:
+        print(f"Warning: {templates_path} is neither a file nor a directory")
+    
+    return templates
+
+# Main analyze interaction function
+@app.post("/analyze_interaction")
+async def analyze_interaction(request: InteractionAnalysisRequest):
+    """
+    Analyze log files for cross-component interactions using context-aware LLM.
     """
     try:
-        # Execute the query
-        result = await execute_graphql_query(
-            query=query_request.query,
-            variables=query_request.variables,
-            token=GUPPY_ACCESS_TOKEN
+        # Initialize LLM with GPT-4o for better analysis
+        llm = ChatOpenAI(
+            model="gpt-4o",
+            temperature=0,
+            api_key=os.getenv("OPENAI_API_KEY")
+        )
+
+        # Create a new conversation memory for context awareness
+        conversation_memory = ConversationBufferMemory(
+            memory_key="chat_history",
+            return_messages=True
         )
         
-        # Check if there are errors in the response
-        if "errors" in result and result["errors"]:
-            return GraphQLHttpResponse(
-                data=result.get("data"),
-                errors=result["errors"],
+        # Initialize with system message
+        system_message = SystemMessage(
+            content=(
+                "You are a log analysis expert that helps detect cross-component issues. "
+                "Cross-component refers to different frameworks, may include Hive, Spark, Flink, Hadoop etc. Your task is to:\n"
+                "1. Analyze log files to identify cross-component interactions via resource utilization.\n"
+                "2. Maintain context from previous messages to build a comprehensive understanding."
+            )
+        )
+        conversation_memory.chat_memory.add_message(system_message)
+        
+        # Use provided log files or default ones
+        log_files = request.log_files
+        if log_files is None:
+            log_files = [
+                "/homes/gws/kanzhu/furina/source_code/bug_logs/HIVE-3335/hadoop_namenode.log",
+                "/homes/gws/kanzhu/furina/source_code/bug_logs/HIVE-3335/hadoop_datanode.log",
+                "/homes/gws/kanzhu/furina/source_code/bug_logs/HIVE-3335/hive_job_log.log",
+                "/homes/gws/kanzhu/furina/source_code/bug_logs/HIVE-3335/hive_log.log",
+                "/homes/gws/kanzhu/furina/source_code/bug_logs/HIVE-3335/hive_cli_terminal.log"
+            ]
+        
+        print(f"\nProcessing {len(log_files)} log files:")
+        for f in log_files:
+            print(f"  - {f}")
+        
+        # Step 1: Feed logs into the LLM in blocks
+        logs = [("Cross-Component log", log_files)]
+        
+        for log_type, log_paths in logs:
+            log_blocks = partition_log_into_blocks(log_paths)
+            
+            for block_index, log_block in enumerate(log_blocks):
+                if block_index == len(log_blocks) - 1:
+                    prompt = (
+                        f"{log_block}\n\n"
+                        f"I have sent the final log block. I'll give you some templates."
+                    )
+                elif block_index == 0:
+                    prompt = (
+                        f"The following are {log_type}.\n\n"
+                        f"I may send the log in multiple parts. Please respond only after I indicate that the final part has been provided.\n\n"
+                        f"{log_block}"
+                    )
+                else:
+                    prompt = (
+                        f"{log_block}\n\n"
+                        f"Let me continue sending the log in blocks. Please wait for my signal before responding."
+                    )
+                
+                # Add to memory and get response with context
+                conversation_memory.chat_memory.add_user_message(prompt)
+                messages = conversation_memory.chat_memory.messages
+                response = llm.invoke(messages)
+                conversation_memory.chat_memory.add_ai_message(response.content)
+        
+        # Step 2: Find all interaction pairs (component_a, component_b)
+        interaction_task = (
+            f"Construct cross-component components interaction relationship graph from logs and return a JSON file that describes the interaction relationships.\n"
+            "refers to different framework, may include Hive, Spark, Flink, Hadoop etc.\n"
+            f"Instructions for constructing the graph:\n"
+            f"1. Two components have an interaction relationship only if:\n"
+            f"  1.1 [component_A] directly interacts with a resource that [component_B] also utilizes. \n"
+            f"  1.2 [component_A] invokes [component_B], which utilizes the same resource. \n"
+            f"For each object in the JSON file, the format of the file will be as follows: \n"
+            "{ [component_A]: [component_B] }\n"
+            f"   - If a specific interaction relationship exists, provide regular expressions that can help developers extract the corresponding log lines. \n"
+            f"   - Describe your reasoning process for constructing the graph. \n"
+            f"   - Specify any assumptions made during the process. \n"
+            f"Please ensure the output is in a structured JSON format. \n"
+        )
+        
+        # Get response with full context
+        conversation_memory.chat_memory.add_user_message(interaction_task)
+        messages = conversation_memory.chat_memory.messages
+        interaction_response = llm.invoke(messages)
+        conversation_memory.chat_memory.add_ai_message(interaction_response.content)
+        
+        interaction_pairs = interaction_response.content
+        print(f"========= Interactions Response: ======== \n {interaction_pairs}")
+        
+        # Step 3: Dispatch interaction pairs to three categories
+        dispatched_interactions = await pattern_dispatcher(llm, interaction_pairs, conversation_memory)
+        print(f"========= Dispatched Interaction Response: ======== \n {dispatched_interactions}")
+        
+        # Save results
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        results_dir = "interaction_analysis_results"
+        os.makedirs(results_dir, exist_ok=True)
+        
+        # Save interaction analysis results
+        with open(f"{results_dir}/{timestamp}_analysis.json", "w") as f:
+            json.dump({
+                "interaction_pairs": interaction_pairs,
+                "dispatched_interactions": dispatched_interactions,
+                "log_files": log_files
+            }, f, indent=2)
+        
+        return InteractionAnalysisResponse(
+            interaction_pairs=interaction_pairs,
+            dispatched_interactions=dispatched_interactions,
+            success=True,
+            message=f"Analysis completed successfully. Results saved to {results_dir}/{timestamp}_analysis.json"
+        )
+        
+    except Exception as e:
+        print(f"Error in analyze_interaction: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Main diagnose function
+@app.post("/diagnose")
+async def diagnose(request: DiagnoseRequest):
+    """
+    Diagnose log files using templates to detect cross-component issues.
+    """
+    try:
+        # Initialize LLM with GPT-4o for better analysis
+        llm = ChatOpenAI(
+            model="gpt-4o",
+            temperature=0,
+            api_key=os.getenv("OPENAI_API_KEY")
+        )
+        
+        # Create a new conversation memory for context awareness
+        conversation_memory = ConversationBufferMemory(
+            memory_key="chat_history",
+            return_messages=True
+        )
+        
+        # Initialize with system message
+        system_message = SystemMessage(
+            content=(
+                "You are a log analysis expert that helps detect cross-component issues,"
+                "cross-component refers to different framework, such as Hive, Spark, Flink, Hadoop. Your task is to:\n"
+                "1. Analyze log files to identify cross-component interaction\n"
+                "2. For each feeded template, fill in blanks([]) based on context from the logs\n"
+                "3. Write general template that can be applied to similar cases if current templates can't work\n"
+                "4. Always provide clear reasoning for your conclusions"
+            )
+        )
+        conversation_memory.chat_memory.add_message(system_message)
+        
+        # Use provided log files or default ones
+        log_files = request.log_files
+        if log_files is None:
+            log_files = [
+                "/homes/gws/kanzhu/furina/source_code/bug_logs/HIVE-3335/hadoop_namenode.log",
+                "/homes/gws/kanzhu/furina/source_code/bug_logs/HIVE-3335/hadoop_datanode.log",
+                "/homes/gws/kanzhu/furina/source_code/bug_logs/HIVE-3335/hive_job_log.log",
+                "/homes/gws/kanzhu/furina/source_code/bug_logs/HIVE-3335/hive_log.log",
+                "/homes/gws/kanzhu/furina/source_code/bug_logs/HIVE-3335/hive_cli_terminal.log"
+            ]
+        
+        # Use provided templates path or default
+        templates_path = request.templates_path
+        if templates_path is None:
+            templates_path = "/homes/gws/kanzhu/furina/furina/agents/template/"
+        
+        print(f"\nProcessing {len(log_files)} log files:")
+        for f in log_files:
+            print(f"  - {f}")
+        
+        # Step 1: Feed logs into the LLM in blocks
+        logs = [("Cross-Component log", log_files)]
+        
+        for log_type, log_paths in logs:
+            log_blocks = partition_log_into_blocks(log_paths)
+            
+            for block_index, log_block in enumerate(log_blocks):
+                if block_index == len(log_blocks) - 1:
+                    prompt = (
+                        f"{log_block}\n\n"
+                        f"I have sent the final log block. I'll give you some templates."
+                    )
+                elif block_index == 0:
+                    prompt = (
+                        f"The following are {log_type}.\n\n"
+                        f"I may send the log in multiple parts. Please respond only after I indicate that the final part has been provided.\n\n"
+                        f"{log_block}"
+                    )
+                else:
+                    prompt = (
+                        f"{log_block}\n\n"
+                        f"Let me continue sending the log in blocks. Please wait for my signal before responding."
+                    )
+                
+                # Add to memory and get response with context
+                conversation_memory.chat_memory.add_user_message(prompt)
+                messages = conversation_memory.chat_memory.messages
+                response = llm.invoke(messages)
+                conversation_memory.chat_memory.add_ai_message(response.content)
+        
+        # Step 2: Process templates and fill in blanks
+        templates = load_templates_recursive(templates_path)
+        if not templates:
+            print(f"Warning: No templates found at {templates_path}")
+            return DiagnoseResponse(
+                results={},
                 success=False,
-                message="Query executed with errors"
+                message=f"No templates found at {templates_path}"
             )
         
-        return GraphQLHttpResponse(
-            data=result.get("data"),
+        print(f"\nProcessing {len(templates)} templates...")
+        results = defaultdict(list)
+        
+        for template_id, template_content in templates.items():
+            print(f"\nAnalyzing template: {template_id}")
+            task = (
+                f"In order to find cross-component issues from logs. Here is a template that may match with the root cause, try to fill blanks in the template based on the logs you've analyzed:\n\n"
+                f"Template ID: {template_id}\n"
+                f"Template Content:\n{template_content}\n\n"
+                f"Instructions:\n"
+                f"1. Fill in each blank (marked with []) based on evidence from the logs\n"
+                f"2. If you cannot fill in each blank based on your analysis from the logs, fill in 'unknown'\n"
+                f"3. After filling the template, provide a detailed explanation for each filled blank:\n"
+                f"   - Which specific log lines provided the evidence\n"
+                f"   - If specific log lines exist, write regular expressions that can help developers extract specific log lines\n"
+                f"   - Your reasoning process\n"
+                f"   - Any assumptions you made\n"
+                f"4. If you cannot provide specific log lines to explain you fill a blank, still fill it with 'unknown' \n"
+                f"5. If you think there are multiple ways to fill the template, please list all filled versions for the template. \n\n"
+                f"Finally please provide:\n"
+                f"1. The completed template with all blanks filled\n"
+                f"2. A reasoning section explaining each filled value"
+            )
+            
+            # Get response with context
+            conversation_memory.chat_memory.add_user_message(task)
+            messages = conversation_memory.chat_memory.messages
+            response = llm.invoke(messages)
+            conversation_memory.chat_memory.add_ai_message(response.content)
+            
+            print(f"=== Template {template_id} Analysis result: ===\n {response.content}")
+            results[template_id].append(response.content)
+        
+        # Save results
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        results_dir = "diagnosis_results"
+        os.makedirs(results_dir, exist_ok=True)
+        
+        # Save diagnosis results
+        with open(f"{results_dir}/{timestamp}_diagnosis.json", "w") as f:
+            json.dump({
+                "results": dict(results),
+                "log_files": log_files,
+                "templates_path": templates_path
+            }, f, indent=2)
+        
+        return DiagnoseResponse(
+            results=dict(results),
             success=True,
-            message="Query executed successfully"
+            message=f"Diagnosis completed successfully. Results saved to {results_dir}/{timestamp}_diagnosis.json"
         )
         
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Internal server error: {str(e)}"
-        )
-
-# Add session management routes
-@app.post("/sessions/create")
-async def create_session():
-    session_id = str(uuid.uuid4())
-    session_manager.get_or_create_session(session_id)
-    return {"session_id": session_id}
-
-@app.delete("/sessions/{session_id}")
-async def delete_session(session_id: str):
-    session_manager.delete_session(session_id)
-    return {"status": "success"}
-
-@app.get("/sessions")
-async def list_sessions():
-    return {"sessions": session_manager.get_all_session_ids()}
+        print(f"Error in diagnose: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
