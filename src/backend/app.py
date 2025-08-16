@@ -1,422 +1,313 @@
+"""
+PCDC Chatbot Backend API - New Modular Architecture
+
+This FastAPI application provides natural language to GraphQL conversion
+using the new 5-step pipeline architecture.
+"""
+
 import os
 import time
 import uuid
-import re
-import httpx
-from typing import Dict, Any, Optional
-from dotenv import load_dotenv
+from typing import Dict, List, Any
+from datetime import datetime
+
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from langchain_openai import ChatOpenAI
-import json
+from dotenv import load_dotenv
 
-# Import custom modules
-from utils.schema_parser import *
-from utils.query_builder import *
-from utils.context_manager import session_manager
-from utils.prompt_builder import *
-from utils.filter_utils import *
-from utils.credential_helper import *
-
+# Import new modular architecture
+from core.pipeline import Pipeline
+from core.models import QueryRequest, PipelineResult, QueryExecutionRequest, QueryExecutionResponse
+from core.config import config
+from utils.logging import get_logger, setup_logging
+from utils.errors import (
+    QueryParsingError, FieldMappingError, ConflictResolutionError,
+    FilterBuildingError, QueryGenerationError
+)
+from services.langfuse_tracker import SimpleTracker
 
 # Load environment variables
 load_dotenv()
 
-app = FastAPI()
+# Setup logging
+setup_logging()
+logger = get_logger(__name__)
 
-BASE_URL = "https://portal-dev.pedscommons.org"
-GRAPHQL_ENDPOINT = f"{BASE_URL}/guppy/graphql"
-GUPPY_ACCESS_TOKEN = "eyJhbGciOiJSUzI1NiIsImtpZCI6ImZlbmNlX2tleV8yMDIyLTA5LTE1VDE2OjE5OjUwWiIsInR5cCI6IkpXVCJ9.eyJwdXIiOiJhY2Nlc3MiLCJpc3MiOiJodHRwczovL3BvcnRhbC1kZXYucGVkc2NvbW1vbnMub3JnL3VzZXIiLCJhdWQiOlsiaHR0cHM6Ly9wb3J0YWwtZGV2LnBlZHNjb21tb25zLm9yZy91c2VyIiwiZ29vZ2xlX2xpbmsiLCJ1c2VyIiwib3BlbmlkIiwiZGF0YSIsImdhNGdoX3Bhc3Nwb3J0X3YxIiwiZmVuY2UiLCJnb29nbGVfc2VydmljZV9hY2NvdW50IiwiZ29vZ2xlX2NyZWRlbnRpYWxzIiwiYWRtaW4iXSwiaWF0IjoxNzUzNTg4NDY3LCJleHAiOjE3NTM1OTIwNjcsImp0aSI6IjMwZTZmMWI1LTc4MjktNDZiZi04YTI0LTgwNTNlMDNhMGZhYiIsInNjb3BlIjpbImdvb2dsZV9saW5rIiwidXNlciIsIm9wZW5pZCIsImRhdGEiLCJnYTRnaF9wYXNzcG9ydF92MSIsImZlbmNlIiwiZ29vZ2xlX3NlcnZpY2VfYWNjb3VudCIsImdvb2dsZV9jcmVkZW50aWFscyIsImFkbWluIl0sImNvbnRleHQiOnsidXNlciI6eyJuYW1lIjoiZ3JhZ2xpYTAxQGdtYWlsLmNvbSIsImlzX2FkbWluIjp0cnVlLCJnb29nbGUiOnsicHJveHlfZ3JvdXAiOm51bGx9fX0sImF6cCI6IiIsInN1YiI6IjIifQ.VxQdRWarOzz5j947exC_yqGtoy2ieJ_0CLzseG0eQpV6dL7Vv2ObDvcNynE6tX8uTRQTrbMGy8DnnD36ZD0ux84R2pDseL-TgPrkW9euCfAMAewg0E1MmOvCU9AYun1qwJKTVPyme4IhBzeZvfpn5PU7Om6iAKT9KFAkh8n-rc6p_oqrG3vV9pOmh-aUnLgTLt94gCbXzK_rjAbndo6zELYBiu8vev7RQZIKc5itHDYXqZmRSE258jQU6CoglyFG69JwfXfcZRNTbv5u0gk9qdQ3DYPbXaBrMS1vKJUkvHShJcFBra74HNefNcwHeiB_-AW8vqW30MX03JzsWpcLpA"
+# Initialize FastAPI app
+app = FastAPI(
+    title="PCDC Chatbot Backend",
+    description="Natural language to GraphQL query conversion API - New Architecture",
+    version="2.0.0"
+)
 
-# Define input model
-class Query(BaseModel):
+# Configure CORS for frontend ports
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:8082"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Global instances
+pipeline = None
+tracker = SimpleTracker()
+server_start_time = time.time()
+
+# Pydantic models for API
+class QueryInput(BaseModel):
     text: str
-    session_id: Optional[str] = None
+    session_id: str = None
 
-# Define output model
-class GraphQLResponse(BaseModel):
-    query: str
-    variables: str = "{}"
+class HealthResponse(BaseModel):
+    status: str
+    message: str
+    uptime: float
+    catalog_loaded: bool
 
-class GraphQLQuery(BaseModel):
-    """Model for GraphQL query request"""
-    query: str
-    variables: Optional[Dict[str, Any]] = None
-    use_cached_token: Optional[bool] = True
-
-class GraphQLHttpResponse(BaseModel):
-    """Model for GraphQL query response"""
-    data: Optional[Dict[str, Any]] = None
-    errors: Optional[list] = None
+class QueryResponse(BaseModel):
     success: bool
-    message: Optional[str] = None
+    query: str = ""
+    message: str = ""
+    session_id: str
+    processing_time: float
 
-def process_dotted_paths(variables):
-    """
-    dot-separated paths to nested structure
-    e.g. {"disease_characteristics.bulky_nodal_aggregate": ["No"]} to
-    {"nested": {"path": "disease_characteristics", "AND": [{"IN": {"bulky_nodal_aggregate": ["No"]}}]}}
-    """
-    if not isinstance(variables, dict):
-        return variables
-    
-    result = {}
-    dotted_paths = {}
-    
-    # collect all dot-separated paths and group by parent path
-    for key, value in list(variables.items()):
-        if "." in key:
-            parts = key.split(".", 1)
-            parent, child = parts[0], parts[1]
-            
-            if parent not in dotted_paths:
-                dotted_paths[parent] = []
-            
-            # check if value is a list (corresponding to IN operation)
-            if isinstance(value, list):
-                dotted_paths[parent].append({"IN": {child: value}})
-            else:
-                # non-list value
-                dotted_paths[parent].append({child: value})
-            
-            # remove dot-separated path from original dict
-            del variables[key]
-        elif isinstance(value, dict):
-            # recursive process nested dict
-            variables[key] = process_dotted_paths(value)
-    
-    # build nested structure
-    for parent, conditions in dotted_paths.items():
-        nested_obj = {
-            "nested": {
-                "path": parent,
-                "AND": conditions
-            }
-        }
-        
-        # if result already has nested structure for this parent path, merge them
-        if parent in result and "nested" in result[parent]:
-            result[parent]["nested"]["AND"].extend(conditions)
-        else:
-            result[parent] = nested_obj
-    
-    # merge processed results
-    result.update(variables)
-    
-    return result
+# Directory setup
+def setup_directories():
+    """Create necessary directories"""
+    directories = ["chat_history", "logs"]
+    for directory in directories:
+        os.makedirs(directory, exist_ok=True)
 
-def process_variables_string(variables_string):
-    """
-    directly process dot-separated paths on variables string, no need to parse to dict first
-    """
+@app.on_event("startup")
+async def startup_event():
+    """Initialize application on startup"""
+    global pipeline
+    
     try:
-        # try standard processing first
-        vars_dict = json.loads(variables_string)
+        setup_directories()
         
-        # recursive process dot-separated paths
-        if isinstance(vars_dict, dict):
-            # if it is a dict, start processing
-            processed_vars = process_dotted_paths(vars_dict)
-            
-            # ensure filter wrapper layer is included
-            if "filter" not in processed_vars:
-                processed_vars = {"filter": processed_vars}
-            
-            return json.dumps(processed_vars)
-        else:
-            # if not a dict, return original string
-            return variables_string
-    except json.JSONDecodeError:
-        # if cannot parse JSON, return original string
-        print(f"Error decoding JSON string: {variables_string}")
-        return variables_string
+        # Initialize the pipeline
+        pipeline = Pipeline()
+        
+        logger.info("PCDC Chatbot Backend (New Architecture) started successfully")
+        logger.info(f"Using catalog path: {config.CATALOG_PATH}")
+        
     except Exception as e:
-        # other errors, return original string
-        print(f"Error processing variables string: {str(e)}")
-        return variables_string
+        logger.error(f"Failed to start application: {e}")
+        raise
 
-# Main convert function
-@app.post("/convert")
-async def convert_to_graphql(query: Query):
-    # Load PCDC schema
-    node_properties = {}
-    term_mappings = {}
-    schema_handler = None
-    schema_file_path = "../../schema/gitops.json"
+@app.get("/health", response_model=HealthResponse)
+async def health_check():
+    """Health check endpoint"""
+    uptime = time.time() - server_start_time
     
-    llm = ChatOpenAI(
-        model="gpt-3.5-turbo",
-        temperature=0,
-        api_key=os.getenv("OPENAI_API_KEY")
+    # Check if catalog is loaded
+    catalog_loaded = False
+    try:
+        if pipeline and pipeline.catalog_index:
+            catalog_loaded = pipeline.catalog_index.is_loaded()
+    except Exception as e:
+        logger.warning(f"Error checking catalog status: {e}")
+    
+    return HealthResponse(
+        status="healthy",
+        message="API is running",
+        uptime=uptime,
+        catalog_loaded=catalog_loaded
     )
 
-    def convert_line_level_query_to_aggregation_query(line_level_query):
-        ''' 
-        In order to return non-empty data, convert line level query to aggregation query because:
-            The user associated with that API key is a normal user so any query will work for aggregation only and will return zero results for line level data which is the normal behavior for any user.
-        '''
-        prompt = f"""
-            Here is the line level query: \n
-            {line_level_query} \n
-            Change level query GraphQL format to aggregation query
-            Requirements:
-            1. Use _aggregation to wrap the entire query
-            2. Remove offset and first parameters
-            3. Change accessibility to all
-            4. Use histogram statistics for each field: field {{ histogram {{ key count }} }}
-            5. Remove subject_submitter_id (ID is meaningless in aggregation)
-            6. Add _totalCount to show total count
-            7. Keep filter and variables same as line level query
-            8. Return single line JSON format
-
-            Example for "Male subjects":
-            {{
-                "query": "query ($filter: JSON) {{ _aggregation {{ subject(accessibility: all, filter: $filter) {{ consortium {{ histogram {{ key count }} }} sex {{ histogram {{ key count }} }} _totalCount }} }} }}",
-                "variables": {{"filter": {{"AND": [{{"IN": {{"sex": ["Male"]}}}}]}}}}
-            }}
-            """
-        result = llm.invoke(prompt)
-        return result
-
+@app.post("/convert", response_model=QueryResponse)
+async def convert_query(query_input: QueryInput):
+    """
+    Convert natural language query to GraphQL using the new pipeline
+    """
+    start_time = time.time()
+    session_id = query_input.session_id or str(uuid.uuid4())
+    
+    logger.info(f"Processing query: '{query_input.text}' (session: {session_id})")
+    
+    # Initialize tracker for this request
     try:
-        node_properties, term_mappings = parse_pcdc_schema(schema_file_path)
-        schema_handler = SchemaTypeHandler(node_properties)
-        print(f"Successfully loaded PCDC schema, node count: {len(node_properties)}")
+        tracker.initialize(session_id)
+        logger.info("✅ Langfuse tracker initialized")
     except Exception as e:
-        print(f"Failed to load PCDC schema: {str(e)}")
+        logger.warning(f"Failed to initialize tracker: {e}")
+    
     try:
-        # Get or create session
-        session_id = query.session_id if query.session_id else str(uuid.uuid4())
-        memory = session_manager.get_or_create_session(session_id)
-        
-        # Standardize user input
-        standardized_query = standardize_terms(query.text, term_mappings)
-        
-        # Analyze query complexity
-        complexity = analyze_query_complexity(standardized_query)
-        
-        # Extract relevant schema information
-        relevant_schema = extract_relevant_schema(standardized_query, node_properties)
-        # print(f"relevant schema: {relevant_schema} \n")
-        
-        result = None
-        aggregation_query_mode = True
-        if complexity == "complex":
-            # Handle complex query
-            query_parts = decompose_query(standardized_query)
-            
-            # Create a comprehensive schema that includes all related nodes
-            comprehensive_schema = relevant_schema.copy()
-            
-            # Add schema information for related nodes
-            for node in query_parts["related_nodes"]:
-                node_schema = extract_relevant_schema(node, node_properties)
-                comprehensive_schema.update(node_schema)
-            
-            # # LLM has its own memory, don't need to feed conversation_history again.
-            # conversation_history = memory.get_formatted_context()
-            
-            # Create prompt with enhanced schema to generate a line level/aggregation query
-            prompt_text = create_enhanced_prompt(standardized_query, comprehensive_schema)
-            
-            # Call LLM
-            response = llm.invoke(prompt_text)
-            if aggregation_query_mode:
-                print(f"convert line level query to aggregation query.")
-                response = convert_line_level_query_to_aggregation_query(response)
-
-            # Parse results
-            try:
-                result = json.loads(response.content)
-                
-                # Update session memory
-                # memory.add_message({"role": "user", "content": standardized_query})
-                # memory.add_message({"role": "assistant", "content": response.content})
-            except Exception as e:
-                # Use the utility function to parse the response
-                result = parse_llm_response(response.content, "Complex query")
-        else:
-            # Handle simple query
-            # conversation_history = memory.get_formatted_context()
-            
-            # Create prompt
-            prompt_text = create_enhanced_prompt(standardized_query, relevant_schema)
-            
-            # Call LLM
-            response = llm.invoke(prompt_text)
-            if aggregation_query_mode:
-                print(f"convert line level query to aggregation query.")
-                response = convert_line_level_query_to_aggregation_query(response)
-            
-            # Parse results
-            try:
-                result = json.loads(response.content)
-            except Exception as json_error:
-                # Use the utility function to parse the response
-                result = parse_llm_response(response.content, "Simple query")
-            
-            # Update session memory
-            memory.add_message({"role": "user", "content": query.text})
-            memory.add_message({"role": "assistant", "content": json.dumps(result)})
-        
-        # Save results to file
-        timestamp = time.strftime("%Y%m%d-%H%M%S")
-        file_path = f"chat_history/{timestamp}.txt"
-        print(f"Results saved to: {file_path}")
-        
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        
-        # Save query and results
-        with open(file_path, "w") as f:
-            f.write(f"Query: {query.text}\n")
-            f.write(f"Standardized Query: {standardized_query}\n")
-            f.write(f"GraphQL Query: {result.get('query', '')}\n")
-            f.write(f"Variables: {result.get('variables', '')}\n")
-        
-        # process and format variables
-        variables = result.get("variables", "{}")
-
-        # === 简化处理：直接使用LLM生成的variables ===
-        # 1. 解析LLM生成的variables为dict
-        if isinstance(variables, str):
-            try:
-                variables_dict = json.loads(variables)
-            except Exception:
-                variables_dict = {}
-        else:
-            variables_dict = variables
-            
-        # 2. 确保variables有正确的结构
-        if variables_dict and "filter" not in variables_dict:
-            # 如果没有filter包装，添加它
-            variables = json.dumps({"filter": variables_dict})
-        else:
-            # 已经有正确结构或为空，直接使用
-            variables = json.dumps(variables_dict) if variables_dict else "{}"
-        # === 结束 ===
-
-        # save processed variables for debugging
-        with open(f"chat_history/{timestamp}_processed.txt", "w") as f:
-            f.write(variables)
-        
-        return GraphQLResponse(
-            query=result.get("query", ""),
-            variables=variables,
+        # Create request object
+        request = QueryRequest(
+            text=query_input.text,
+            session_id=session_id
         )
-    except Exception as e:
-        print(f"Error in convert_to_graphql: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-    
-async def execute_graphql_query(
-    query: str,
-    variables: Optional[Dict[str, Any]] = None,
-    token: str = None
-) -> Dict[str, Any]:
-    """
-    Execute GraphQL query via the guppy endpoint
-    
-    Args:
-        query: GraphQL query string
-        variables: Optional query variables
-        token: Access token (if not provided, will be fetched)
         
-    Returns:
-        Query results
-    """
-    if not token:
-        token = await generate_access_token()
-    
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {token}"
-    }
-    payload = {
-        "query": query
-    }
-    if variables:
-        payload["variables"] = variables
-    
-    async with httpx.AsyncClient(timeout=30.0) as client:
+        # Process through pipeline
+        result: PipelineResult = await pipeline.process_query(request)
+        
+        processing_time = time.time() - start_time
+        
+        # Check if we have a valid final query
+        if result.final_query and result.final_query.query:
+            logger.info(f"Successfully processed query in {processing_time:.3f}s")
+            
+            # Track success
+            try:
+                tracker.track_query(query_input.text, result.final_query.query, True)
+            except Exception as e:
+                logger.warning(f"Failed to track query: {e}")
+            
+            return QueryResponse(
+                success=True,
+                query=result.final_query.query,
+                message="Query converted successfully",
+                session_id=session_id,
+                processing_time=processing_time
+            )
+        else:
+            error_msg = "Failed to generate GraphQL query"
+            logger.error(f"Pipeline failed: {error_msg}")
+            
+            # Track failure
+            try:
+                tracker.track_query(query_input.text, "", False, error_msg)
+            except Exception as e:
+                logger.warning(f"Failed to track error: {e}")
+            
+            return QueryResponse(
+                success=False,
+                message=f"Failed to convert query: {error_msg}",
+                session_id=session_id,
+                processing_time=processing_time
+            )
+            
+    except Exception as e:
+        processing_time = time.time() - start_time
+        logger.error(f"Error in convert endpoint: {e}")
+        
+        # Track error
         try:
+            tracker.track_query(query_input.text, "", False, str(e))
+        except Exception as track_e:
+            logger.warning(f"Failed to track error: {track_e}")
+        
+        return QueryResponse(
+            success=False,
+            message=f"Internal server error: {str(e)}",
+            session_id=session_id,
+            processing_time=processing_time
+        )
+
+@app.post("/query", response_model=QueryExecutionResponse)
+async def execute_query(request: QueryExecutionRequest):
+    """
+    Execute a GraphQL query against the PCDC API
+    """
+    import httpx
+    import json
+    start_time = time.time()
+    
+    logger.info(f"Executing GraphQL query: {request.query[:100]}...")
+    
+    try:
+        # Prepare the GraphQL request payload
+        payload = {
+            "query": request.query
+        }
+        
+        # Add variables if provided
+        if request.variables:
+            payload["variables"] = request.variables
+        
+        # Execute the GraphQL query
+        async with httpx.AsyncClient() as client:
             response = await client.post(
-                GRAPHQL_ENDPOINT,
-                headers=headers,
-                json=payload
+                "https://pcdcweb.phenome.dev/gql/v1/query",
+                json=payload,
+                headers={
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                },
+                timeout=30.0
             )
             
             response.raise_for_status()
-            return response.json()
-        except httpx.HTTPStatusError as e:
-            raise HTTPException(
-                status_code=e.response.status_code,
-                detail=f"GraphQL query failed: {e.response.text}"
-            )
-        except Exception as e:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to execute query: {str(e)}"
-            )
-
-
-@app.post("/query", response_model=GraphQLHttpResponse)
-async def run_graphql_query(query_request: GraphQLQuery) -> GraphQLHttpResponse:
-    """
-    Run GraphQL query via guppy/graphql API
-    
-    Args:
-        query_request: GraphQL query request containing query and optional variables
+            result_data = response.json()
         
-    Returns:
-        GraphQLResponse with query results
-    """
-    try:
-        # Execute the query
-        result = await execute_graphql_query(
-            query=query_request.query,
-            variables=query_request.variables,
-            token=GUPPY_ACCESS_TOKEN
-        )
+        execution_time = time.time() - start_time
         
-        # Check if there are errors in the response
-        if "errors" in result and result["errors"]:
-            return GraphQLHttpResponse(
-                data=result.get("data"),
-                errors=result["errors"],
+        # Check if the GraphQL response contains errors
+        if "errors" in result_data:
+            error_messages = [error.get("message", str(error)) for error in result_data["errors"]]
+            error_msg = "; ".join(error_messages)
+            
+            return QueryExecutionResponse(
                 success=False,
-                message="Query executed with errors"
+                data=result_data,
+                error=f"GraphQL errors: {error_msg}",
+                execution_time=execution_time
             )
         
-        return GraphQLHttpResponse(
-            data=result.get("data"),
+        # Success case
+        return QueryExecutionResponse(
             success=True,
-            message="Query executed successfully"
+            data=result_data.get("data", {}),
+            execution_time=execution_time
         )
         
-    except HTTPException:
-        raise
+    except httpx.HTTPStatusError as e:
+        execution_time = time.time() - start_time
+        error_msg = f"HTTP {e.response.status_code}: {e.response.text}"
+        logger.error(f"GraphQL query failed with HTTP error: {error_msg}")
+        
+        return QueryExecutionResponse(
+            success=False,
+            error=error_msg,
+            execution_time=execution_time
+        )
+        
+    except httpx.TimeoutException:
+        execution_time = time.time() - start_time
+        error_msg = "Query execution timed out"
+        logger.error(error_msg)
+        
+        return QueryExecutionResponse(
+            success=False,
+            error=error_msg,
+            execution_time=execution_time
+        )
+        
     except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Internal server error: {str(e)}"
+        execution_time = time.time() - start_time
+        error_msg = f"Unexpected error: {str(e)}"
+        logger.error(f"Error executing GraphQL query: {error_msg}")
+        
+        return QueryExecutionResponse(
+            success=False,
+            error=error_msg,
+            execution_time=execution_time
         )
 
-# Add session management routes
-@app.post("/sessions/create")
-async def create_session():
-    session_id = str(uuid.uuid4())
-    session_manager.get_or_create_session(session_id)
-    return {"session_id": session_id}
-
-@app.delete("/sessions/{session_id}")
-async def delete_session(session_id: str):
-    session_manager.delete_session(session_id)
-    return {"status": "success"}
-
-@app.get("/sessions")
-async def list_sessions():
-    return {"sessions": session_manager.get_all_session_ids()}
+@app.get("/")
+async def root():
+    """Root endpoint with API information"""
+    return {
+        "message": "PCDC Chatbot Backend API - New Architecture",
+        "version": "2.0.0",
+        "endpoints": {
+            "health": "/health",
+            "convert": "/convert",
+            "query": "/query"
+        },
+        "uptime": time.time() - server_start_time
+    }
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    uvicorn.run(
+        "app:app",
+        host="0.0.0.0",
+        port=8000,
+        log_level="info",
+        reload=False
+    ) 

@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Load environment variables from .env file in project root
+if [ -f ../../.env ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Loading .env file from project root"
+    export $(cat ../../.env | xargs)
+fi
+
 # Start FastAPI backend
 echo "Starting Natural Language to GraphQL Query Conversion System..."
 echo "Access the system at: http://127.0.0.1:8000"
