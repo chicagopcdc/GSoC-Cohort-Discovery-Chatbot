@@ -11,6 +11,8 @@ __pycache__/
 env/
 venv/
 ENV/
+backend_env/
+frontend_env/
 build/
 develop-eggs/
 dist/
@@ -31,6 +33,7 @@ var/
 
 # Local history
 chat_history/
+src/backend/chat_history/
 
 # OS specific
 .DS_Store
@@ -40,3 +43,7 @@ chat_history/
 
 # Log files
 *.log
+logs/
+
+# Additional
+.files/
