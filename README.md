@@ -104,9 +104,9 @@ The backend API will run at http://localhost:8000
 ```bash
 cd src/backend/
 ```
-##### 1. Convert user input to GraphQL:
+##### 1. Convert user input to flat GraphQL:
 ```bash
-curl -X POST "http://localhost:8000/convert" \
+curl -X POST "http://localhost:8000/flat_graphql" \
      -H "Content-Type: application/json" \
      -d '{"text": "I want to query all male patients"}'
 ```
@@ -115,6 +115,53 @@ curl -X POST "http://localhost:8000/convert" \
 {
     "query": "query ($filter: JSON) { _aggregation { subject(accessibility: all, filter: $filter) { consortium { histogram { key count } } race { histogram { key count } } _totalCount } } }",
     "variables": "{'AND': [{'IN': {'race': ['Asian']}}]}"
+}
+##### 2. Convert user input to nested GraphQL:
+```bash
+curl -X POST "http://localhost:8000/nested_graphql" \
+     -H "Content-Type: application/json" \
+     -d '{"text": "The cohort consists of participants from the INRG consortium who have metastatic tumors. Specifically, these tumors are classified as absent and are located on the skin."}'
+```
+##### Example Response
+```json
+Generated nested GraphQL: {
+  "AND": [
+    {
+      "IN": {
+        "consortium": [
+          "INRG"
+        ]
+      }
+    },
+    {
+      "nested": {
+        "AND": [
+          {
+            "IN": {
+              "tumor_classification": [
+                "Metastatic"
+              ]
+            }
+          },
+          {
+            "IN": {
+              "tumor_state": [
+                "Absent"
+              ]
+            }
+          },
+          {
+            "IN": {
+              "tumor_site": [
+                "Skin"
+              ]
+            }
+          }
+        ],
+        "path": "tumor_assessments"
+      }
+    }
+  ]
 }
 ```
 ##### 2. Get query GraphQL result:

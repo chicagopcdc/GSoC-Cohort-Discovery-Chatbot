@@ -1,0 +1,211 @@
+{
+  "consortium": [],
+  "data_contributor_id": [],
+  "study_id": [
+    "studies"
+  ],
+  "treatment_arm": [
+    "studies"
+  ],
+  "sex": [],
+  "race": [],
+  "ethnicity": [],
+  "year_at_disease_phase": [],
+  "lkss_obfuscated": [
+    "survival_characteristics"
+  ],
+  "censor_status": [],
+  "age_at_censor_status": [],
+  "medical_history": [
+    "medical_histories"
+  ],
+  "medical_history_status": [
+    "medical_histories"
+  ],
+  "external_resource_name": [
+    "external_references"
+  ],
+  "histology": [
+    "histologies"
+  ],
+  "histology_grade": [
+    "histologies"
+  ],
+  "histology_inpc": [
+    "histologies"
+  ],
+  "age_at_tumor_assessment": [
+    "tumor_assessments"
+  ],
+  "tumor_classification": [
+    "tumor_assessments",
+    "biopsy_surgical_procedures",
+    "radiation_therapies"
+  ],
+  "tumor_site": [
+    "tumor_assessments"
+  ],
+  "tumor_state": [
+    "tumor_assessments"
+  ],
+  "longest_diam_dim1": [
+    "tumor_assessments"
+  ],
+  "depth": [
+    "tumor_assessments"
+  ],
+  "tumor_size": [
+    "tumor_assessments"
+  ],
+  "invasiveness": [
+    "tumor_assessments"
+  ],
+  "nodal_clinical": [
+    "tumor_assessments"
+  ],
+  "nodal_pathology": [
+    "tumor_assessments"
+  ],
+  "parameningeal_extension": [
+    "tumor_assessments"
+  ],
+  "necrosis": [
+    "tumor_assessments"
+  ],
+  "necrosis_pct": [
+    "tumor_assessments"
+  ],
+  "tumor_laterality": [
+    "tumor_assessments"
+  ],
+  "irs_group": [
+    "stagings"
+  ],
+  "tnm_finding": [
+    "stagings"
+  ],
+  "stage_system": [
+    "stagings"
+  ],
+  "stage": [
+    "stagings"
+  ],
+  "AB": [
+    "stagings"
+  ],
+  "E": [
+    "stagings"
+  ],
+  "S": [
+    "stagings"
+  ],
+  "mki": [
+    "disease_characteristics"
+  ],
+  "bulk_disease": [
+    "disease_characteristics"
+  ],
+  "BULK_MED_MASS": [
+    "disease_characteristics"
+  ],
+  "bulky_nodal_aggregate": [
+    "disease_characteristics"
+  ],
+  "anaplasia": [
+    "molecular_analysis"
+  ],
+  "anaplasia_extent": [
+    "molecular_analysis"
+  ],
+  "molecular_abnormality": [
+    "molecular_analysis"
+  ],
+  "molecular_abnormality_result": [
+    "molecular_analysis"
+  ],
+  "gene1": [
+    "molecular_analysis"
+  ],
+  "gene2": [
+    "molecular_analysis"
+  ],
+  "dna_index": [
+    "molecular_analysis"
+  ],
+  "age_at_molecular_analysis": [
+    "molecular_analysis"
+  ],
+  "mitoses": [
+    "molecular_analysis"
+  ],
+  "cytodifferentiation": [
+    "molecular_analysis"
+  ],
+  "procedure_type": [
+    "biopsy_surgical_procedures"
+  ],
+  "margins": [
+    "biopsy_surgical_procedures"
+  ],
+  "energy_type": [
+    "radiation_therapies"
+  ],
+  "rt_dose": [
+    "radiation_therapies"
+  ],
+  "tx_prior_response": [
+    "subject_responses"
+  ],
+  "response": [
+    "subject_responses"
+  ],
+  "interim_response": [
+    "subject_responses"
+  ],
+  "response_method": [
+    "subject_responses"
+  ],
+  "age_at_smn": [
+    "secondary_malignant_neoplasm"
+  ],
+  "smn_site": [
+    "secondary_malignant_neoplasm"
+  ],
+  "smn_type": [
+    "secondary_malignant_neoplasm"
+  ],
+  "smn_morph_icdo": [
+    "secondary_malignant_neoplasm"
+  ],
+  "imaging_method": [
+    "imagings"
+  ],
+  "imaging_result": [
+    "imagings"
+  ],
+  "lab_test": [
+    "labs"
+  ],
+  "lab_result": [
+    "labs"
+  ],
+  "lab_result_numeric": [
+    "labs"
+  ],
+  "lab_result_unit": [
+    "labs"
+  ],
+  "sct_type": [
+    "stem_cell_transplants"
+  ],
+  "external_links": [
+    "external_references"
+  ],
+  "subject_submitter_id": [],
+  "lkss": [
+    "survival_characteristics"
+  ],
+  "age_at_lkss": [
+    "survival_characteristics"
+  ]
+}

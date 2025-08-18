@@ -50,18 +50,18 @@ async def start():
     cl.user_session.set("message_count", 0)
     
     # Welcome message
-    welcome_msg = f"""👋 **Welcome to PCDC GraphQL Query Generator!**
+    welcome_msg = f"""👋 **Welcome to PCDC Nested GraphQL Filter Generator!**
 
 ✅ **Logged in as**: {user.identifier}
 🔗 **Session ID**: {session_id}
 📋 **Chat History**: Enabled (check left sidebar)
 
-Enter your natural language query to generate GraphQL queries.
+Enter your natural language query to generate nested GraphQL filters for PCDC data.
 
 **Example queries:**
-- Get all users older than 18
-- Find patients with diabetes
-- Show available fields"""
+- The cohort consists of participants from the INRG consortium who have metastatic tumors
+- Find patients with absent tumor state and skin tumor site
+- Show NODAL consortium participants with bulky nodal aggregate"""
     
     await cl.Message(content=welcome_msg, author="System").send()
 
@@ -86,10 +86,10 @@ async def main(message: cl.Message):
         # Get session ID
         session_id = cl.user_session.get("session_id")
         
-        # Step 1: Call /convert API to generate GraphQL query
+        # Step 1: Call /nested_graphql API to generate nested GraphQL query
         async with httpx.AsyncClient() as client:
-            convert_response = await client.post(
-                f"{BACKEND_URL}/convert",
+            nested_response = await client.post(
+                f"{BACKEND_URL}/nested_graphql",
                 json={
                     "text": message.content,
                     "session_id": session_id
@@ -97,56 +97,62 @@ async def main(message: cl.Message):
                 headers={"Content-Type": "application/json"},
                 timeout=30.0
             )
-            convert_response.raise_for_status()
-            convert_result = convert_response.json()
+            nested_response.raise_for_status()
+            nested_result = nested_response.json()
         
-        # Extract query and variables from convert result
-        query_str = convert_result.get("query", "")
-        variables_str = convert_result.get("variables", "{}")
+        # Extract results from nested_graphql response
+        user_query = nested_result.get("user_query", "")
+        extracted_keywords = nested_result.get("extracted_keywords", [])
+        pcdc_schemas = nested_result.get("pcdc_schemas", [])
+        gitops_nodes = nested_result.get("gitops_nodes", [])
+        nested_graphql_filter = nested_result.get("nested_graphql_filter", {})
+        success = nested_result.get("success", False)
         
-        # Try to format variables JSON for better display
+        # Format the nested GraphQL filter for display
         try:
-            variables_obj = json.loads(variables_str)
-            formatted_variables = json.dumps(variables_obj, indent=2)
+            formatted_filter = json.dumps(nested_graphql_filter, indent=2, ensure_ascii=False)
         except:
-            formatted_variables = variables_str
-            variables_obj = {}
+            formatted_filter = str(nested_graphql_filter)
         
         # Step 2: Call /query API to execute the GraphQL query
         query_result = None
         query_error = None
         
-        if query_str.strip():  # Only execute if we have a valid query
-            try:
-                async with httpx.AsyncClient() as client:
-                    query_response = await client.post(
-                        f"{BACKEND_URL}/query",
-                        json={
-                            "query": query_str,
-                            "variables": variables_obj,
-                            "use_cached_token": True
-                        },
-                        headers={"Content-Type": "application/json"},
-                        timeout=30.0
-                    )
-                    query_response.raise_for_status()
-                    query_result = query_response.json()
-            except Exception as e:
-                query_error = str(e)
+        # Note: For now, we'll skip query execution since we're generating filters
+        # Future enhancement: Convert nested filter to actual GraphQL query and execute
+        # if query_str.strip():  # Only execute if we have a valid query
+        #     try:
+        #         async with httpx.AsyncClient() as client:
+        #             query_response = await client.post(
+        #                 f"{BACKEND_URL}/query",
+        #                 json={
+        #                     "query": query_str,
+        #                     "variables": variables_obj,
+        #                     "use_cached_token": True
+        #                 },
+        #                 headers={"Content-Type": "application/json"},
+        #                 timeout=30.0
+        #             )
+        #             query_response.raise_for_status()
+        #             query_result = query_response.json()
+        #     except Exception as e:
+        #         query_error = str(e)
         
         # Format the complete response
-        response_content = f"""✅ **GraphQL Query Generated & Executed**
+        status_icon = "✅" if success else "❌"
+        response_content = f"""{status_icon} **Nested GraphQL Filter Generated**
 
 **Input**: {message.content}
 
-**Generated GraphQL Query**:
-```graphql
-{query_str}
-```
+**Extracted Keywords**: {', '.join(extracted_keywords)}
 
-**Variables**:
+**PCDC Schemas**: {', '.join(pcdc_schemas)}
+
+**GitOps Nodes**: {', '.join(gitops_nodes)}
+
+**Generated Nested GraphQL Filter**:
 ```json
-{formatted_variables}
+{formatted_filter}
 ```"""
 
         # Add query execution results
@@ -175,10 +181,19 @@ async def main(message: cl.Message):
 
 **Query Execution**: ❌ **Error**
 **Error**: {query_error}"""
-        elif not query_str.strip():
+        else:
             response_content += f"""
 
-**Query Execution**: ⚠️ **Skipped** (No valid query generated)"""
+**Query Execution**: ⚠️ **Skipped** (Filter generation only)"""
+
+        # Add error information if processing failed
+        if not success and nested_result.get("error"):
+            response_content += f"""
+
+**Error Details**:
+```
+{nested_result.get("error")}
+```"""
         
         response_content += f"""
 
