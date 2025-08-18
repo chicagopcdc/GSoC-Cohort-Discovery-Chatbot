@@ -116,6 +116,7 @@ curl -X POST "http://localhost:8000/flat_graphql" \
     "query": "query ($filter: JSON) { _aggregation { subject(accessibility: all, filter: $filter) { consortium { histogram { key count } } race { histogram { key count } } _totalCount } } }",
     "variables": "{'AND': [{'IN': {'race': ['Asian']}}]}"
 }
+```
 ##### 2. Convert user input to nested GraphQL:
 ```bash
 curl -X POST "http://localhost:8000/nested_graphql" \
