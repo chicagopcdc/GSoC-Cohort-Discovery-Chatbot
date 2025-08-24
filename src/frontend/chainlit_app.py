@@ -106,6 +106,7 @@ async def main(message: cl.Message):
         pcdc_schemas = nested_result.get("pcdc_schemas", [])
         gitops_nodes = nested_result.get("gitops_nodes", [])
         nested_graphql_filter = nested_result.get("nested_graphql_filter", {})
+        executable_nested_graphql = nested_result.get("executable_nested_graphql", None)
         success = nested_result.get("success", False)
         
         # Format the nested GraphQL filter for display
@@ -114,30 +115,39 @@ async def main(message: cl.Message):
         except:
             formatted_filter = str(nested_graphql_filter)
         
+        # Format the executable nested GraphQL for display
+        try:
+            formatted_executable = json.dumps(executable_nested_graphql, indent=2, ensure_ascii=False) if executable_nested_graphql else "None"
+        except:
+            formatted_executable = str(executable_nested_graphql) if executable_nested_graphql else "None"
+        
         # Step 2: Call /query API to execute the GraphQL query
         query_result = None
         query_error = None
         
-        # Note: For now, we'll skip query execution since we're generating filters
-        # Future enhancement: Convert nested filter to actual GraphQL query and execute
-        # if query_str.strip():  # Only execute if we have a valid query
-        #     try:
-        #         async with httpx.AsyncClient() as client:
-        #             query_response = await client.post(
-        #                 f"{BACKEND_URL}/query",
-        #                 json={
-        #                     "query": query_str,
-        #                     "variables": variables_obj,
-        #                     "use_cached_token": True
-        #                 },
-        #                 headers={"Content-Type": "application/json"},
-        #                 timeout=30.0
-        #             )
-        #             query_response.raise_for_status()
-        #             query_result = query_response.json()
-        #     except Exception as e:
-        #         query_error = str(e)
-        
+        # graph query execution
+        if executable_nested_graphql and isinstance(executable_nested_graphql, dict):  # Only execute if we have a valid executable GraphQL
+            query_str = executable_nested_graphql.get("query", "")
+            variables_obj = executable_nested_graphql.get("variables", {})
+            
+            if query_str.strip():  # Only execute if we have a valid query string
+                try:
+                    async with httpx.AsyncClient() as client:
+                        query_response = await client.post(
+                            f"{BACKEND_URL}/query",
+                            json={
+                                "query": query_str,
+                                "variables": variables_obj,
+                                "use_cached_token": True
+                            },
+                            headers={"Content-Type": "application/json"},
+                            timeout=5.0
+                        )
+                        query_response.raise_for_status()
+                        query_result = query_response.json()
+                except Exception as e:
+                    query_error = str(e)
+
         # Format the complete response
         status_icon = "✅" if success else "❌"
         response_content = f"""{status_icon} **Nested GraphQL Filter Generated**
@@ -153,6 +163,11 @@ async def main(message: cl.Message):
 **Generated Nested GraphQL Filter**:
 ```json
 {formatted_filter}
+```
+
+**Executable Nested GraphQL**:
+```json
+{formatted_executable}
 ```"""
 
         # Add query execution results
@@ -181,10 +196,14 @@ async def main(message: cl.Message):
 
 **Query Execution**: ❌ **Error**
 **Error**: {query_error}"""
+        elif not executable_nested_graphql:
+            response_content += f"""
+
+**Query Execution**: ⚠️ **Skipped** (No executable GraphQL generated)"""
         else:
             response_content += f"""
 
-**Query Execution**: ⚠️ **Skipped** (Filter generation only)"""
+**Query Execution**: ⚠️ **Skipped** (Executable GraphQL available but not executed)"""
 
         # Add error information if processing failed
         if not success and nested_result.get("error"):

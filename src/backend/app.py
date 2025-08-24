@@ -277,7 +277,6 @@ async def convert_to_nested_graphql(user_query: Query):
     4. nested结构必须包含path字段，指向对应的GitOps节点
     5. 从用户查询中推断合适的值(如"INRG", "Metastatic", "Absent", "Skin"等)
     6. 返回标准的JSON格式，不要包含任何解释文字
-    
     请生成最终的嵌套GraphQL过滤器:
     """
     
@@ -308,7 +307,7 @@ async def convert_to_nested_graphql(user_query: Query):
                 "pcdc_schemas": pcdc_schema_prod_result,
                 "gitops_nodes": gitops_result
             }
-        
+        guppy_nested_graphql = convert_to_executable_nested_graphql(response_content, llm)
         # 返回完整结果
         return {
             "user_query": user_query.text,
@@ -316,6 +315,7 @@ async def convert_to_nested_graphql(user_query: Query):
             "pcdc_schemas": pcdc_schema_prod_result,
             "gitops_nodes": gitops_result,
             "nested_graphql_filter": nested_graphql_query,
+            "executable_nested_graphql": guppy_nested_graphql,
             "success": True
         }
         
@@ -327,9 +327,9 @@ async def convert_to_nested_graphql(user_query: Query):
             "pcdc_schemas": pcdc_schema_prod_result,
             "gitops_nodes": gitops_result,
             "error": str(e),
+            "executable_nested_graphql": None,
             "success": False
         }
-
 
 async def execute_graphql_query(
     query: str,

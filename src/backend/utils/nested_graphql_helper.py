@@ -248,6 +248,100 @@ async def query_processed_gitops_result(lowercase_gitops_dict, pcdc_schema, user
         print(f"Error in query_processed_gitops_result: {str(e)}")
         return ""
 
+def convert_to_executable_nested_graphql(nested_graphql, llm):
+    """
+    Convert nested GraphQL filter to executable GraphQL format
+    
+    Args:
+        nested_graphql: The raw LLM response content containing nested GraphQL
+        llm: LLM instance for processing
+        
+    Returns:
+        Executable GraphQL query in the format expected by execute_graphql_query()
+    """
+    prompt = f"""
+    你需要根据以下nested GraphQL结果生成一个能实际执行/query接口的nested graphql版本。
+
+    输入的nested GraphQL结果:
+    {nested_graphql}
+
+    请输出一个能实际执行的nested graphql，格式如下示例:
+    {{
+      "query": "query GetAggregation($filter: JSON) {{ _aggregation {{ subject(accessibility: accessible, filter: $filter) {{ _totalCount }} }} }}",
+      "variables": {{
+        "filter": {{
+          "AND": [
+            {{
+              "IN": {{
+                "consortium": ["INRG"]
+              }}
+            }},
+            {{
+              "nested": {{
+                "path": "tumor_assessments",
+                "AND": [
+                  {{
+                    "IN": {{
+                      "tumor_classification": ["Metastatic"]
+                    }}
+                  }},
+                  {{
+                    "IN": {{
+                      "tumor_state": ["Absent"]
+                    }}
+                  }},
+                  {{
+                    "IN": {{
+                      "tumor_site": ["Skin"]
+                    }}
+                  }}
+                ]
+              }}
+            }}
+          ]
+        }}
+      }}
+    }}
+
+    要求:
+    1. query字段必须使用aggregation查询格式
+    2. variables.filter要包含完整的嵌套过滤条件
+    3. 返回标准的JSON格式，不要包含任何解释文字
+    4. 确保path字段在nested结构的正确位置
+    """
+    
+    try:
+        # 调用LLM生成可执行的GraphQL
+        response = llm.invoke(prompt)
+        response_content = response.content if hasattr(response, 'content') else str(response)
+        
+        # 清理响应内容，移除可能的markdown标记
+        clean_response = response_content.strip()
+        if clean_response.startswith('```json'):
+            clean_response = clean_response[7:-3]
+        elif clean_response.startswith('```'):
+            clean_response = clean_response[3:-3]
+        
+        # 解析JSON响应
+        try:
+            guppy_graphql = json.loads(clean_response.strip())
+            
+            # 验证返回的结果是否包含必要的字段
+            if isinstance(guppy_graphql, dict) and "query" in guppy_graphql and "variables" in guppy_graphql:
+                print(f"Successfully generated executable GraphQL: {json.dumps(guppy_graphql, ensure_ascii=False, indent=2)}")
+                return guppy_graphql
+            else:
+                print(f"Invalid GraphQL format returned by LLM: {guppy_graphql}")
+                return None
+                
+        except json.JSONDecodeError as e:
+            print(f"Error parsing LLM response as JSON: {str(e)}")
+            print(f"Raw LLM response: {response_content}")
+            return None
+            
+    except Exception as e:
+        print(f"Error in convert_to_executable_nested_graphql: {str(e)}")
+        return None
 
 def test_query_functions():
     pcdc_schema_prod_file = "../../schema/schema/pcdc-schema-prod-20250114.json"
