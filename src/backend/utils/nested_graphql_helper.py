@@ -292,7 +292,7 @@ def convert_to_executable_nested_graphql(nested_graphql, llm):
 
     请输出一个能实际执行的nested graphql，格式如下示例:
     {{
-      "query": "query GetAggregation($filter: JSON) {{ _aggregation {{ subject(accessibility: accessible, filter: $filter) {{ _totalCount }} }} }}",
+      "query": "query GetAggregation($filter: JSON) {{ _aggregation {{ subject(accessibility: all, filter: $filter) {{ _totalCount }} }} }}",
       "variables": {{
         "filter": {{
           "AND": [
