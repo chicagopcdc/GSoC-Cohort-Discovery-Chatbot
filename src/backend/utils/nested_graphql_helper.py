@@ -178,9 +178,22 @@ async def query_processed_pcdc_result(lowercase_pcdc_dict, keyword, user_query, 
                 return mapping_schemas_in_pcdc_schema_prod[0]
             elif len(mapping_schemas_in_pcdc_schema_prod) > 1:
                 prompt = f"""
-                    如果keyword在pcdc-schema-prod.json中出现一对多的mapping关系, 
-                    这时你要根据user_query的上下文猜测哪个字段最匹配,  \n
-                    现在keyword是: {keyword}, keyword对应mapping list in pcdc schema prod: {mapping_schemas_in_pcdc_schema_prod} user_query: {user_query}, 从mapping list in pcdc schema prod只能选一个你觉得最匹配user query上下文的, 只返回一个字符串, 不要解释
+                    Multiple medical terms from the query map to overlapping or conflicting database fields in pcdc-schema-prod.json. Resolve these conflicts to choose the most appropriate field.
+
+                    Original Query: "{user_query}"
+                    
+                    Current Term: "{keyword}"
+                    Conflicting Fields: {mapping_schemas_in_pcdc_schema_prod}
+                    
+                    Resolve by:
+                    1. Identifying semantic overlaps (e.g., "cancer" and "tumor" might refer to same field)
+                    2. Choosing more specific terms over general ones  
+                    3. Maintaining clinical accuracy
+                    4. Preserving user intent
+                    5. Considering the medical context of the query
+                    
+                    From the conflicting fields list, select the ONE field that best matches the user query context.
+                    Only return the selected field name as a string, no explanation needed.
                 """
                 llm_result = llm.invoke(prompt)
                 print(f"llm_result: {llm_result}")
@@ -222,15 +235,27 @@ async def query_processed_gitops_result(lowercase_gitops_dict, pcdc_schema, user
             elif len(mapping_gitops_field_nodes) > 1:
                 # 多个映射，需要LLM根据上下文选择最合适的
                 prompt = f"""
-                    如果pcdc schema property在gitops.json中出现一对多的mapping关系, 比如 user query: The cohort consists of participants from the INRG consortium who have metastatic tumors. Specifically, these tumors are classified as absent and are located on the skin. \n
-                    tumor_classification在gitops.json中对应3个不同的field node: \n
-                    "tumor_classification": [
-                        "tumor_assessments",
-                        "biopsy_surgical_procedures", 
-                        "radiation_therapies"
-                    ] \n
-                    这时你要根据user_query的上下文猜测哪个field node最匹配, 比如example case中如果提到tumors和assessment就选tumor_assessments, 如果提到surgery就选biopsy_surgical_procedures, 如果提到radiation就选radiation_therapies. \n
-                    现在pcdc property是: {pcdc_schema}, 对应的gitops field nodes: {mapping_gitops_field_nodes} user_query: {user_query}, 从gitops field nodes中只能选一个你觉得最匹配user query上下文的, 只返回一个字符串, 不要解释
+                    Multiple GitOps field nodes map to the same PCDC schema property. Resolve this conflict to choose the most contextually appropriate field node.
+
+                    Original Query: "{user_query}"
+                    
+                    PCDC Schema Property: "{pcdc_schema}"
+                    Conflicting GitOps Field Nodes: {mapping_gitops_field_nodes}
+                    
+                    Example Context Mapping:
+                    - If query mentions "tumors" + "assessment" → choose "tumor_assessments"
+                    - If query mentions "surgery" or "biopsy" → choose "biopsy_surgical_procedures"  
+                    - If query mentions "radiation" or "therapy" → choose "radiation_therapies"
+                    
+                    Resolve by:
+                    1. Analyzing the medical procedure/context mentioned in the query
+                    2. Choosing the field node that best matches the clinical workflow
+                    3. Considering the temporal or procedural relationship
+                    4. Maintaining semantic consistency with user intent
+                    5. Prioritizing more specific contexts over general ones
+                    
+                    From the conflicting GitOps field nodes, select the ONE that best matches the user query context.
+                    Only return the selected field node name as a string, no explanation needed.
                 """
                 llm_result = llm.invoke(prompt)
                 print(f"gitops llm_result: {llm_result}")
