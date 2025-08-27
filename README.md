@@ -120,7 +120,7 @@ curl -X POST "http://localhost:8000/nested_graphql" \
 ```
 ##### Example Response
 ```json
-Generated nested GraphQL: {
+{
   "AND": [
     {
       "IN": {
