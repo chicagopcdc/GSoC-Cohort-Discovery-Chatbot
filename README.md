@@ -18,7 +18,7 @@
 **Overview:**
 This project is a GraphQL generation agent that converts human language queries into GraphQL queries using AI. Below is the project workflow and code structure:
 
-![Workflow](https://drive.google.com/file/d/1eIp6srsOGcDWLOuJTCv9Fw_0GUrhAad7/view?usp=sharing)
+![Workflow](./assets/workflow.png)
 
 ```
 ├── README.md  
