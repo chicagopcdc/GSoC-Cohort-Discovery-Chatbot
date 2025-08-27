@@ -40,7 +40,7 @@ async def start():
     user = cl.user_session.get("user")
     if not user:
         await cl.Message(
-            content="❌ Authentication required. Please login first."
+            content=" Authentication required. Please login first."
         ).send()
         return
     
@@ -50,11 +50,11 @@ async def start():
     cl.user_session.set("message_count", 0)
     
     # Welcome message
-    welcome_msg = f"""👋 **Welcome to PCDC Nested GraphQL Filter Generator!**
+    welcome_msg = f""" **Welcome to PCDC GraphQL Generator!**
 
-✅ **Logged in as**: {user.identifier}
-🔗 **Session ID**: {session_id}
-📋 **Chat History**: Enabled (check left sidebar)
+ **Logged in as**: {user.identifier}
+ **Session ID**: {session_id}
+ **Chat History**: Enabled (check left sidebar)
 
 Enter your natural language query to generate nested GraphQL filters for PCDC data.
 
@@ -216,17 +216,19 @@ async def main(message: cl.Message):
         
         response_content += f"""
 
-**Session Info**: Message #{count} from {user.identifier}"""
+**Session Info**: Message #{count} from {user.identifier}
+
+ **Tip**: If you need to query multiple fields, please provide more specific context to help generate accurate filters."""
         
     except httpx.TimeoutException:
-        response_content = f"""⏰ **Request Timeout**
+        response_content = f""" **Request Timeout**
 
 The query took too long to process. Please try again with a simpler query.
 
 **Input**: {message.content}"""
         
     except httpx.HTTPStatusError as e:
-        response_content = f"""❌ **API Error**
+        response_content = f""" **API Error**
 
 Failed to process your query. Status: {e.response.status_code}
 
@@ -234,7 +236,7 @@ Failed to process your query. Status: {e.response.status_code}
 **Error**: {e.response.text if hasattr(e.response, 'text') else 'Unknown error'}"""
         
     except Exception as e:
-        response_content = f"""❌ **Processing Error**
+        response_content = f""" **Processing Error**
 
 An error occurred while processing your query.
 
@@ -260,7 +262,7 @@ async def on_chat_resume(thread):
     cl.user_session.set("message_count", message_count)
     
     await cl.Message(
-        content=f"📂 **Conversation Resumed**\n\nWelcome back, {user.identifier}! You have {message_count} previous messages.",
+        content=f" **Conversation Resumed**\n\nWelcome back, {user.identifier}! You have {message_count} previous messages.",
         author="System"
     ).send()
 
@@ -268,8 +270,8 @@ async def on_chat_resume(thread):
 def rename(orig_author: str):
     """Rename authors for display"""
     rename_dict = {
-        "System": "🤖 Assistant",
-        "User": "👤 You"
+        "System": " Assistant",
+        "User": " You"
     }
     return rename_dict.get(orig_author, orig_author)
 

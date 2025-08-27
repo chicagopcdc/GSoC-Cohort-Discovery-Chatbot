@@ -16,7 +16,9 @@
 **GraphQL Convertor** is a GraphQL generation agent application built with Chainlit and FastAPI that converts natural language queries into GraphQL queries.
 
 **Overview:**
-This project is a GraphQL generation agent that converts natural language queries into GraphQL queries using AI. Below is the project structure:
+This project is a GraphQL generation agent that converts human language queries into GraphQL queries using AI. Below is the project workflow and code structure:
+
+![Workflow](https://drive.google.com/file/d/1eIp6srsOGcDWLOuJTCv9Fw_0GUrhAad7/view?usp=sharing)
 
 ```
 ├── README.md  
@@ -34,21 +36,14 @@ This project is a GraphQL generation agent that converts natural language querie
 │   │   ├── app.py              # Main FastAPI application
 │   │   ├── start.sh            # Backend startup script
 │   │   ├── interactive_demo.sh 
-│   │   └── utils/             
+│   │   └── utils/
+│   │       ├── nested_graphql_helper.py  # utils for generating nested graphql
 │   │       ├── prompt_builder.py    
-│   │       ├── filter_utils.py      # Query or response filtering utilities
+│   │       ├── filter_utils.py      
 │   │       ├── credential_helper.py  # Generate token for guppy/graphql API
 │   │       ├── schema_parser.py    
 │   │       ├── query_builder.py     
-│   │       └── context_manager.py   
-│   │
-│   ├── db/                      
-│   │   └── ChromaDB/           
-│   │       ├── chroma_manager.py       # ChromaDB connection manager
-│   │       ├── chroma_utils.py         
-│   │       ├── query_chromadb.py       # ChromaDB query interface
-│   │       ├── chromadb_history_reader.py # Reading Chat history 
-│   │       └── ChromaDB_SETUP.md      
+│   │       └── context_manager.py       
 │   │
 │   └── tests/                   
 │       ├── test_db.py          
@@ -166,6 +161,7 @@ Generated nested GraphQL: {
 }
 ```
 ##### 2. Get query GraphQL result:
+##### Flat GraphQL Example 
 ```bash
 curl -X POST http://localhost:8000/query \
   -H "Content-Type: application/json" \
@@ -177,6 +173,67 @@ curl -X POST http://localhost:8000/query \
 ##### Example Response
 ```json
 {"data":{"_aggregation":{"subject":{"consortium":{"histogram":[{"key":"INSTRuCT","count":52},{"key":"NODAL","count":44},{"key":"INRG","count":42},{"key":"INTERACT","count":38},{"key":"HIBISCUS","count":37},{"key":"MaGIC","count":33},{"key":"ALL","count":32}]},"sex":{"histogram":[{"key":"Other","count":60},{"key":"Male","count":48},{"key":"Undifferentiated","count":45},{"key":"Female","count":43},{"key":"Unknown","count":35},{"key":"Not Reported","count":31},{"key":"no data","count":57}]},"_totalCount":319}}}}
+```
+##### Nested GraphQL Example (aggregation format)
+```bash
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{
+  "query": "query GetAggregation($filter: JSON) { _aggregation { subject(accessibility: all, filter: $filter) { _totalCount } } }",
+  "variables": {
+    "filter": {
+      "AND": [
+        {
+          "IN": {
+            "consortium": [
+              "INRG"
+            ]
+          }
+        },
+        {
+          "nested": {
+            "path": "tumor_assessments",
+            "AND": [
+              {
+                "IN": {
+                  "tumor_classification": [
+                    "Metastatic"
+                  ]
+                }
+              },
+              {
+                "IN": {
+                  "tumor_state": [
+                    "Absent"
+                  ]
+                }
+              },
+              {
+                "IN": {
+                  "tumor_site": [
+                    "Skin"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}'
+```
+##### Example Response (via https://portal.pedscommons.org/query)
+```json
+{
+  "data": {
+    "_aggregation": {
+      "subject": {
+        "_totalCount": 8508
+      }
+    }
+  }
+}
 ```
 ### 3. Run the Application Frontend
 First, make sure you start the frontend server in ```frontend_env```:
@@ -190,6 +247,121 @@ To login, you can use any of follwing accounts:
     username: test password: test
     username: admin password: admin
     username: user password: user123
+
+### 4. Postgresql db schema
+```
+create table public."Element" (
+  id uuid not null default extensions.uuid_generate_v4 (),
+  "threadId" uuid null,
+  type text null,
+  url text null,
+  "chainlitKey" text null,
+  name text not null,
+  display text null,
+  "objectKey" text null,
+  size text null,
+  page integer null,
+  "forIds" text[] null,
+  mime text null,
+  "updatedAt" timestamp with time zone null default CURRENT_TIMESTAMP,
+  "deletedAt" timestamp with time zone null,
+  "createdAt" timestamp with time zone null default CURRENT_TIMESTAMP,
+  constraint Element_pkey primary key (id),
+  constraint Element_threadId_fkey foreign KEY ("threadId") references "Thread" (id) on delete CASCADE
+) TABLESPACE pg_default;
+
+create index IF not exists idx_element_threadid on public."Element" using btree ("threadId") TABLESPACE pg_default;
+```
+```
+create table public."Element" (
+  id uuid not null default extensions.uuid_generate_v4 (),
+  "threadId" uuid null,
+  type text null,
+  url text null,
+  "chainlitKey" text null,
+  name text not null,
+  display text null,
+  "objectKey" text null,
+  size text null,
+  page integer null,
+  "forIds" text[] null,
+  mime text null,
+  "updatedAt" timestamp with time zone null default CURRENT_TIMESTAMP,
+  "deletedAt" timestamp with time zone null,
+  "createdAt" timestamp with time zone null default CURRENT_TIMESTAMP,
+  constraint Element_pkey primary key (id),
+  constraint Element_threadId_fkey foreign KEY ("threadId") references "Thread" (id) on delete CASCADE
+) TABLESPACE pg_default;
+
+create index IF not exists idx_element_threadid on public."Element" using btree ("threadId") TABLESPACE pg_default;
+```
+```
+create table public."Element" (
+  id uuid not null default extensions.uuid_generate_v4 (),
+  "threadId" uuid null,
+  type text null,
+  url text null,
+  "chainlitKey" text null,
+  name text not null,
+  display text null,
+  "objectKey" text null,
+  size text null,
+  page integer null,
+  "forIds" text[] null,
+  mime text null,
+  "updatedAt" timestamp with time zone null default CURRENT_TIMESTAMP,
+  "deletedAt" timestamp with time zone null,
+  "createdAt" timestamp with time zone null default CURRENT_TIMESTAMP,
+  constraint Element_pkey primary key (id),
+  constraint Element_threadId_fkey foreign KEY ("threadId") references "Thread" (id) on delete CASCADE
+) TABLESPACE pg_default;
+
+create index IF not exists idx_element_threadid on public."Element" using btree ("threadId") TABLESPACE pg_default;
+```
+```
+create table public."Thread" (
+  id uuid not null default extensions.uuid_generate_v4 (),
+  "createdAt" timestamp with time zone null default CURRENT_TIMESTAMP,
+  name text null,
+  "userId" uuid null,
+  "userIdentifier" text null,
+  tags text[] null,
+  metadata jsonb null default '{}'::jsonb,
+  "updatedAt" timestamp with time zone null default CURRENT_TIMESTAMP,
+  "deletedAt" timestamp with time zone null,
+  participant jsonb null,
+  constraint Thread_pkey primary key (id),
+  constraint Thread_userId_fkey foreign KEY ("userId") references "User" (id) on delete CASCADE
+) TABLESPACE pg_default;
+
+create index IF not exists idx_thread_userid on public."Thread" using btree ("userId") TABLESPACE pg_default;
+
+create index IF not exists idx_thread_useridentifier on public."Thread" using btree ("userIdentifier") TABLESPACE pg_default;
+
+create index IF not exists idx_thread_createdat on public."Thread" using btree ("createdAt" desc) TABLESPACE pg_default;
+```
+```
+create table public."Thread" (
+  id uuid not null default extensions.uuid_generate_v4 (),
+  "createdAt" timestamp with time zone null default CURRENT_TIMESTAMP,
+  name text null,
+  "userId" uuid null,
+  "userIdentifier" text null,
+  tags text[] null,
+  metadata jsonb null default '{}'::jsonb,
+  "updatedAt" timestamp with time zone null default CURRENT_TIMESTAMP,
+  "deletedAt" timestamp with time zone null,
+  participant jsonb null,
+  constraint Thread_pkey primary key (id),
+  constraint Thread_userId_fkey foreign KEY ("userId") references "User" (id) on delete CASCADE
+) TABLESPACE pg_default;
+
+create index IF not exists idx_thread_userid on public."Thread" using btree ("userId") TABLESPACE pg_default;
+
+create index IF not exists idx_thread_useridentifier on public."Thread" using btree ("userIdentifier") TABLESPACE pg_default;
+
+create index IF not exists idx_thread_createdat on public."Thread" using btree ("createdAt" desc) TABLESPACE pg_default;
+```
 
 
 
