@@ -68,21 +68,6 @@ def build_graphql_query(fields, filter_var="$filter"):
 }}"""
     return query
 
-def analyze_query_complexity(query):
-    """Analyze query complexity"""
-    # Check if multiple node types are involved
-    node_types = ["subject", "disease_characteristic", "staging", "lab", "vital", "medical_history"]
-    node_count = sum(1 for node in node_types if node in query.lower())
-    
-    # Check if complex conditions are present
-    complex_conditions = ["and", "or", "not", "greater than", "less than", "between"]
-    condition_count = sum(1 for cond in complex_conditions if cond in query.lower())
-    
-    if node_count > 1 or condition_count > 2:
-        return "complex"
-    else:
-        return "simple"
-
 def decompose_query(query):
     """Decompose complex query into multiple related parts
     

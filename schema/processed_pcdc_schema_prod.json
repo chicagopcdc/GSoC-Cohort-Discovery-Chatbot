@@ -1,0 +1,6767 @@
+{
+  "timing": [
+    "type"
+  ],
+  "Initial Diagnosis": [
+    "disease_phase"
+  ],
+  "Relapse": [
+    "disease_phase",
+    "reason_off"
+  ],
+  "Progression": [
+    "disease_phase"
+  ],
+  "Relapse/Progression": [
+    "disease_phase"
+  ],
+  "Refractory": [
+    "disease_phase"
+  ],
+  "Prephase": [
+    "course"
+  ],
+  "Induction": [
+    "course"
+  ],
+  "Intensification": [
+    "course"
+  ],
+  "Delayed Intensification": [
+    "course"
+  ],
+  "Consolidation": [
+    "course"
+  ],
+  "Stem Cell Transplant Conditioning": [
+    "course"
+  ],
+  "Maintenance": [
+    "course"
+  ],
+  "Interim Maintenance": [
+    "course"
+  ],
+  "Palliative Treatment": [
+    "course"
+  ],
+  "Chemotherapy": [
+    "course",
+    "npt_type",
+    "gts_treatment",
+    "TRM_type",
+    "tx_prior_response"
+  ],
+  "Radiation Therapy": [
+    "course",
+    "npt_type"
+  ],
+  "Chemoimmunotherapy": [
+    "course"
+  ],
+  "Immunotherapy": [
+    "course",
+    "npt_type",
+    "TRM_type"
+  ],
+  "Investigational Agent": [
+    "course"
+  ],
+  "Other": [
+    "course",
+    "lesion_detection_method",
+    "lesion_site",
+    "e_extension_site",
+    "myeloid_sarcoma_site",
+    "npt_type",
+    "npt_sct_type",
+    "antineoplastic_agent",
+    "molecular_analysis_method",
+    "molecular_abnormality",
+    "variant_type",
+    "tmp_type",
+    "tmp_product",
+    "tmp_product_type",
+    "adverse_event",
+    "ae_system",
+    "avn_joint",
+    "avn_method",
+    "orthopedic_procedure",
+    "ae_intervention_detail",
+    "ae_pathogen",
+    "gvhd_organ",
+    "lab_cat",
+    "lab_spec_type",
+    "lab_method",
+    "sex",
+    "race",
+    "medical_history",
+    "assisted_conception",
+    "disease_site",
+    "detection_method",
+    "smn_site",
+    "smn_type",
+    "reason_off",
+    "mod_type",
+    "mod_reason",
+    "toxicity_details",
+    "original_agent",
+    "sub_agent",
+    "histology",
+    "somatic_malignancy_type",
+    "tumor_site",
+    "nodal_site",
+    "extension_site",
+    "relative",
+    "medication",
+    "medication_reason",
+    "mrd_method",
+    "mrd_sample_source",
+    "mrd_molecular_markers",
+    "sct_source",
+    "sct_conditioning_type",
+    "procedure_site",
+    "procedure_type",
+    "limb_surgery_type",
+    "reconstruction_type",
+    "biopsy_type",
+    "met_lung_mgmt",
+    "localization_technique",
+    "procedure_purpose",
+    "cimt_type",
+    "rt_site",
+    "energy_type",
+    "transposition_organ",
+    "le_detail",
+    "le_sub_detail",
+    "cause_of_death",
+    "TRM_type",
+    "cause_of_death_detail",
+    "response_category",
+    "bm_analysis_method_at_response",
+    "pro_measures",
+    "pro_measurement_type",
+    "raters",
+    "time_point"
+  ],
+  "lesion_characteristic": [
+    "type"
+  ],
+  "Institutional": [
+    "lesion_assessment_review",
+    "hist_assessment_review"
+  ],
+  "Central": [
+    "lesion_assessment_review",
+    "hist_assessment_review"
+  ],
+  "Unknown": [
+    "lesion_assessment_review",
+    "lesion_detection_method",
+    "lesion_classification",
+    "lesion_site",
+    "e_extension_site",
+    "lesion_laterality",
+    "lesion_bulky",
+    "diam_dim1_type",
+    "diam_dim2_type",
+    "diam_dim3_type",
+    "pleural_effusion",
+    "pericardial_effusion",
+    "lesion_response",
+    "myeloid_sarcoma",
+    "myeloid_sarcoma_site",
+    "npt_timing",
+    "npt_type",
+    "npt_sct_type",
+    "route",
+    "antineoplastic_agent",
+    "normalization_basis",
+    "total_dose_units",
+    "administration_status",
+    "molecular_analysis_classification",
+    "molecular_analysis_method",
+    "molecular_analysis_sample_source",
+    "karyotype_status",
+    "dna_index",
+    "variant_type",
+    "molecular_abnormality_result",
+    "translocation_status",
+    "anaplasia",
+    "anaplasia_extent",
+    "mutation_type",
+    "cytodifferentiation",
+    "mitoses",
+    "copy_number_status",
+    "study_phase",
+    "study_type",
+    "tmp_type",
+    "tmp_product",
+    "tmp_product_type",
+    "adverse_event",
+    "ae_immune",
+    "ae_infusion",
+    "ae_system",
+    "ae_grade",
+    "ae_reported",
+    "ae_attribution",
+    "ae_outcome",
+    "avn_joint",
+    "avn_joint_laterality",
+    "avn_method",
+    "orthopedic_procedure",
+    "ae_expected",
+    "ae_tx_mod",
+    "ae_hospitalization",
+    "ae_icu",
+    "ae_medication",
+    "ae_intervention",
+    "ae_intervention_detail",
+    "ae_pathogen",
+    "ae_pathogen_status",
+    "infection_classification",
+    "gvhd_acuity",
+    "gvhd_organ",
+    "vitals_result_unit",
+    "stage_system",
+    "stage",
+    "AB",
+    "E",
+    "S",
+    "tnm_finding",
+    "irs_group",
+    "lab_cat",
+    "lab_spec_type",
+    "lab_result_unit",
+    "lab_method",
+    "lab_seq_method",
+    "traumatic_tap",
+    "sex",
+    "race",
+    "ethnicity",
+    "medical_history",
+    "medical_history_category",
+    "medical_history_status",
+    "assisted_conception",
+    "fab_type",
+    "who_aml",
+    "igccc_risk_group",
+    "magic_risk_group",
+    "mki",
+    "disease_site",
+    "detection_method",
+    "CNS_disease_status",
+    "CNS_disease_status_detail",
+    "lansky",
+    "karnofsky",
+    "GPOH_score",
+    "MPAL",
+    "MLDS",
+    "TAMDS",
+    "secondary_AML",
+    "prior_steroids_week",
+    "prior_steroids_month",
+    "e_lesions",
+    "bulk_disease",
+    "bulky_nodal_aggregate",
+    "BULK_MED_MASS",
+    "B_systems",
+    "fever",
+    "night_sweats",
+    "weight_loss",
+    "nodular_splenic",
+    "initial_treatment_category",
+    "ihc_result_unit",
+    "ihc_spec_type",
+    "smn_yn",
+    "smn_site",
+    "smn_type",
+    "smn_field",
+    "gts_treatment",
+    "reason_off",
+    "another_study",
+    "mod_type",
+    "mod_rationale",
+    "mod_reason",
+    "toxicity_details",
+    "toxicity_immune",
+    "toxicity_infusion",
+    "original_agent",
+    "sub_agent",
+    "hist_assessment_review",
+    "histology",
+    "histology_result_unit",
+    "histology_grade",
+    "mature_glial_implants",
+    "somatic_malignancy_type",
+    "histology_inpc",
+    "tumor_detection_method",
+    "tumor_classification",
+    "tumor_site",
+    "tumor_state",
+    "tumor_laterality",
+    "site_within_bone",
+    "fracture",
+    "tumor_volume",
+    "tumor_size",
+    "invasiveness",
+    "depth",
+    "necrosis",
+    "joint_involvement",
+    "nodal_pathology",
+    "nodal_clinical",
+    "nodal_involvement",
+    "nodal_site",
+    "parameningeal_extension",
+    "skip_lesion",
+    "ipsilateral_nodules",
+    "pleural_cytology",
+    "peritoneal_effusion",
+    "peritoneal_cytology",
+    "extension_site",
+    "family_history",
+    "relative",
+    "medication",
+    "medication_admn_status",
+    "medication_reason",
+    "mrd_method",
+    "flow_cytometry_type",
+    "mrd_result_unit",
+    "mrd_sample_source",
+    "mrd_molecular_markers",
+    "sct_type",
+    "sct_source",
+    "sct_donor_relationship",
+    "hla_match",
+    "hla_a_result",
+    "hla_b_result",
+    "hla_c_result",
+    "hla_drb1_result",
+    "hla_dq_result",
+    "sct_conditioning_type",
+    "sct_tbi",
+    "function_result_unit",
+    "procedure_tissue_type",
+    "procedure_site",
+    "procedure_laterality",
+    "procedure_type",
+    "limb_surgery_type",
+    "amputation_type",
+    "limb_salvage_surgery_type",
+    "reconstruction_type",
+    "procedure_extent",
+    "margins",
+    "biopsy_type",
+    "met_non_lung_mgmt",
+    "met_lung_mgmt",
+    "localization_technique",
+    "procedure_purpose",
+    "procedure_performed",
+    "procedure_treatment_timing",
+    "malignant_cells",
+    "cytology_spec_type",
+    "cimt_type",
+    "censor_status",
+    "rt_tissue_type",
+    "rt_site",
+    "rt_laterality",
+    "energy_type",
+    "rt_unit",
+    "boost",
+    "transposition_organ",
+    "rt_timing",
+    "le_detail",
+    "le_sub_detail",
+    "le_severity_grade",
+    "lkss",
+    "lkss_with_disease",
+    "cause_of_death",
+    "TRM_type",
+    "cause_of_death_detail",
+    "cause_of_death_ranking",
+    "response_category",
+    "tx_prior_response",
+    "interim_response",
+    "response",
+    "response_method",
+    "response_criteria",
+    "bm_analysis_method_at_response",
+    "anc_threshold_at_response",
+    "platelet_threshold_at_response",
+    "symptoms",
+    "palpable_nodes",
+    "pro_measures",
+    "pro_measurement_type",
+    "raters",
+    "time_point",
+    "imaging_method",
+    "imaging_result",
+    "deauville_score"
+  ],
+  "Not Reported": [
+    "lesion_assessment_review",
+    "lesion_detection_method",
+    "lesion_classification",
+    "lesion_site",
+    "e_extension_site",
+    "lesion_laterality",
+    "lesion_bulky",
+    "diam_dim1_type",
+    "diam_dim2_type",
+    "diam_dim3_type",
+    "pleural_effusion",
+    "pericardial_effusion",
+    "lesion_response",
+    "myeloid_sarcoma",
+    "myeloid_sarcoma_site",
+    "npt_timing",
+    "npt_type",
+    "npt_sct_type",
+    "route",
+    "antineoplastic_agent",
+    "normalization_basis",
+    "total_dose_units",
+    "administration_status",
+    "molecular_analysis_classification",
+    "molecular_analysis_method",
+    "molecular_analysis_sample_source",
+    "karyotype_status",
+    "dna_index",
+    "variant_type",
+    "molecular_abnormality_result",
+    "translocation_status",
+    "mutation_type",
+    "cytodifferentiation",
+    "mitoses",
+    "study_phase",
+    "study_type",
+    "tmp_type",
+    "tmp_product",
+    "tmp_product_type",
+    "adverse_event",
+    "ae_immune",
+    "ae_infusion",
+    "ae_system",
+    "ae_grade",
+    "ae_reported",
+    "ae_attribution",
+    "ae_outcome",
+    "avn_joint",
+    "avn_joint_laterality",
+    "avn_method",
+    "orthopedic_procedure",
+    "ae_expected",
+    "ae_tx_mod",
+    "ae_hospitalization",
+    "ae_icu",
+    "ae_medication",
+    "ae_intervention",
+    "ae_intervention_detail",
+    "ae_pathogen",
+    "ae_pathogen_status",
+    "gvhd_acuity",
+    "gvhd_organ",
+    "vitals_result_unit",
+    "stage_system",
+    "stage",
+    "AB",
+    "E",
+    "S",
+    "lab_cat",
+    "lab_result_unit",
+    "lab_method",
+    "lab_seq_method",
+    "traumatic_tap",
+    "sex",
+    "race",
+    "ethnicity",
+    "medical_history",
+    "medical_history_category",
+    "medical_history_status",
+    "fab_type",
+    "who_aml",
+    "igccc_risk_group",
+    "magic_risk_group",
+    "mki",
+    "disease_site",
+    "detection_method",
+    "CNS_disease_status",
+    "CNS_disease_status_detail",
+    "lansky",
+    "karnofsky",
+    "GPOH_score",
+    "MPAL",
+    "MLDS",
+    "TAMDS",
+    "secondary_AML",
+    "prior_steroids_week",
+    "prior_steroids_month",
+    "e_lesions",
+    "bulk_disease",
+    "bulky_nodal_aggregate",
+    "BULK_MED_MASS",
+    "B_systems",
+    "fever",
+    "night_sweats",
+    "weight_loss",
+    "nodular_splenic",
+    "ihc_result_unit",
+    "ihc_spec_type",
+    "smn_yn",
+    "smn_site",
+    "smn_type",
+    "smn_field",
+    "gts_treatment",
+    "reason_off",
+    "another_study",
+    "mod_type",
+    "mod_rationale",
+    "mod_reason",
+    "toxicity_details",
+    "toxicity_immune",
+    "toxicity_infusion",
+    "original_agent",
+    "sub_agent",
+    "hist_assessment_review",
+    "histology_result_unit",
+    "histology_grade",
+    "mature_glial_implants",
+    "somatic_malignancy_type",
+    "histology_inpc",
+    "tumor_detection_method",
+    "tumor_site",
+    "tumor_laterality",
+    "site_within_bone",
+    "fracture",
+    "tumor_volume",
+    "depth",
+    "necrosis",
+    "nodal_pathology",
+    "nodal_clinical",
+    "nodal_site",
+    "parameningeal_extension",
+    "skip_lesion",
+    "ipsilateral_nodules",
+    "pleural_cytology",
+    "peritoneal_effusion",
+    "peritoneal_cytology",
+    "extension_site",
+    "family_history",
+    "relative",
+    "medication",
+    "medication_admn_status",
+    "medication_reason",
+    "mrd_method",
+    "flow_cytometry_type",
+    "mrd_result_unit",
+    "mrd_sample_source",
+    "mrd_molecular_markers",
+    "sct_type",
+    "sct_source",
+    "sct_donor_relationship",
+    "hla_match",
+    "hla_a_result",
+    "hla_b_result",
+    "hla_c_result",
+    "hla_drb1_result",
+    "hla_dq_result",
+    "sct_conditioning_type",
+    "sct_tbi",
+    "function_result_unit",
+    "procedure_tissue_type",
+    "procedure_site",
+    "procedure_laterality",
+    "procedure_type",
+    "limb_surgery_type",
+    "amputation_type",
+    "limb_salvage_surgery_type",
+    "reconstruction_type",
+    "procedure_extent",
+    "biopsy_type",
+    "met_non_lung_mgmt",
+    "met_lung_mgmt",
+    "localization_technique",
+    "procedure_purpose",
+    "procedure_performed",
+    "procedure_treatment_timing",
+    "malignant_cells",
+    "cytology_spec_type",
+    "cimt_type",
+    "tumor_classification",
+    "rt_tissue_type",
+    "rt_site",
+    "rt_laterality",
+    "energy_type",
+    "rt_unit",
+    "boost",
+    "transposition_organ",
+    "rt_timing",
+    "le_detail",
+    "le_sub_detail",
+    "le_severity_grade",
+    "lkss_with_disease",
+    "cause_of_death",
+    "TRM_type",
+    "cause_of_death_detail",
+    "cause_of_death_ranking",
+    "response_category",
+    "tx_prior_response",
+    "interim_response",
+    "response",
+    "response_method",
+    "response_criteria",
+    "bm_analysis_method_at_response",
+    "anc_threshold_at_response",
+    "platelet_threshold_at_response",
+    "symptoms",
+    "palpable_nodes",
+    "pro_measures",
+    "pro_measurement_type",
+    "raters",
+    "time_point",
+    "imaging_method",
+    "imaging_result",
+    "deauville_score"
+  ],
+  "Biopsy": [
+    "lesion_detection_method",
+    "detection_method",
+    "procedure_type"
+  ],
+  "Staging Laparotomy": [
+    "lesion_detection_method"
+  ],
+  "Lymphangiogram": [
+    "lesion_detection_method"
+  ],
+  "Plain Film Tomography": [
+    "lesion_detection_method"
+  ],
+  "Gallium Scan": [
+    "lesion_detection_method"
+  ],
+  "CT Scan": [
+    "lesion_detection_method",
+    "tumor_detection_method"
+  ],
+  "PET Scan": [
+    "lesion_detection_method"
+  ],
+  "PET-CT": [
+    "lesion_detection_method",
+    "response_method",
+    "imaging_method"
+  ],
+  "PET-MRI": [
+    "lesion_detection_method",
+    "response_method",
+    "imaging_method"
+  ],
+  "Ultrasound": [
+    "lesion_detection_method",
+    "response_method",
+    "imaging_method"
+  ],
+  "MRI": [
+    "lesion_detection_method",
+    "response_method",
+    "imaging_method"
+  ],
+  "X-Ray": [
+    "lesion_detection_method",
+    "tumor_detection_method",
+    "response_method"
+  ],
+  "Bone Scan": [
+    "lesion_detection_method",
+    "response_method"
+  ],
+  "Physical Exam": [
+    "lesion_detection_method"
+  ],
+  "Primary": [
+    "lesion_classification",
+    "molecular_analysis_classification",
+    "tumor_classification",
+    "cause_of_death_ranking"
+  ],
+  "Metastatic": [
+    "lesion_classification",
+    "molecular_analysis_classification",
+    "tumor_classification"
+  ],
+  "Axilla or Pectoral": [
+    "lesion_site"
+  ],
+  "Axillary Nodes": [
+    "lesion_site",
+    "tumor_site",
+    "procedure_site"
+  ],
+  "Bone": [
+    "lesion_site",
+    "e_extension_site",
+    "myeloid_sarcoma_site",
+    "tumor_site",
+    "procedure_tissue_type",
+    "procedure_site",
+    "rt_tissue_type",
+    "rt_site"
+  ],
+  "Bone Marrow": [
+    "lesion_site",
+    "lab_spec_type",
+    "disease_site",
+    "tumor_site",
+    "mrd_sample_source",
+    "procedure_site"
+  ],
+  "Celiac Nodes": [
+    "lesion_site",
+    "tumor_site",
+    "procedure_site"
+  ],
+  "Cervical Nodes": [
+    "lesion_site",
+    "tumor_site"
+  ],
+  "Epitrochlear Nodes": [
+    "lesion_site",
+    "tumor_site"
+  ],
+  "Hilar Nodes": [
+    "lesion_site",
+    "tumor_site",
+    "procedure_site"
+  ],
+  "Iliac": [
+    "lesion_site",
+    "rt_site"
+  ],
+  "Iliac Crest": [
+    "lesion_site"
+  ],
+  "Ilium": [
+    "lesion_site",
+    "tumor_site",
+    "procedure_site"
+  ],
+  "Infraclavicular Nodes": [
+    "lesion_site",
+    "tumor_site",
+    "procedure_site"
+  ],
+  "Inguinal or Femoral Nodes": [
+    "lesion_site",
+    "tumor_site",
+    "procedure_site"
+  ],
+  "Liver": [
+    "lesion_site",
+    "gvhd_organ",
+    "tumor_site",
+    "procedure_site",
+    "rt_site"
+  ],
+  "Lung": [
+    "lesion_site",
+    "gvhd_organ",
+    "tumor_site",
+    "procedure_site",
+    "rt_site"
+  ],
+  "Mediastinum": [
+    "lesion_site",
+    "tumor_site",
+    "nodal_site",
+    "procedure_site",
+    "rt_site"
+  ],
+  "Mesenteric Nodes": [
+    "lesion_site",
+    "tumor_site",
+    "procedure_site"
+  ],
+  "Muscle": [
+    "lesion_site"
+  ],
+  "Paraaortic Lymph Nodes": [
+    "lesion_site",
+    "tumor_site"
+  ],
+  "Pectoral Nodes": [
+    "lesion_site",
+    "tumor_site",
+    "procedure_site"
+  ],
+  "Pleura": [
+    "lesion_site",
+    "tumor_site",
+    "rt_site"
+  ],
+  "Popliteal Nodes": [
+    "lesion_site",
+    "tumor_site",
+    "procedure_site"
+  ],
+  "Preauricular Nodes": [
+    "lesion_site",
+    "tumor_site"
+  ],
+  "Skin": [
+    "lesion_site",
+    "myeloid_sarcoma_site",
+    "gvhd_organ",
+    "tumor_site"
+  ],
+  "Spleen": [
+    "lesion_site",
+    "procedure_site"
+  ],
+  "Splenic Hilar Nodes": [
+    "lesion_site",
+    "tumor_site",
+    "procedure_site"
+  ],
+  "Supraclavicular Nodes": [
+    "lesion_site",
+    "tumor_site",
+    "procedure_site"
+  ],
+  "Thyroid": [
+    "lesion_site"
+  ],
+  "Waldeyer's Ring": [
+    "lesion_site",
+    "rt_site"
+  ],
+  "Heart": [
+    "e_extension_site"
+  ],
+  "Lungs": [
+    "e_extension_site"
+  ],
+  "Soft Tissue": [
+    "e_extension_site",
+    "tumor_site",
+    "procedure_tissue_type",
+    "rt_tissue_type"
+  ],
+  "Chest Wall": [
+    "e_extension_site",
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Left": [
+    "lesion_laterality",
+    "avn_joint_laterality",
+    "tumor_laterality",
+    "procedure_laterality",
+    "rt_laterality"
+  ],
+  "Right": [
+    "lesion_laterality",
+    "avn_joint_laterality",
+    "tumor_laterality",
+    "procedure_laterality",
+    "rt_laterality"
+  ],
+  "Midline": [
+    "lesion_laterality",
+    "avn_joint_laterality",
+    "tumor_laterality",
+    "procedure_laterality",
+    "rt_laterality"
+  ],
+  "No": [
+    "lesion_bulky",
+    "pleural_effusion",
+    "pericardial_effusion",
+    "myeloid_sarcoma",
+    "ae_immune",
+    "ae_infusion",
+    "ae_reported",
+    "ae_tx_mod",
+    "ae_hospitalization",
+    "ae_icu",
+    "ae_medication",
+    "ae_intervention",
+    "traumatic_tap",
+    "MPAL",
+    "MLDS",
+    "TAMDS",
+    "secondary_AML",
+    "prior_steroids_week",
+    "prior_steroids_month",
+    "e_lesions",
+    "bulk_disease",
+    "bulky_nodal_aggregate",
+    "BULK_MED_MASS",
+    "B_systems",
+    "fever",
+    "night_sweats",
+    "weight_loss",
+    "nodular_splenic",
+    "smn_yn",
+    "another_study",
+    "toxicity_immune",
+    "toxicity_infusion",
+    "mature_glial_implants",
+    "fracture",
+    "joint_involvement",
+    "nodal_involvement",
+    "parameningeal_extension",
+    "skip_lesion",
+    "ipsilateral_nodules",
+    "peritoneal_effusion",
+    "family_history",
+    "sct_tbi",
+    "met_non_lung_mgmt",
+    "procedure_performed",
+    "boost",
+    "lkss_with_disease",
+    "anc_threshold_at_response",
+    "platelet_threshold_at_response",
+    "symptoms",
+    "palpable_nodes"
+  ],
+  "Yes": [
+    "lesion_bulky",
+    "pleural_effusion",
+    "pericardial_effusion",
+    "myeloid_sarcoma",
+    "ae_immune",
+    "ae_infusion",
+    "ae_reported",
+    "ae_tx_mod",
+    "ae_hospitalization",
+    "ae_icu",
+    "ae_medication",
+    "ae_intervention",
+    "traumatic_tap",
+    "MPAL",
+    "MLDS",
+    "TAMDS",
+    "secondary_AML",
+    "prior_steroids_week",
+    "prior_steroids_month",
+    "e_lesions",
+    "bulk_disease",
+    "bulky_nodal_aggregate",
+    "BULK_MED_MASS",
+    "B_systems",
+    "fever",
+    "night_sweats",
+    "weight_loss",
+    "nodular_splenic",
+    "smn_yn",
+    "another_study",
+    "toxicity_immune",
+    "toxicity_infusion",
+    "mature_glial_implants",
+    "fracture",
+    "joint_involvement",
+    "nodal_involvement",
+    "parameningeal_extension",
+    "skip_lesion",
+    "ipsilateral_nodules",
+    "peritoneal_effusion",
+    "family_history",
+    "sct_tbi",
+    "met_non_lung_mgmt",
+    "procedure_performed",
+    "boost",
+    "lkss_with_disease",
+    "anc_threshold_at_response",
+    "platelet_threshold_at_response",
+    "symptoms",
+    "palpable_nodes"
+  ],
+  "Cranial-caudal": [
+    "diam_dim1_type",
+    "diam_dim2_type",
+    "diam_dim3_type"
+  ],
+  "Transverse": [
+    "diam_dim1_type",
+    "diam_dim2_type",
+    "diam_dim3_type"
+  ],
+  "Complete response": [
+    "lesion_response"
+  ],
+  "Complete response unconfirmed": [
+    "lesion_response"
+  ],
+  "Partial response": [
+    "lesion_response"
+  ],
+  "Stable disease": [
+    "lesion_response"
+  ],
+  "Progressive disease": [
+    "lesion_response"
+  ],
+  "submitted_unaligned_reads": [
+    "type"
+  ],
+  "Sequencing Data": [
+    "data_category"
+  ],
+  "Sequencing Reads": [
+    "data_category"
+  ],
+  "Raw Sequencing Data": [
+    "data_category"
+  ],
+  "Unaligned Reads": [
+    "data_type"
+  ],
+  "BAM": [
+    "data_format"
+  ],
+  "FASTQ": [
+    "data_format"
+  ],
+  "WGS": [
+    "experimental_strategy"
+  ],
+  "WXS": [
+    "experimental_strategy"
+  ],
+  "Low Pass WGS": [
+    "experimental_strategy"
+  ],
+  "Validation": [
+    "experimental_strategy"
+  ],
+  "RNA-Seq": [
+    "experimental_strategy"
+  ],
+  "miRNA-Seq": [
+    "experimental_strategy"
+  ],
+  "Total RNA-Seq": [
+    "experimental_strategy"
+  ],
+  "DNA Panel": [
+    "experimental_strategy"
+  ],
+  "Open": [
+    "availability_type"
+  ],
+  "Restricted": [
+    "availability_type"
+  ],
+  "open": [
+    "state"
+  ],
+  "review": [
+    "state"
+  ],
+  "submitted": [
+    "state",
+    "data_bundle_state",
+    "oneOf",
+    "file_state"
+  ],
+  "processing": [
+    "state",
+    "file_state"
+  ],
+  "closed": [
+    "state"
+  ],
+  "legacy": [
+    "state"
+  ],
+  "myeloid_sarcoma_involvement": [
+    "type"
+  ],
+  "CNS": [
+    "myeloid_sarcoma_site",
+    "smn_site"
+  ],
+  "Orbit": [
+    "myeloid_sarcoma_site",
+    "tumor_site"
+  ],
+  "Testis": [
+    "myeloid_sarcoma_site",
+    "tumor_site",
+    "procedure_site"
+  ],
+  "non_protocol_therapy": [
+    "type"
+  ],
+  "Prior to Study": [
+    "npt_timing"
+  ],
+  "After Study Completion": [
+    "npt_timing"
+  ],
+  "Stem Cell Transplant": [
+    "npt_type",
+    "TRM_type"
+  ],
+  "Surgery": [
+    "npt_type",
+    "gts_treatment",
+    "procedure_type"
+  ],
+  "Autologous": [
+    "npt_sct_type",
+    "sct_type"
+  ],
+  "Allogeneic": [
+    "npt_sct_type",
+    "sct_type"
+  ],
+  "total_dose": [
+    "type"
+  ],
+  "Systemic": [
+    "route"
+  ],
+  "Intrathecal": [
+    "route"
+  ],
+  "Parenteral": [
+    "route_detail"
+  ],
+  "Oral": [
+    "route_detail"
+  ],
+  "5-fluorouracil": [
+    "antineoplastic_agent"
+  ],
+  "Amifostine": [
+    "antineoplastic_agent"
+  ],
+  "Amsacrine": [
+    "antineoplastic_agent"
+  ],
+  "Arsenic Trioxide": [
+    "antineoplastic_agent"
+  ],
+  "Bendamustine": [
+    "antineoplastic_agent",
+    "original_agent",
+    "sub_agent"
+  ],
+  "Bleomycin": [
+    "antineoplastic_agent",
+    "original_agent",
+    "sub_agent"
+  ],
+  "Bortezomib": [
+    "antineoplastic_agent"
+  ],
+  "Brentuximab Vedotin": [
+    "antineoplastic_agent"
+  ],
+  "Busulfan": [
+    "antineoplastic_agent",
+    "original_agent",
+    "sub_agent"
+  ],
+  "Carboplatin": [
+    "antineoplastic_agent",
+    "original_agent",
+    "sub_agent"
+  ],
+  "Carmustine": [
+    "antineoplastic_agent",
+    "original_agent",
+    "sub_agent"
+  ],
+  "Chemotherapy, NOS": [
+    "antineoplastic_agent"
+  ],
+  "Cisplatin": [
+    "antineoplastic_agent",
+    "original_agent",
+    "sub_agent"
+  ],
+  "Cladribine": [
+    "antineoplastic_agent"
+  ],
+  "Clofarabine": [
+    "antineoplastic_agent"
+  ],
+  "Cyclophosphamide": [
+    "antineoplastic_agent",
+    "original_agent",
+    "sub_agent"
+  ],
+  "Cytarabine": [
+    "antineoplastic_agent",
+    "original_agent",
+    "sub_agent"
+  ],
+  "Dacarbazine": [
+    "antineoplastic_agent",
+    "original_agent",
+    "sub_agent"
+  ],
+  "Dactinomycin": [
+    "antineoplastic_agent"
+  ],
+  "Daunorubicin": [
+    "antineoplastic_agent"
+  ],
+  "Daunorubicin (Liposomal)": [
+    "antineoplastic_agent"
+  ],
+  "Daunorubicin and Cytarabine (Liposomal)": [
+    "antineoplastic_agent"
+  ],
+  "Dexamethasone": [
+    "antineoplastic_agent",
+    "original_agent",
+    "sub_agent"
+  ],
+  "Doxorubicin": [
+    "antineoplastic_agent",
+    "original_agent",
+    "sub_agent"
+  ],
+  "Etoposide": [
+    "antineoplastic_agent",
+    "original_agent",
+    "sub_agent"
+  ],
+  "Etoposide Phosphate": [
+    "antineoplastic_agent"
+  ],
+  "Fludarabine": [
+    "antineoplastic_agent",
+    "original_agent",
+    "sub_agent"
+  ],
+  "Gemcitabine": [
+    "antineoplastic_agent",
+    "original_agent",
+    "sub_agent"
+  ],
+  "Gemtuzumab Ozogamicin": [
+    "antineoplastic_agent"
+  ],
+  "Gilteritinib": [
+    "antineoplastic_agent"
+  ],
+  "Hydrocortisone Sodium Succinate": [
+    "antineoplastic_agent"
+  ],
+  "Idarubicin": [
+    "antineoplastic_agent"
+  ],
+  "Ifosfamide": [
+    "antineoplastic_agent",
+    "original_agent",
+    "sub_agent"
+  ],
+  "Melphalan": [
+    "antineoplastic_agent",
+    "original_agent",
+    "sub_agent"
+  ],
+  "Methotrexate": [
+    "antineoplastic_agent",
+    "original_agent",
+    "sub_agent"
+  ],
+  "Midostaurin": [
+    "antineoplastic_agent"
+  ],
+  "Mitoxantrone": [
+    "antineoplastic_agent"
+  ],
+  "Mylotarg": [
+    "antineoplastic_agent"
+  ],
+  "Nitrogen Mustard": [
+    "antineoplastic_agent",
+    "original_agent",
+    "sub_agent"
+  ],
+  "Nivolumab": [
+    "antineoplastic_agent",
+    "original_agent",
+    "sub_agent"
+  ],
+  "Paclitaxel": [
+    "antineoplastic_agent"
+  ],
+  "Pembrolizumab": [
+    "antineoplastic_agent"
+  ],
+  "Prednisone": [
+    "antineoplastic_agent",
+    "original_agent",
+    "sub_agent"
+  ],
+  "Procarbazine": [
+    "antineoplastic_agent",
+    "original_agent",
+    "sub_agent"
+  ],
+  "Quizartinib": [
+    "antineoplastic_agent"
+  ],
+  "Sorafenib": [
+    "antineoplastic_agent"
+  ],
+  "Thiotepa": [
+    "antineoplastic_agent",
+    "original_agent",
+    "sub_agent"
+  ],
+  "Tretinoin": [
+    "antineoplastic_agent"
+  ],
+  "Vinblastine": [
+    "antineoplastic_agent",
+    "original_agent",
+    "sub_agent"
+  ],
+  "Vincristine": [
+    "antineoplastic_agent",
+    "original_agent",
+    "sub_agent"
+  ],
+  "Vinorelbine": [
+    "antineoplastic_agent"
+  ],
+  "Weight": [
+    "normalization_basis",
+    "vitals_test"
+  ],
+  "BSA": [
+    "normalization_basis",
+    "vitals_test"
+  ],
+  "Flat": [
+    "normalization_basis"
+  ],
+  "mg/m2": [
+    "total_dose_units"
+  ],
+  "mg/kg": [
+    "total_dose_units"
+  ],
+  "mg": [
+    "total_dose_units"
+  ],
+  "IU": [
+    "total_dose_units"
+  ],
+  "IU/m2": [
+    "total_dose_units"
+  ],
+  "Medication Administered": [
+    "administration_status",
+    "medication_admn_status"
+  ],
+  "Medication Not Administered": [
+    "administration_status",
+    "medication_admn_status"
+  ],
+  "molecular_analysis": [
+    "type"
+  ],
+  "Capillary Electrophoresis": [
+    "molecular_analysis_method"
+  ],
+  "Cytogenetics": [
+    "molecular_analysis_method"
+  ],
+  "Fluorescence In Situ Hybridization": [
+    "molecular_analysis_method"
+  ],
+  "Gel Electrophoresis": [
+    "molecular_analysis_method"
+  ],
+  "Genotyping": [
+    "molecular_analysis_method"
+  ],
+  "Karyotype": [
+    "molecular_analysis_method"
+  ],
+  "Next Generation Sequencing": [
+    "molecular_analysis_method",
+    "mrd_method"
+  ],
+  "Polymerase Chain Reaction": [
+    "molecular_analysis_method"
+  ],
+  "Reverse Transcriptase-Polymerase Chain Reaction": [
+    "molecular_analysis_method"
+  ],
+  "Blood": [
+    "molecular_analysis_sample_source",
+    "lab_spec_type",
+    "mrd_sample_source"
+  ],
+  "Bone marrow": [
+    "molecular_analysis_sample_source",
+    "sct_source"
+  ],
+  "Normal Karyotype": [
+    "karyotype_status"
+  ],
+  "Abnormal Karyotype": [
+    "karyotype_status"
+  ],
+  "DNA Index <= 1 (Hypodiploid, Diploid)": [
+    "dna_index"
+  ],
+  "DNA Index > 1 (Hyperdiploid)": [
+    "dna_index"
+  ],
+  "(t2;16)(q35;p11)": [
+    "molecular_abnormality"
+  ],
+  "11q deletion": [
+    "molecular_abnormality"
+  ],
+  "12q gain": [
+    "molecular_abnormality"
+  ],
+  "16q loss": [
+    "molecular_abnormality"
+  ],
+  "17q gain": [
+    "molecular_abnormality"
+  ],
+  "1p deletion": [
+    "molecular_abnormality"
+  ],
+  "1q gain": [
+    "molecular_abnormality"
+  ],
+  "45XO": [
+    "molecular_abnormality"
+  ],
+  "45XO w/ Y chromosomal material": [
+    "molecular_abnormality"
+  ],
+  "46XX": [
+    "molecular_abnormality"
+  ],
+  "46XY": [
+    "molecular_abnormality"
+  ],
+  "47XXX": [
+    "molecular_abnormality"
+  ],
+  "47XXY": [
+    "molecular_abnormality"
+  ],
+  "47XYY": [
+    "molecular_abnormality"
+  ],
+  "48XXXX": [
+    "molecular_abnormality"
+  ],
+  "48XXXY": [
+    "molecular_abnormality"
+  ],
+  "8q gain": [
+    "molecular_abnormality"
+  ],
+  "ALK Amplification": [
+    "molecular_abnormality"
+  ],
+  "ALK Copy Number Gain": [
+    "molecular_abnormality"
+  ],
+  "ALK Copy Number Loss": [
+    "molecular_abnormality"
+  ],
+  "ALK mutation": [
+    "molecular_abnormality"
+  ],
+  "ALK p.F1174L mutation": [
+    "molecular_abnormality"
+  ],
+  "ALK p.R1275L mutation": [
+    "molecular_abnormality"
+  ],
+  "ALK rearranged": [
+    "molecular_abnormality"
+  ],
+  "ASPSCR1-TFE3": [
+    "molecular_abnormality"
+  ],
+  "B-ALL variant": [
+    "molecular_abnormality"
+  ],
+  "BCOR ITT rearranged": [
+    "molecular_abnormality"
+  ],
+  "BCOR rearranged": [
+    "molecular_abnormality"
+  ],
+  "BCOR-MAML3": [
+    "molecular_abnormality"
+  ],
+  "BRAF V600E": [
+    "molecular_abnormality"
+  ],
+  "CCNB3-BCOR": [
+    "molecular_abnormality"
+  ],
+  "CDKN2A": [
+    "molecular_abnormality"
+  ],
+  "CEBPA mutation - biallelic": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "CEBPA mutation - monoallelic": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "CEBPA mutation - mutation unspecified": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "CIC rearranged": [
+    "molecular_abnormality"
+  ],
+  "CIC-DUX4": [
+    "molecular_abnormality"
+  ],
+  "CIC-DUX4L10": [
+    "molecular_abnormality"
+  ],
+  "CKIT mutation - ex17": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "CKIT mutation - ex8": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "CKIT mutation - unspecified": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "del(13q)": [
+    "molecular_abnormality"
+  ],
+  "del(13q) (13q 14 - 21)": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "del(17p)": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "del(5q)(5q31-q32)": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "der.12p": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "E2A/PBX1 t(1;19)": [
+    "molecular_abnormality"
+  ],
+  "ETV6 rearranged": [
+    "molecular_abnormality"
+  ],
+  "ETV6-MN1 Fusion": [
+    "molecular_abnormality"
+  ],
+  "ETV6-NTRK3": [
+    "molecular_abnormality"
+  ],
+  "ETV6-RUNX1 t(12;21)(p13;q22)(formerly TEL-AML1)": [
+    "molecular_abnormality"
+  ],
+  "EWSR1 rearranged": [
+    "molecular_abnormality"
+  ],
+  "EWSR1-ATF1": [
+    "molecular_abnormality"
+  ],
+  "EWSR1-CREB1": [
+    "molecular_abnormality"
+  ],
+  "EWSR1-DDIT3": [
+    "molecular_abnormality"
+  ],
+  "EWSR1-ERG": [
+    "molecular_abnormality"
+  ],
+  "EWSR1-ETV1": [
+    "molecular_abnormality"
+  ],
+  "EWSR1-ETV1/4": [
+    "molecular_abnormality"
+  ],
+  "EWSR1-ETV4": [
+    "molecular_abnormality"
+  ],
+  "EWSR1-FEV": [
+    "molecular_abnormality"
+  ],
+  "EWSR1-FLI1": [
+    "molecular_abnormality"
+  ],
+  "EWSR1-KLF17": [
+    "molecular_abnormality"
+  ],
+  "EWSR1-NR4A3": [
+    "molecular_abnormality"
+  ],
+  "EWSR1-PBX1": [
+    "molecular_abnormality"
+  ],
+  "EWSR1-PBX1/ZNF44/POU5F1": [
+    "molecular_abnormality"
+  ],
+  "EWSR1-POU5F1": [
+    "molecular_abnormality"
+  ],
+  "EWSR1-WT1": [
+    "molecular_abnormality"
+  ],
+  "EWSR1-ZNF444": [
+    "molecular_abnormality"
+  ],
+  "FLT3 D835N Pathogenic Variant": [
+    "molecular_abnormality"
+  ],
+  "FLT3 internal tandem duplication (ITD)": [
+    "molecular_abnormality"
+  ],
+  "FLT3-TKD": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "FOXO1 rearranged": [
+    "molecular_abnormality"
+  ],
+  "FOXO1-Other fusion": [
+    "molecular_abnormality"
+  ],
+  "FOXO1-PAX3 fusion": [
+    "molecular_abnormality"
+  ],
+  "FOXO1-PAX7 fusion": [
+    "molecular_abnormality"
+  ],
+  "FUS rearranged": [
+    "molecular_abnormality"
+  ],
+  "FUS translocation present": [
+    "molecular_abnormality"
+  ],
+  "FUS-CREB3L2": [
+    "molecular_abnormality"
+  ],
+  "FUS-DDIT3": [
+    "molecular_abnormality"
+  ],
+  "FUS-ERG (also known as TLS/ERG) present": [
+    "molecular_abnormality"
+  ],
+  "FUS-FEV (also known as TLS/FEV) present": [
+    "molecular_abnormality"
+  ],
+  "FUS-KLF17": [
+    "molecular_abnormality"
+  ],
+  "GATA1 mutation": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "iAMP21": [
+    "molecular_abnormality"
+  ],
+  "inv(16)(p13.3q24.3)/CBFA2T3-GLIS2": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "inv(16)(p13q22)": [
+    "molecular_abnormality"
+  ],
+  "inv(3)(q21;q21.2)": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "inv(3)(q21.3;q26.2)": [
+    "molecular_abnormality"
+  ],
+  "inv(X)(p11.4;p11.22)": [
+    "molecular_abnormality"
+  ],
+  "K-RAS mutation": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "MLL Other partner": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "MLL rearrangement": [
+    "molecular_abnormality"
+  ],
+  "MLL-MLLT3 Fusion": [
+    "molecular_abnormality"
+  ],
+  "MLL-MLLT10(AF10) Fusion": [
+    "molecular_abnormality"
+  ],
+  "Monosomy 5": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "Monosomy 7": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "MYCN Amplification": [
+    "molecular_abnormality"
+  ],
+  "N-RAS mutation": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "Non-KMT2A MLLT10": [
+    "molecular_abnormality"
+  ],
+  "None detected": [
+    "molecular_abnormality"
+  ],
+  "NPM1 mutation": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "NTRK Rearranged": [
+    "molecular_abnormality"
+  ],
+  "PAX3-Other fusion": [
+    "molecular_abnormality"
+  ],
+  "PML-RARA Fusion": [
+    "molecular_abnormality"
+  ],
+  "PTPN11 mutation": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "ROS1 rearranged": [
+    "molecular_abnormality"
+  ],
+  "RUNX1 mutation": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "RUNX1-RUNX1T1 Fusion": [
+    "molecular_abnormality"
+  ],
+  "SMARCB1 deleted/mutated": [
+    "molecular_abnormality"
+  ],
+  "SSX-SS18": [
+    "molecular_abnormality"
+  ],
+  "STAG2": [
+    "molecular_abnormality"
+  ],
+  "t(1;11)(q21;q23) / MLL-MLLT11(AF1Q)": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "t(1;16)(p34;p11)": [
+    "molecular_abnormality"
+  ],
+  "t(1;22)(p34;q12)": [
+    "molecular_abnormality"
+  ],
+  "t(1;22)(q23;q12)": [
+    "molecular_abnormality"
+  ],
+  "t(1;22)(RBM15-MKL1)": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "t(10;11)(p11.2;q23)": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "t(10;11)(p12;q23) / MLL-MLLT10(AF10)": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "t(10;19)(q26;q13)": [
+    "molecular_abnormality"
+  ],
+  "t(11;15)(p15;q35)/NUP98/JARID1A": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "t(11;17)(AF17)": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "t(11;19)(q23;p13.1) (MLL-ELL)": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "t(11;19)(q23;p13.3) (MLL-ENL)": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "t(11;19)(q23;p13) (MLL-ENL)/(MLL-ELL)": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "t(11;22)(p13;q12)": [
+    "molecular_abnormality"
+  ],
+  "t(11;22)(q24;q12)": [
+    "molecular_abnormality"
+  ],
+  "t(12;16)(q13;p11)": [
+    "molecular_abnormality"
+  ],
+  "t(12;22)(q13.12;q12)": [
+    "molecular_abnormality"
+  ],
+  "t(12;22)(q13.3;q12)": [
+    "molecular_abnormality"
+  ],
+  "t(15;17)(q24;q21)": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "t(16;16)(p13.1;q22)": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "t(16;21)(p11;q22)FUS/ERG": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "t(16;21)(q24;q22)RUNX1-CBFA2T3": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "t(17;22)(q21;q12)": [
+    "molecular_abnormality"
+  ],
+  "t(19;22)(q13;q12)": [
+    "molecular_abnormality"
+  ],
+  "t(2;12)": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "t(2;22)(q33;q12)": [
+    "molecular_abnormality"
+  ],
+  "t(2;22)(q34;q12)": [
+    "molecular_abnormality"
+  ],
+  "t(21;16)(p11;q22)": [
+    "molecular_abnormality"
+  ],
+  "t(21;22)(q22;q12)": [
+    "molecular_abnormality"
+  ],
+  "t(3;12)(q23;p12.3)(ETV6/EVI1)": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "t(3;3)(q21;q26.2), RPN1-EVI1": [
+    "molecular_abnormality"
+  ],
+  "t(3;5)(p25;q34)NPM1/MLF1": [
+    "molecular_abnormality"
+  ],
+  "t(4;11)(q21;q23) / MLL-MLLT2(AF4)": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "t(4;19)(q25;q13)": [
+    "molecular_abnormality"
+  ],
+  "t(4;19)(q35;q13)": [
+    "molecular_abnormality"
+  ],
+  "t(5;11)(q35;p15) NSD1/NUP98": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "t(6;11)(q27;q23) / MLL-MLLT4(AF6)": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "t(6;22)(p21;q12)": [
+    "molecular_abnormality"
+  ],
+  "t(6;9)(p23;q34) (DEK/NUP214)": [
+    "molecular_abnormality"
+  ],
+  "t(7;12)(q36;p13) HLXB9(MNX1)/ETV6(TEL)": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "t(7;22)(p22;q12)": [
+    "molecular_abnormality"
+  ],
+  "t(8;14)(q24;q32) or other variant of B-ALL": [
+    "molecular_abnormality"
+  ],
+  "t(8;16)MOZ/CBP": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "t(8;21)(q22;q22) RUNX1/ETO": [
+    "molecular_abnormality"
+  ],
+  "t(9;11)(p22;q23) / MLL-MLLT3(AF9)": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "t(9;17)(q22;q11)": [
+    "molecular_abnormality"
+  ],
+  "t(9;22)(q22;q12)": [
+    "molecular_abnormality"
+  ],
+  "t(9;22)(q34;q11.2) ABL/BCR": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "t(v;q23,3); KMT2A": [
+    "molecular_abnormality"
+  ],
+  "t(X;22((p11;q13)": [
+    "molecular_abnormality"
+  ],
+  "t(X;4)(p11;q31)": [
+    "molecular_abnormality"
+  ],
+  "TAF15-NR4A3": [
+    "molecular_abnormality"
+  ],
+  "TCF3-PBX1 Fusion": [
+    "molecular_abnormality"
+  ],
+  "TGFBR3-MGEA5": [
+    "molecular_abnormality"
+  ],
+  "TP53": [
+    "molecular_abnormality"
+  ],
+  "TP53 mutation": [
+    "molecular_abnormality"
+  ],
+  "Trisomy 3": [
+    "molecular_abnormality"
+  ],
+  "Trisomy 4": [
+    "molecular_abnormality"
+  ],
+  "Trisomy 8": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "Trisomy 10": [
+    "molecular_abnormality"
+  ],
+  "Trisomy 17": [
+    "molecular_abnormality"
+  ],
+  "Trisomy 21": [
+    "molecular_abnormality",
+    "medical_history"
+  ],
+  "VGLLA2 rearranged": [
+    "molecular_abnormality"
+  ],
+  "Wild Type": [
+    "molecular_abnormality"
+  ],
+  "WT1 mutation": [
+    "molecular_abnormality",
+    "mrd_molecular_markers"
+  ],
+  "ZC3H7B-BCOR": [
+    "molecular_abnormality"
+  ],
+  "Amplification": [
+    "variant_type",
+    "copy_number_status"
+  ],
+  "Copy Number Alteration": [
+    "variant_type"
+  ],
+  "Deletion": [
+    "variant_type"
+  ],
+  "Gain": [
+    "variant_type",
+    "copy_number_status"
+  ],
+  "Insertion": [
+    "variant_type"
+  ],
+  "Inversion": [
+    "variant_type"
+  ],
+  "Mutation": [
+    "variant_type"
+  ],
+  "Rearrangement": [
+    "variant_type"
+  ],
+  "Single Nucleotide Variant": [
+    "variant_type"
+  ],
+  "Translocation": [
+    "variant_type"
+  ],
+  "Present": [
+    "molecular_abnormality_result",
+    "anaplasia",
+    "medical_history_status",
+    "tumor_state",
+    "malignant_cells"
+  ],
+  "Absent": [
+    "molecular_abnormality_result",
+    "anaplasia",
+    "medical_history_status",
+    "tumor_state",
+    "malignant_cells"
+  ],
+  "Not Done": [
+    "molecular_abnormality_result"
+  ],
+  "Balanced": [
+    "translocation_status"
+  ],
+  "Unbalanced": [
+    "translocation_status"
+  ],
+  "Not reported": [
+    "anaplasia",
+    "anaplasia_extent",
+    "tnm_finding",
+    "irs_group",
+    "lab_spec_type",
+    "assisted_conception",
+    "histology",
+    "tumor_classification",
+    "tumor_size",
+    "invasiveness",
+    "joint_involvement",
+    "nodal_involvement",
+    "margins"
+  ],
+  "Diffuse": [
+    "anaplasia_extent"
+  ],
+  "Focal": [
+    "anaplasia_extent"
+  ],
+  "Somatic": [
+    "mutation_type"
+  ],
+  "Constitutional": [
+    "mutation_type"
+  ],
+  "1": [
+    "cytodifferentiation",
+    "sct_cycles",
+    "le_severity_grade"
+  ],
+  "2": [
+    "cytodifferentiation",
+    "sct_cycles",
+    "le_severity_grade"
+  ],
+  "3": [
+    "cytodifferentiation",
+    "sct_cycles",
+    "le_severity_grade"
+  ],
+  "Score 1: 0-9 Mitoses per 10 HPF": [
+    "mitoses"
+  ],
+  "Score 2: 10-19 Mitoses per 10 HPF": [
+    "mitoses"
+  ],
+  "Score 3: > 19 Mitoses per 10 HPF": [
+    "mitoses"
+  ],
+  "Loss": [
+    "copy_number_status"
+  ],
+  "No gain/loss/amplification": [
+    "copy_number_status"
+  ],
+  "external_reference": [
+    "type"
+  ],
+  "study": [
+    "type"
+  ],
+  "(HL st jude's trials)": [
+    "study_id"
+  ],
+  "0892": [
+    "study_id"
+  ],
+  "0896": [
+    "study_id"
+  ],
+  "0901": [
+    "study_id"
+  ],
+  "0902": [
+    "study_id"
+  ],
+  "0911": [
+    "study_id"
+  ],
+  "0914": [
+    "study_id"
+  ],
+  "0924": [
+    "study_id"
+  ],
+  "0925": [
+    "study_id"
+  ],
+  "0926": [
+    "study_id"
+  ],
+  "0927": [
+    "study_id"
+  ],
+  "0931": [
+    "study_id"
+  ],
+  "0935": [
+    "study_id"
+  ],
+  "0936": [
+    "study_id"
+  ],
+  "0937": [
+    "study_id"
+  ],
+  "0961": [
+    "study_id"
+  ],
+  "0962": [
+    "study_id"
+  ],
+  "09709": [
+    "study_id"
+  ],
+  "099": [
+    "study_id"
+  ],
+  "1883": [
+    "study_id"
+  ],
+  "321P1": [
+    "study_id"
+  ],
+  "321P2": [
+    "study_id"
+  ],
+  "321P3": [
+    "study_id"
+  ],
+  "321P4": [
+    "study_id"
+  ],
+  "323P": [
+    "study_id"
+  ],
+  "3881": [
+    "study_id"
+  ],
+  "3891": [
+    "study_id"
+  ],
+  "3951": [
+    "study_id"
+  ],
+  "461": [
+    "study_id"
+  ],
+  "4941": [
+    "study_id"
+  ],
+  "4941L": [
+    "study_id"
+  ],
+  "7942": [
+    "study_id"
+  ],
+  "8105": [
+    "study_id"
+  ],
+  "8340": [
+    "study_id"
+  ],
+  "8441": [
+    "study_id"
+  ],
+  "8605": [
+    "study_id"
+  ],
+  "8607": [
+    "study_id"
+  ],
+  "8661": [
+    "study_id"
+  ],
+  "8671": [
+    "study_id"
+  ],
+  "8741": [
+    "study_id"
+  ],
+  "8742": [
+    "study_id"
+  ],
+  "8743": [
+    "study_id"
+  ],
+  "8863": [
+    "study_id"
+  ],
+  "8970": [
+    "study_id"
+  ],
+  "9000": [
+    "study_id"
+  ],
+  "9047": [
+    "study_id"
+  ],
+  "9072": [
+    "study_id"
+  ],
+  "9075": [
+    "study_id"
+  ],
+  "9082": [
+    "study_id"
+  ],
+  "9140": [
+    "study_id"
+  ],
+  "9243": [
+    "study_id"
+  ],
+  "9244": [
+    "study_id"
+  ],
+  "9248": [
+    "study_id"
+  ],
+  "9262": [
+    "study_id"
+  ],
+  "9272": [
+    "study_id"
+  ],
+  "9275": [
+    "study_id"
+  ],
+  "9280": [
+    "study_id"
+  ],
+  "9284": [
+    "study_id"
+  ],
+  "9285": [
+    "study_id"
+  ],
+  "9340": [
+    "study_id"
+  ],
+  "9341": [
+    "study_id"
+  ],
+  "9342": [
+    "study_id"
+  ],
+  "9343": [
+    "study_id"
+  ],
+  "9346": [
+    "study_id"
+  ],
+  "9347": [
+    "study_id"
+  ],
+  "9360": [
+    "study_id"
+  ],
+  "9361": [
+    "study_id"
+  ],
+  "9372": [
+    "study_id"
+  ],
+  "9375": [
+    "study_id"
+  ],
+  "9376": [
+    "study_id"
+  ],
+  "9382": [
+    "study_id"
+  ],
+  "9464": [
+    "study_id"
+  ],
+  "9466": [
+    "study_id"
+  ],
+  "9470": [
+    "study_id"
+  ],
+  "9571": [
+    "study_id"
+  ],
+  "9572": [
+    "study_id"
+  ],
+  "9579": [
+    "study_id"
+  ],
+  "9581": [
+    "study_id"
+  ],
+  "9640": [
+    "study_id"
+  ],
+  "9670": [
+    "study_id"
+  ],
+  "9675": [
+    "study_id"
+  ],
+  "9900": [
+    "study_id"
+  ],
+  "9907": [
+    "study_id"
+  ],
+  "A0935A": [
+    "study_id"
+  ],
+  "A09713": [
+    "study_id"
+  ],
+  "A3961": [
+    "study_id"
+  ],
+  "A3973": [
+    "study_id"
+  ],
+  "AADM01P1": [
+    "study_id"
+  ],
+  "AALL0232": [
+    "study_id"
+  ],
+  "AALL0331": [
+    "study_id"
+  ],
+  "AALL03B1": [
+    "study_id"
+  ],
+  "AALL0434": [
+    "study_id"
+  ],
+  "AALL08B1": [
+    "study_id"
+  ],
+  "AAML00P2": [
+    "study_id"
+  ],
+  "AAML03P1": [
+    "study_id"
+  ],
+  "AAML0531": [
+    "study_id"
+  ],
+  "AAML05P1": [
+    "study_id"
+  ],
+  "AAML07P1": [
+    "study_id"
+  ],
+  "AAML1031": [
+    "study_id"
+  ],
+  "AB9804": [
+    "study_id"
+  ],
+  "ABTR01B1": [
+    "study_id"
+  ],
+  "ABTR04B1": [
+    "study_id"
+  ],
+  "ACCL0331": [
+    "study_id"
+  ],
+  "ACCL0423": [
+    "study_id"
+  ],
+  "ACCL0431": [
+    "study_id"
+  ],
+  "ACCL05C1": [
+    "study_id"
+  ],
+  "ACCL0934": [
+    "study_id"
+  ],
+  "ACCL0935": [
+    "study_id"
+  ],
+  "ACCL1031": [
+    "study_id"
+  ],
+  "ACCL1032": [
+    "study_id"
+  ],
+  "ACCL1034": [
+    "study_id"
+  ],
+  "ACCL15N1CD": [
+    "study_id"
+  ],
+  "ACCL1633": [
+    "study_id"
+  ],
+  "ACCL21C2": [
+    "study_id"
+  ],
+  "ACNS02B3": [
+    "study_id"
+  ],
+  "ADVL0016": [
+    "study_id"
+  ],
+  "ADVL0017": [
+    "study_id"
+  ],
+  "ADVL0018": [
+    "study_id"
+  ],
+  "ADVL0122": [
+    "study_id"
+  ],
+  "ADVL0211": [
+    "study_id"
+  ],
+  "ADVL0212": [
+    "study_id"
+  ],
+  "ADVL0214": [
+    "study_id"
+  ],
+  "ADVL0215": [
+    "study_id"
+  ],
+  "ADVL0314": [
+    "study_id"
+  ],
+  "ADVL0316": [
+    "study_id"
+  ],
+  "ADVL0413": [
+    "study_id"
+  ],
+  "ADVL0414": [
+    "study_id"
+  ],
+  "ADVL0416": [
+    "study_id"
+  ],
+  "ADVL0421": [
+    "study_id"
+  ],
+  "ADVL0516": [
+    "study_id"
+  ],
+  "ADVL0517": [
+    "study_id"
+  ],
+  "ADVL0524": [
+    "study_id"
+  ],
+  "ADVL0525": [
+    "study_id"
+  ],
+  "ADVL0612": [
+    "study_id"
+  ],
+  "ADVL06B1": [
+    "study_id"
+  ],
+  "ADVL0714": [
+    "study_id"
+  ],
+  "ADVL0812": [
+    "study_id"
+  ],
+  "ADVL0813": [
+    "study_id"
+  ],
+  "ADVL0816": [
+    "study_id"
+  ],
+  "ADVL0821": [
+    "study_id"
+  ],
+  "ADVL0911": [
+    "study_id"
+  ],
+  "ADVL0912": [
+    "study_id"
+  ],
+  "ADVL0916": [
+    "study_id"
+  ],
+  "ADVL0918": [
+    "study_id"
+  ],
+  "ADVL0921": [
+    "study_id"
+  ],
+  "ADVL1011": [
+    "study_id"
+  ],
+  "ADVL1013": [
+    "study_id"
+  ],
+  "ADVL1014": [
+    "study_id"
+  ],
+  "ADVL1111": [
+    "study_id"
+  ],
+  "ADVL1112": [
+    "study_id"
+  ],
+  "ADVL1115": [
+    "study_id"
+  ],
+  "ADVL1211": [
+    "study_id"
+  ],
+  "ADVL1212": [
+    "study_id"
+  ],
+  "ADVL1213": [
+    "study_id"
+  ],
+  "ADVL1312": [
+    "study_id"
+  ],
+  "ADVL1314": [
+    "study_id"
+  ],
+  "ADVL1315": [
+    "study_id"
+  ],
+  "ADVL1411": [
+    "study_id"
+  ],
+  "ADVL1412": [
+    "study_id"
+  ],
+  "ADVL1414": [
+    "study_id"
+  ],
+  "ADVL1416": [
+    "study_id"
+  ],
+  "ADVL1513": [
+    "study_id"
+  ],
+  "ADVL1522": [
+    "study_id"
+  ],
+  "ADVL1615": [
+    "study_id"
+  ],
+  "ADVL1622": [
+    "study_id"
+  ],
+  "AEIOPAML2002": [
+    "study_id"
+  ],
+  "AEPI07N1": [
+    "study_id"
+  ],
+  "AEWS0031": [
+    "study_id"
+  ],
+  "AEWS0331": [
+    "study_id"
+  ],
+  "AEWS07B1": [
+    "study_id"
+  ],
+  "AEWS07P1": [
+    "study_id"
+  ],
+  "AEWS1031": [
+    "study_id"
+  ],
+  "AEWS1221": [
+    "study_id"
+  ],
+  "AGCT0132": [
+    "study_id"
+  ],
+  "AGCT01P1": [
+    "study_id"
+  ],
+  "AGCT0521": [
+    "study_id"
+  ],
+  "AGCT1531": [
+    "study_id"
+  ],
+  "AHEP1531": [
+    "study_id"
+  ],
+  "AHOD0031": [
+    "study_id"
+  ],
+  "AHOD03P1": [
+    "study_id"
+  ],
+  "AHOD0431": [
+    "study_id"
+  ],
+  "AHOD0831": [
+    "study_id"
+  ],
+  "AHOD1221": [
+    "study_id"
+  ],
+  "AHOD1331": [
+    "study_id"
+  ],
+  "AIEOPLAM92": [
+    "study_id"
+  ],
+  "ALTE03N1": [
+    "study_id"
+  ],
+  "ALTE05N1": [
+    "study_id"
+  ],
+  "ALTE15N2": [
+    "study_id"
+  ],
+  "ALTE1621": [
+    "study_id"
+  ],
+  "AML-BFM Registry2012": [
+    "study_id"
+  ],
+  "AML-BFM Registry2017": [
+    "study_id"
+  ],
+  "AML-BFM1998": [
+    "study_id"
+  ],
+  "AML-BFM2004 Interim": [
+    "study_id"
+  ],
+  "AML-BFM2004": [
+    "study_id"
+  ],
+  "AML-BFM2012": [
+    "study_id"
+  ],
+  "AML-BFM2019": [
+    "study_id"
+  ],
+  "AML-BFM2020": [
+    "study_id"
+  ],
+  "AML-BFM83/87": [
+    "study_id"
+  ],
+  "AML-BFM87/93": [
+    "study_id"
+  ],
+  "AML-BFM93": [
+    "study_id"
+  ],
+  "AML-BFM98 Interim 2003": [
+    "study_id"
+  ],
+  "AML-BFM98": [
+    "study_id"
+  ],
+  "AML02": [
+    "study_id"
+  ],
+  "AML08": [
+    "study_id"
+  ],
+  "ANBL0032": [
+    "study_id"
+  ],
+  "ANBL00B1": [
+    "study_id"
+  ],
+  "ANBL00P1": [
+    "study_id"
+  ],
+  "ANBL00P2": [
+    "study_id"
+  ],
+  "ANBL00P3": [
+    "study_id"
+  ],
+  "ANBL02P1": [
+    "study_id"
+  ],
+  "ANBL0321": [
+    "study_id"
+  ],
+  "ANBL0322": [
+    "study_id"
+  ],
+  "ANBL0421": [
+    "study_id"
+  ],
+  "ANBL0531": [
+    "study_id"
+  ],
+  "ANBL0532": [
+    "study_id"
+  ],
+  "ANBL0621": [
+    "study_id"
+  ],
+  "ANBL0931": [
+    "study_id"
+  ],
+  "ANBL09P1": [
+    "study_id"
+  ],
+  "ANBL1021": [
+    "study_id"
+  ],
+  "ANBL1221": [
+    "study_id"
+  ],
+  "ANBL1232": [
+    "study_id"
+  ],
+  "ANBL12P1": [
+    "study_id"
+  ],
+  "ANBL1531": [
+    "study_id"
+  ],
+  "ANBL17P1": [
+    "study_id"
+  ],
+  "ANBL1821": [
+    "study_id"
+  ],
+  "ANBL19P1": [
+    "study_id"
+  ],
+  "ANUR0631": [
+    "study_id"
+  ],
+  "ANUR1131": [
+    "study_id"
+  ],
+  "AOST06B1": [
+    "study_id"
+  ],
+  "APEC14B1": [
+    "study_id"
+  ],
+  "APEC1621E": [
+    "study_id"
+  ],
+  "APEC1621F": [
+    "study_id"
+  ],
+  "APEC1621H": [
+    "study_id"
+  ],
+  "APEC1621I": [
+    "study_id"
+  ],
+  "APEC1621SC": [
+    "study_id"
+  ],
+  "APL": [
+    "study_id"
+  ],
+  "AREN0321": [
+    "study_id"
+  ],
+  "AREN03B2": [
+    "study_id"
+  ],
+  "ARST0331": [
+    "study_id"
+  ],
+  "ARST0332": [
+    "study_id"
+  ],
+  "ARST0431": [
+    "study_id"
+  ],
+  "ARST0531": [
+    "study_id"
+  ],
+  "ARST08P1": [
+    "study_id"
+  ],
+  "ARST1321": [
+    "study_id"
+  ],
+  "ARST1431": [
+    "study_id"
+  ],
+  "AS942": [
+    "study_id"
+  ],
+  "AS972": [
+    "study_id"
+  ],
+  "AS9801": [
+    "study_id"
+  ],
+  "B003": [
+    "study_id"
+  ],
+  "B903": [
+    "study_id"
+  ],
+  "B904": [
+    "study_id"
+  ],
+  "B925": [
+    "study_id"
+  ],
+  "B947": [
+    "study_id"
+  ],
+  "B953": [
+    "study_id"
+  ],
+  "B954": [
+    "study_id"
+  ],
+  "B973": [
+    "study_id"
+  ],
+  "cHOD17": [
+    "study_id"
+  ],
+  "CWS-IV-2002": [
+    "study_id"
+  ],
+  "CWS2002p": [
+    "study_id"
+  ],
+  "CWS91": [
+    "study_id"
+  ],
+  "CWS96": [
+    "study_id"
+  ],
+  "D9501": [
+    "study_id"
+  ],
+  "D9602": [
+    "study_id"
+  ],
+  "D9802": [
+    "study_id"
+  ],
+  "D9803": [
+    "study_id"
+  ],
+  "D9902": [
+    "study_id"
+  ],
+  "DBAML01": [
+    "study_id"
+  ],
+  "DFCI Registry": [
+    "study_id"
+  ],
+  "E04": [
+    "study_id"
+  ],
+  "E15": [
+    "study_id"
+  ],
+  "E18": [
+    "study_id"
+  ],
+  "EE99": [
+    "study_id"
+  ],
+  "EICESS92": [
+    "study_id"
+  ],
+  "ENSG5": [
+    "study_id"
+  ],
+  "GC1": [
+    "study_id"
+  ],
+  "GC2": [
+    "study_id"
+  ],
+  "GOG0078": [
+    "study_id"
+  ],
+  "GOG0090": [
+    "study_id"
+  ],
+  "GOG0116": [
+    "study_id"
+  ],
+  "HLHR13": [
+    "study_id"
+  ],
+  "HOD05": [
+    "study_id"
+  ],
+  "HOD08": [
+    "study_id"
+  ],
+  "HOD99": [
+    "study_id"
+  ],
+  "I03": [
+    "study_id"
+  ],
+  "JACLSAML99": [
+    "study_id"
+  ],
+  "JPLSGAML05": [
+    "study_id"
+  ],
+  "LNESG1": [
+    "study_id"
+  ],
+  "ML-DS-2006": [
+    "study_id"
+  ],
+  "MRCAML12": [
+    "study_id"
+  ],
+  "MRCAML15": [
+    "study_id"
+  ],
+  "MTS2008_NRSTS": [
+    "study_id"
+  ],
+  "MTS2008_RMS": [
+    "study_id"
+  ],
+  "N891": [
+    "study_id"
+  ],
+  "NB2004-HR": [
+    "study_id"
+  ],
+  "NB2005": [
+    "study_id"
+  ],
+  "NB2008": [
+    "study_id"
+  ],
+  "NB2012": [
+    "study_id"
+  ],
+  "NB84": [
+    "study_id"
+  ],
+  "NB8814": [
+    "study_id"
+  ],
+  "NB91": [
+    "study_id"
+  ],
+  "NB97": [
+    "study_id"
+  ],
+  "NOPHOAML1993": [
+    "study_id"
+  ],
+  "NOPHOAML2004": [
+    "study_id"
+  ],
+  "NOPHOAML2012": [
+    "study_id"
+  ],
+  "NRSTS2005": [
+    "study_id"
+  ],
+  "P9462": [
+    "study_id"
+  ],
+  "P9480": [
+    "study_id"
+  ],
+  "P9485": [
+    "study_id"
+  ],
+  "P9641": [
+    "study_id"
+  ],
+  "P9749": [
+    "study_id"
+  ],
+  "P9761": [
+    "study_id"
+  ],
+  "P9772": [
+    "study_id"
+  ],
+  "P9851": [
+    "study_id"
+  ],
+  "P9963": [
+    "study_id"
+  ],
+  "P9972": [
+    "study_id"
+  ],
+  "PEPN2011": [
+    "study_id"
+  ],
+  "PEPN2111": [
+    "study_id"
+  ],
+  "POG-8844": [
+    "study_id"
+  ],
+  "POG9049": [
+    "study_id"
+  ],
+  "PPLLSGAML98": [
+    "study_id"
+  ],
+  "ProjectGenESis": [
+    "study_id"
+  ],
+  "R9702": [
+    "study_id"
+  ],
+  "RMS2005": [
+    "study_id"
+  ],
+  "RMS4.99": [
+    "study_id"
+  ],
+  "RMS95": [
+    "study_id"
+  ],
+  "RMS96": [
+    "study_id"
+  ],
+  "S31": [
+    "study_id"
+  ],
+  "S901": [
+    "study_id"
+  ],
+  "S912": [
+    "study_id"
+  ],
+  "S921": [
+    "study_id"
+  ],
+  "SCFEELAM02": [
+    "study_id"
+  ],
+  "SIOPEN HR-NBL1": [
+    "study_id"
+  ],
+  "SIOPEN-EUNB": [
+    "study_id"
+  ],
+  "SJCRHAML02": [
+    "study_id"
+  ],
+  "TCGM2004": [
+    "study_id"
+  ],
+  "TE04": [
+    "study_id"
+  ],
+  "TE05": [
+    "study_id"
+  ],
+  "TE08": [
+    "study_id"
+  ],
+  "TE09": [
+    "study_id"
+  ],
+  "TE13": [
+    "study_id"
+  ],
+  "TE20": [
+    "study_id"
+  ],
+  "TE22": [
+    "study_id"
+  ],
+  "TGM85": [
+    "study_id"
+  ],
+  "TGM90": [
+    "study_id"
+  ],
+  "TGM95": [
+    "study_id"
+  ],
+  "TIP": [
+    "study_id"
+  ],
+  "X0942": [
+    "study_id"
+  ],
+  "Pilot": [
+    "study_phase"
+  ],
+  "Phase 1": [
+    "study_phase"
+  ],
+  "Phase 2": [
+    "study_phase"
+  ],
+  "Phase 3": [
+    "study_phase"
+  ],
+  "Frontline": [
+    "study_type"
+  ],
+  "Retrieval": [
+    "study_type"
+  ],
+  "Enrolled": [
+    "enrolled_status"
+  ],
+  "Not Enrolled": [
+    "enrolled_status"
+  ],
+  "transfusion_medicine_procedure": [
+    "type"
+  ],
+  "Exchange Transfusion": [
+    "tmp_type"
+  ],
+  "Therapeutic Apheresis": [
+    "tmp_type"
+  ],
+  "Simple Transfusion": [
+    "tmp_type"
+  ],
+  "RBC": [
+    "tmp_product",
+    "lab_test"
+  ],
+  "Platelets": [
+    "tmp_product",
+    "lab_test"
+  ],
+  "WBC": [
+    "tmp_product",
+    "lab_test"
+  ],
+  "Pheresed": [
+    "tmp_product_type"
+  ],
+  "Random": [
+    "tmp_product_type"
+  ],
+  "adverse_event": [
+    "type"
+  ],
+  "Left Ventricular Systolic Dysfunction": [
+    "adverse_event"
+  ],
+  "Infection": [
+    "adverse_event",
+    "toxicity_details"
+  ],
+  "Sinusoidal Obstruction Syndrome": [
+    "adverse_event",
+    "cause_of_death_detail"
+  ],
+  "Typhlitis": [
+    "adverse_event"
+  ],
+  "Multi Organ Failure": [
+    "adverse_event"
+  ],
+  "Hyperbilirubinemia": [
+    "adverse_event"
+  ],
+  "Hemorrhage": [
+    "adverse_event",
+    "cause_of_death_detail"
+  ],
+  "Neurotoxicity Syndrome": [
+    "adverse_event"
+  ],
+  "Graft Versus Host Disease": [
+    "adverse_event",
+    "cause_of_death_detail"
+  ],
+  "Allergic reaction": [
+    "adverse_event"
+  ],
+  "Mucositis": [
+    "adverse_event",
+    "toxicity_details"
+  ],
+  "Neutropenia": [
+    "adverse_event",
+    "toxicity_details"
+  ],
+  "Thrombocytopenia": [
+    "adverse_event",
+    "toxicity_details"
+  ],
+  "Renal Toxicity": [
+    "adverse_event",
+    "toxicity_details"
+  ],
+  "Hepatic Toxicity": [
+    "adverse_event",
+    "toxicity_details"
+  ],
+  "Neuropathy": [
+    "adverse_event",
+    "toxicity_details",
+    "le_detail"
+  ],
+  "Cardiac Toxicity": [
+    "adverse_event",
+    "toxicity_details"
+  ],
+  "Pulmonary Toxicity": [
+    "adverse_event",
+    "toxicity_details"
+  ],
+  "GI toxicity": [
+    "adverse_event"
+  ],
+  "Rashes": [
+    "adverse_event",
+    "toxicity_details"
+  ],
+  "Endocrine toxicity": [
+    "adverse_event"
+  ],
+  "Musculoskeletal toxicity": [
+    "adverse_event"
+  ],
+  "Fatigue": [
+    "adverse_event",
+    "le"
+  ],
+  "Psychiatric toxicity": [
+    "adverse_event"
+  ],
+  "Ototoxicity": [
+    "adverse_event"
+  ],
+  "European Society for Blood and Marrow Transplantation (EBMT)": [
+    "ae_system"
+  ],
+  "CTCAE": [
+    "ae_system"
+  ],
+  "Balis Neuropathy Scale": [
+    "ae_system"
+  ],
+  "Grade 1": [
+    "ae_grade",
+    "histology_grade"
+  ],
+  "Grade 2": [
+    "ae_grade",
+    "histology_grade"
+  ],
+  "Grade 3": [
+    "ae_grade",
+    "histology_grade"
+  ],
+  "Grade 4": [
+    "ae_grade"
+  ],
+  "Grade 5": [
+    "ae_grade"
+  ],
+  "Definite": [
+    "ae_attribution"
+  ],
+  "Probable": [
+    "ae_attribution"
+  ],
+  "Possible": [
+    "ae_attribution"
+  ],
+  "Unlikely": [
+    "ae_attribution"
+  ],
+  "Unrelated": [
+    "ae_attribution"
+  ],
+  "Death, Contributory": [
+    "ae_outcome"
+  ],
+  "Death, Noncontributory": [
+    "ae_outcome"
+  ],
+  "Not Yet Recovered": [
+    "ae_outcome"
+  ],
+  "Recovered with Sequelae": [
+    "ae_outcome"
+  ],
+  "Recovered": [
+    "ae_outcome"
+  ],
+  "Ankle (distal tibia, intrinsic ankle bones)": [
+    "avn_joint"
+  ],
+  "Elbow (distal humerus, proximal radius, proximal ulna)": [
+    "avn_joint"
+  ],
+  "Heel (calcaneus)": [
+    "avn_joint"
+  ],
+  "Hip (proximal femur)": [
+    "avn_joint"
+  ],
+  "Knee (distal femur, proximal tibia)": [
+    "avn_joint"
+  ],
+  "Shoulder (proximal humerus)": [
+    "avn_joint"
+  ],
+  "Wrist (distal radius, distal ulna, intrinsic wrist bones)": [
+    "avn_joint"
+  ],
+  "Bilateral": [
+    "avn_joint_laterality",
+    "tumor_laterality",
+    "procedure_laterality",
+    "rt_laterality"
+  ],
+  "Bone scan": [
+    "avn_method",
+    "imaging_method"
+  ],
+  "CT": [
+    "avn_method",
+    "response_method",
+    "imaging_method"
+  ],
+  "MRI (NMR)": [
+    "avn_method"
+  ],
+  "X-ray": [
+    "avn_method",
+    "imaging_method"
+  ],
+  "Arthroplasty, Hemi/Resurfacing": [
+    "orthopedic_procedure"
+  ],
+  "Arthroplasty, Total": [
+    "orthopedic_procedure"
+  ],
+  "Bone Graft, Free Vascularized": [
+    "orthopedic_procedure"
+  ],
+  "Bone Graft, Nonvascularized": [
+    "orthopedic_procedure"
+  ],
+  "Chondroplasty": [
+    "orthopedic_procedure"
+  ],
+  "Core Decompression": [
+    "orthopedic_procedure"
+  ],
+  "Osteotomy": [
+    "orthopedic_procedure"
+  ],
+  "Expected": [
+    "ae_expected"
+  ],
+  "Unexpected": [
+    "ae_expected"
+  ],
+  "ACE-Inhibitor": [
+    "ae_intervention_detail"
+  ],
+  "Ionotropic Support": [
+    "ae_intervention_detail"
+  ],
+  "Heart Transplant": [
+    "ae_intervention_detail"
+  ],
+  "Bacteria": [
+    "ae_pathogen"
+  ],
+  "Virus": [
+    "ae_pathogen"
+  ],
+  "Fungus": [
+    "ae_pathogen"
+  ],
+  "Confirmed": [
+    "ae_pathogen_status"
+  ],
+  "Suspected": [
+    "ae_pathogen_status"
+  ],
+  "Clinically Documented": [
+    "infection_classification"
+  ],
+  "Microbiologically Documented Non-Sterile Site": [
+    "infection_classification"
+  ],
+  "Microbiologically Documented Sterile Site": [
+    "infection_classification"
+  ],
+  "Not": [
+    "infection_classification"
+  ],
+  "Acute": [
+    "gvhd_acuity"
+  ],
+  "Chronic": [
+    "gvhd_acuity"
+  ],
+  "Gastrointestinal Tract": [
+    "gvhd_organ"
+  ],
+  "vital": [
+    "type"
+  ],
+  "Height": [
+    "vitals_test"
+  ],
+  "BMI": [
+    "vitals_test"
+  ],
+  "Kg": [
+    "vitals_result_unit"
+  ],
+  "cm": [
+    "vitals_result_unit"
+  ],
+  "m2": [
+    "vitals_result_unit"
+  ],
+  "kg/m2": [
+    "vitals_result_unit"
+  ],
+  "staging": [
+    "type"
+  ],
+  "FIGO": [
+    "stage_system"
+  ],
+  "COG": [
+    "stage_system",
+    "data_contributor_id"
+  ],
+  "AJCC": [
+    "stage_system"
+  ],
+  "INSS": [
+    "stage_system"
+  ],
+  "INRGSS": [
+    "stage_system"
+  ],
+  "EVANS": [
+    "stage_system"
+  ],
+  "Ann Arbor": [
+    "stage_system"
+  ],
+  "Stage I": [
+    "stage"
+  ],
+  "Stage IA": [
+    "stage"
+  ],
+  "Stage IB": [
+    "stage"
+  ],
+  "Stage IS": [
+    "stage"
+  ],
+  "Stage II": [
+    "stage"
+  ],
+  "Stage IIA": [
+    "stage"
+  ],
+  "Stage IIB": [
+    "stage"
+  ],
+  "Stage IIC": [
+    "stage"
+  ],
+  "Stage III": [
+    "stage"
+  ],
+  "Stage IIIA": [
+    "stage"
+  ],
+  "Stage IIIB": [
+    "stage"
+  ],
+  "Stage IIIC": [
+    "stage"
+  ],
+  "Stage IV": [
+    "stage"
+  ],
+  "Stage IVs": [
+    "stage"
+  ],
+  "Stage 0": [
+    "stage"
+  ],
+  "Stage 1": [
+    "stage"
+  ],
+  "Stage 2a": [
+    "stage"
+  ],
+  "Stage 2b": [
+    "stage"
+  ],
+  "Stage 3": [
+    "stage"
+  ],
+  "Stage 4": [
+    "stage"
+  ],
+  "Stage 4s": [
+    "stage"
+  ],
+  "Stage L1": [
+    "stage"
+  ],
+  "Stage L2": [
+    "stage"
+  ],
+  "Stage M": [
+    "stage"
+  ],
+  "Stage MS": [
+    "stage"
+  ],
+  "A": [
+    "AB"
+  ],
+  "B": [
+    "AB"
+  ],
+  "Y": [
+    "E",
+    "S"
+  ],
+  "N": [
+    "E",
+    "S"
+  ],
+  "Favorable Site, M0": [
+    "tnm_finding"
+  ],
+  "Other Site, any T, a, N0, M0": [
+    "tnm_finding"
+  ],
+  "Other Site, any T, a, N1, M0, any T, b, N0/N1, M0": [
+    "tnm_finding"
+  ],
+  "Metastases, M1": [
+    "tnm_finding"
+  ],
+  "Group I": [
+    "irs_group"
+  ],
+  "Group IIA": [
+    "irs_group"
+  ],
+  "Group IIB": [
+    "irs_group"
+  ],
+  "Group IIC": [
+    "irs_group"
+  ],
+  "Group II, NOS": [
+    "irs_group"
+  ],
+  "Group III": [
+    "irs_group"
+  ],
+  "Group IV": [
+    "irs_group"
+  ],
+  "lab": [
+    "type"
+  ],
+  "Peripheral Blood Analysis": [
+    "lab_cat"
+  ],
+  "Cerebrospinal Fluid Analysis": [
+    "lab_cat"
+  ],
+  "Bone Marrow Analysis": [
+    "lab_cat"
+  ],
+  "microRNA Sequencing": [
+    "lab_cat"
+  ],
+  "Blasts": [
+    "lab_test"
+  ],
+  "Neutrophils": [
+    "lab_test"
+  ],
+  "Lymphocytes": [
+    "lab_test"
+  ],
+  "Monocytes": [
+    "lab_test"
+  ],
+  "Eosophinils": [
+    "lab_test"
+  ],
+  "ANC": [
+    "lab_test"
+  ],
+  "Hemoglobin": [
+    "lab_test"
+  ],
+  "Auer rods": [
+    "lab_test"
+  ],
+  "Albumin": [
+    "lab_test"
+  ],
+  "Alkaline phophatase": [
+    "lab_test"
+  ],
+  "Ferritin": [
+    "lab_test"
+  ],
+  "LDH": [
+    "lab_test"
+  ],
+  "ESR": [
+    "lab_test"
+  ],
+  "AFP": [
+    "lab_test"
+  ],
+  "CRP": [
+    "lab_test"
+  ],
+  "CD34": [
+    "lab_test"
+  ],
+  "TSH": [
+    "lab_test"
+  ],
+  "Free T4": [
+    "lab_test"
+  ],
+  "EBV IgG": [
+    "lab_test"
+  ],
+  "EBV DNA": [
+    "lab_test"
+  ],
+  "β-hCG": [
+    "lab_test"
+  ],
+  "miR-371a-3p": [
+    "lab_test"
+  ],
+  "miR-372-3p": [
+    "lab_test"
+  ],
+  "miR-373-3p": [
+    "lab_test"
+  ],
+  "miR-367-3p": [
+    "lab_test"
+  ],
+  "miR-375-3p": [
+    "lab_test"
+  ],
+  "ctDNA": [
+    "lab_test"
+  ],
+  "cfDNA": [
+    "lab_test"
+  ],
+  "Serum": [
+    "lab_spec_type"
+  ],
+  "Plasma": [
+    "lab_spec_type"
+  ],
+  "Cerebrospinal Fluid": [
+    "lab_spec_type",
+    "tumor_site",
+    "cytology_spec_type"
+  ],
+  "Peritoneal Fluid": [
+    "lab_spec_type",
+    "cytology_spec_type"
+  ],
+  "%": [
+    "lab_result_unit",
+    "histology_result_unit",
+    "mrd_result_unit",
+    "function_result_unit"
+  ],
+  "count/mm3": [
+    "lab_result_unit"
+  ],
+  "g/dL": [
+    "lab_result_unit"
+  ],
+  "U/L": [
+    "lab_result_unit",
+    "ihc_result_unit"
+  ],
+  "ng/mL": [
+    "lab_result_unit"
+  ],
+  "IU/L": [
+    "lab_result_unit"
+  ],
+  "mm/h": [
+    "lab_result_unit",
+    "ihc_result_unit"
+  ],
+  "mg/L": [
+    "lab_result_unit"
+  ],
+  "uIU/mL": [
+    "lab_result_unit"
+  ],
+  "mcg/mL": [
+    "lab_result_unit"
+  ],
+  "Flow cytometry": [
+    "lab_method"
+  ],
+  "Morphology": [
+    "lab_method",
+    "bm_analysis_method_at_response"
+  ],
+  "MicroRNA Sequencing": [
+    "lab_method"
+  ],
+  "PCR": [
+    "lab_method"
+  ],
+  "qPCR": [
+    "lab_method"
+  ],
+  "ddPCR": [
+    "lab_method"
+  ],
+  "Cytology": [
+    "lab_method"
+  ],
+  "Relative": [
+    "lab_seq_method"
+  ],
+  "Absolute": [
+    "lab_seq_method"
+  ],
+  "M1 (less than 5 % blasts)": [
+    "bm_morphology"
+  ],
+  "M2 (5-25 % blasts)": [
+    "bm_morphology"
+  ],
+  "M3 (greater than 25 % blasts)": [
+    "bm_morphology"
+  ],
+  "person": [
+    "type"
+  ],
+  "Male": [
+    "sex"
+  ],
+  "Female": [
+    "sex"
+  ],
+  "Undifferentiated": [
+    "sex"
+  ],
+  "American Indian or Alaska Native": [
+    "race"
+  ],
+  "Asian": [
+    "race"
+  ],
+  "Black or African American": [
+    "race"
+  ],
+  "Multiracial": [
+    "race"
+  ],
+  "Native Hawaiian or Other Pacific Islander": [
+    "race"
+  ],
+  "White": [
+    "race"
+  ],
+  "Hispanic or Latino": [
+    "ethnicity"
+  ],
+  "Not Hispanic or Latino": [
+    "ethnicity"
+  ],
+  "medical_history": [
+    "type"
+  ],
+  "Adenomatous Polyposis Coli": [
+    "medical_history"
+  ],
+  "Beckwith-Wiedemann Syndrome": [
+    "medical_history"
+  ],
+  "Breast and Ovarian Cancer": [
+    "medical_history"
+  ],
+  "Celiac Disease": [
+    "medical_history"
+  ],
+  "Central Hypoventilation Syndrome": [
+    "medical_history"
+  ],
+  "Cleft Lip": [
+    "medical_history"
+  ],
+  "Cleft Palate": [
+    "medical_history"
+  ],
+  "Clubfoot": [
+    "medical_history"
+  ],
+  "Costello Syndrome": [
+    "medical_history"
+  ],
+  "Cushings Syndrome": [
+    "medical_history"
+  ],
+  "Denys-Drash Syndrome": [
+    "medical_history"
+  ],
+  "Diabetes Mellitus (Type I)": [
+    "medical_history"
+  ],
+  "DICER1 Syndrome": [
+    "medical_history"
+  ],
+  "Down Syndrome": [
+    "medical_history"
+  ],
+  "Fanconi Anemia": [
+    "medical_history"
+  ],
+  "Frasier Syndrome": [
+    "medical_history"
+  ],
+  "Gastroschisis": [
+    "medical_history"
+  ],
+  "Gonadal Dysgenesis": [
+    "medical_history"
+  ],
+  "Goodpasture's Syndrome": [
+    "medical_history"
+  ],
+  "Gorlin Syndrome": [
+    "medical_history"
+  ],
+  "Graves' Disease": [
+    "medical_history"
+  ],
+  "Hashimoto's Thyroiditis": [
+    "medical_history"
+  ],
+  "Heart Defect": [
+    "medical_history"
+  ],
+  "Hemihypertrophy": [
+    "medical_history"
+  ],
+  "Heretidary Retinoblastoma": [
+    "medical_history"
+  ],
+  "Hirschprung Disease": [
+    "medical_history"
+  ],
+  "Inflammatory Bowel Disease (Crohn's Disease or Ulcerative Colitis)": [
+    "medical_history"
+  ],
+  "Juvenile Idiopathic Arthritis": [
+    "medical_history"
+  ],
+  "Klinerfelter Syndrome": [
+    "medical_history"
+  ],
+  "Li-Fraumeni Syndrome": [
+    "medical_history"
+  ],
+  "Lynch Syndrome": [
+    "medical_history"
+  ],
+  "Mixed Connective Tissue Disease": [
+    "medical_history"
+  ],
+  "Multiple Sclerosis": [
+    "medical_history"
+  ],
+  "Neurofibromatosis Type 1": [
+    "medical_history"
+  ],
+  "Noonan Syndrome": [
+    "medical_history"
+  ],
+  "Psoriasis": [
+    "medical_history"
+  ],
+  "RB Transcriptional Corepressor 1": [
+    "medical_history"
+  ],
+  "Scleroderma": [
+    "medical_history"
+  ],
+  "Secondary Malignancy": [
+    "medical_history",
+    "cause_of_death"
+  ],
+  "Swyer Syndrome": [
+    "medical_history"
+  ],
+  "Systematic Lupus Erythematosus": [
+    "medical_history"
+  ],
+  "Trisomy 21 Mosaicism": [
+    "medical_history"
+  ],
+  "Turner Syndrome": [
+    "medical_history"
+  ],
+  "Vitiligo": [
+    "medical_history"
+  ],
+  "WAGR Syndrome": [
+    "medical_history"
+  ],
+  "Werner Syndrome": [
+    "medical_history"
+  ],
+  "Genetic Syndrome": [
+    "medical_history_category"
+  ],
+  "Autoimmune Disease": [
+    "medical_history_category"
+  ],
+  "Congenital Anomaly": [
+    "medical_history_category"
+  ],
+  "In Vitro Fertilization": [
+    "assisted_conception"
+  ],
+  "Intracytoplasmic Sperm Injection": [
+    "assisted_conception"
+  ],
+  "disease_characteristic": [
+    "type"
+  ],
+  "M0": [
+    "fab_type"
+  ],
+  "M1": [
+    "fab_type"
+  ],
+  "M2": [
+    "fab_type"
+  ],
+  "M3": [
+    "fab_type"
+  ],
+  "M3 Variant": [
+    "fab_type"
+  ],
+  "M4": [
+    "fab_type"
+  ],
+  "M4eo": [
+    "fab_type"
+  ],
+  "M5": [
+    "fab_type"
+  ],
+  "M6": [
+    "fab_type"
+  ],
+  "M7": [
+    "fab_type"
+  ],
+  "AML, NOS": [
+    "fab_type",
+    "who_aml"
+  ],
+  "Acute basophilic leukemia": [
+    "who_aml"
+  ],
+  "Acute megakaryoblastic leukemia": [
+    "who_aml"
+  ],
+  "Acute monoblastic/monocytic leukemia": [
+    "who_aml"
+  ],
+  "Acute myelomonocytic leukemia": [
+    "who_aml"
+  ],
+  "Acute panmyelosis with myelofibrosis": [
+    "who_aml"
+  ],
+  "AML (megakaryoblastic) with t(1;22)(p13.3;q13.3); RBM15-MKL1": [
+    "who_aml"
+  ],
+  "AML with biallelic mutations of CEBPA": [
+    "who_aml"
+  ],
+  "AML with inv(16)(p13.1q22) or t(16;16)(p13.1;q22); CBFB-MYH11": [
+    "who_aml"
+  ],
+  "AML with inv(3)(q21.3q26.2) or t(3;3)(q21.3;q26.2); GATA2, MECOM": [
+    "who_aml"
+  ],
+  "AML with KMT2A rearrangement": [
+    "who_aml"
+  ],
+  "AML with maturation": [
+    "who_aml"
+  ],
+  "AML with minimal differentiation": [
+    "who_aml"
+  ],
+  "AML with mutated NPM1": [
+    "who_aml"
+  ],
+  "AML with myelodysplasia-related changes": [
+    "who_aml"
+  ],
+  "AML with t(6;9)(p23;q34.1);DEK-NUP214": [
+    "who_aml"
+  ],
+  "AML with t(8;21)(q22;q22.1); RUNX1-RUNX1T1": [
+    "who_aml"
+  ],
+  "AML with t(9;11)(p21.3;q23.3); KMT2A-MLLT3": [
+    "who_aml"
+  ],
+  "AML without maturation": [
+    "who_aml"
+  ],
+  "APL with PML-RARA": [
+    "who_aml"
+  ],
+  "Myeloid leukemia associated with Down syndrome": [
+    "who_aml"
+  ],
+  "Myeloid proliferations related to Down syndrome": [
+    "who_aml"
+  ],
+  "Myeloid sarcoma": [
+    "who_aml"
+  ],
+  "Provisional entity: AML with BCR-ABL1": [
+    "who_aml"
+  ],
+  "Provisional entity: AML with mutated RUNX1": [
+    "who_aml"
+  ],
+  "Pure erythroid leukemia": [
+    "who_aml"
+  ],
+  "Therapy-related myeloid neoplasms": [
+    "who_aml"
+  ],
+  "Transient abnormal myelopoiesis (TAM)": [
+    "who_aml"
+  ],
+  "B-ALL": [
+    "all_type"
+  ],
+  "B-Precursor": [
+    "all_type"
+  ],
+  "T-ALL": [
+    "all_type"
+  ],
+  "Acute Leukemia, ambiguous lineage (mixed or biphenotypic)": [
+    "all_type"
+  ],
+  "MPAL": [
+    "all_type"
+  ],
+  "IGCCC Good": [
+    "igccc_risk_group"
+  ],
+  "IGCCC Intermediate": [
+    "igccc_risk_group"
+  ],
+  "IGCCC Poor": [
+    "igccc_risk_group"
+  ],
+  "Low": [
+    "magic_risk_group"
+  ],
+  "Standard": [
+    "magic_risk_group"
+  ],
+  "Poor": [
+    "magic_risk_group"
+  ],
+  "Low (<2% or <100/5,000 cells)": [
+    "mki"
+  ],
+  "Intermediate (2-4% or 100-200/5,000 cells)": [
+    "mki"
+  ],
+  "High (>4% or >200/5,000 cells)": [
+    "mki"
+  ],
+  "Central Nervous System": [
+    "disease_site",
+    "tumor_site"
+  ],
+  "Testes": [
+    "disease_site",
+    "rt_site"
+  ],
+  "Bone Marrow Results": [
+    "detection_method"
+  ],
+  "Cerebrospinal Fluid Results": [
+    "detection_method"
+  ],
+  "Clinical Signs or Symptoms": [
+    "detection_method"
+  ],
+  "Tumor Marker": [
+    "detection_method",
+    "response_method"
+  ],
+  "Imaging": [
+    "detection_method",
+    "tumor_detection_method",
+    "response_method"
+  ],
+  "CNS1": [
+    "CNS_disease_status"
+  ],
+  "CNS2": [
+    "CNS_disease_status"
+  ],
+  "CNS3": [
+    "CNS_disease_status"
+  ],
+  "a": [
+    "CNS_disease_status_detail"
+  ],
+  "b": [
+    "CNS_disease_status_detail"
+  ],
+  "c": [
+    "CNS_disease_status_detail"
+  ],
+  "100": [
+    "lansky",
+    "karnofsky"
+  ],
+  "90": [
+    "lansky",
+    "karnofsky"
+  ],
+  "80": [
+    "lansky",
+    "karnofsky"
+  ],
+  "70": [
+    "lansky",
+    "karnofsky"
+  ],
+  "60": [
+    "lansky",
+    "karnofsky"
+  ],
+  "50": [
+    "lansky",
+    "karnofsky"
+  ],
+  "40": [
+    "lansky",
+    "karnofsky"
+  ],
+  "30": [
+    "lansky",
+    "karnofsky"
+  ],
+  "20": [
+    "lansky",
+    "karnofsky"
+  ],
+  "10": [
+    "lansky",
+    "karnofsky"
+  ],
+  "0": [
+    "lansky",
+    "karnofsky"
+  ],
+  "1 - Normal, no complaint": [
+    "GPOH_score"
+  ],
+  "2 - Mild complaints, but needs no assistance": [
+    "GPOH_score"
+  ],
+  "3 - Age-appropriate activity severely impaired": [
+    "GPOH_score"
+  ],
+  "4 - Confined to bed, needs nursing care": [
+    "GPOH_score"
+  ],
+  "5 - Needs intensive care, seriously ill, moribund": [
+    "GPOH_score"
+  ],
+  "None (observation)": [
+    "initial_treatment_category"
+  ],
+  "Surgery alone": [
+    "initial_treatment_category"
+  ],
+  "Conventional-dose chemotherapy (2-8 cycles) plus surgery": [
+    "initial_treatment_category"
+  ],
+  "Intensive multi-modality therapy: specific type unknown": [
+    "initial_treatment_category"
+  ],
+  "Intensive multi-modality therapy: no stem cell or bone marrow transplant": [
+    "initial_treatment_category"
+  ],
+  "Intensive multi-modality therapy: plus stem cell or bone marrow transplant": [
+    "initial_treatment_category"
+  ],
+  "Intensive multi-modality therapy: plus stem cell or bone marrow transplant and anti-GD2 antibody": [
+    "initial_treatment_category"
+  ],
+  "unreleased": [
+    "release_state"
+  ],
+  "released": [
+    "release_state",
+    "data_bundle_state",
+    "oneOf",
+    "file_state"
+  ],
+  "redacted": [
+    "release_state",
+    "data_bundle_state",
+    "oneOf"
+  ],
+  "validated": [
+    "data_bundle_state",
+    "oneOf",
+    "file_state"
+  ],
+  "error": [
+    "data_bundle_state",
+    "oneOf",
+    "file_state"
+  ],
+  "suppressed": [
+    "data_bundle_state",
+    "oneOf"
+  ],
+  "file_size": [
+    "data_file_error_type"
+  ],
+  "file_format": [
+    "data_file_error_type"
+  ],
+  "md5sum": [
+    "data_file_error_type"
+  ],
+  "uploading": [
+    "oneOf",
+    "file_state"
+  ],
+  "uploaded": [
+    "oneOf",
+    "file_state"
+  ],
+  "md5summing": [
+    "oneOf"
+  ],
+  "md5summed": [
+    "oneOf"
+  ],
+  "validating": [
+    "oneOf",
+    "file_state"
+  ],
+  "invalid": [
+    "oneOf"
+  ],
+  "live": [
+    "oneOf"
+  ],
+  "registered": [
+    "file_state"
+  ],
+  "processed": [
+    "file_state"
+  ],
+  "FAIL": [
+    "qc_metrics_state"
+  ],
+  "PASS": [
+    "qc_metrics_state"
+  ],
+  "WARN": [
+    "qc_metrics_state"
+  ],
+  "Disease Phase": [
+    "timing_type"
+  ],
+  "Course": [
+    "timing_type"
+  ],
+  "biospecimen": [
+    "type"
+  ],
+  "immunohistochemistry": [
+    "type"
+  ],
+  "CD30": [
+    "ihc_test"
+  ],
+  "β-catenin": [
+    "ihc_test"
+  ],
+  "GPC3": [
+    "ihc_test"
+  ],
+  "CD20": [
+    "ihc_test"
+  ],
+  "LMP1": [
+    "ihc_test"
+  ],
+  "EBER": [
+    "ihc_test"
+  ],
+  "PAS": [
+    "ihc_test"
+  ],
+  "MIC2": [
+    "ihc_test"
+  ],
+  "S100": [
+    "ihc_test"
+  ],
+  "NSE": [
+    "ihc_test"
+  ],
+  "Vimentin": [
+    "ihc_test"
+  ],
+  "Desmin": [
+    "ihc_test"
+  ],
+  "CD99": [
+    "ihc_test"
+  ],
+  "FLI-1": [
+    "ihc_test"
+  ],
+  "CD45": [
+    "ihc_test"
+  ],
+  "Number of events": [
+    "ihc_result_unit"
+  ],
+  "Intensity": [
+    "ihc_result_unit"
+  ],
+  "Tissue": [
+    "ihc_spec_type"
+  ],
+  "secondary_malignant_neoplasm": [
+    "type"
+  ],
+  "Abdomen": [
+    "smn_site",
+    "tumor_site",
+    "procedure_site",
+    "rt_site"
+  ],
+  "Head and Neck": [
+    "smn_site",
+    "tumor_site",
+    "procedure_site",
+    "rt_site"
+  ],
+  "Limbs": [
+    "smn_site"
+  ],
+  "Pelvis": [
+    "smn_site",
+    "tumor_site",
+    "nodal_site",
+    "extension_site",
+    "procedure_site",
+    "rt_site"
+  ],
+  "Thorax": [
+    "smn_site",
+    "tumor_site"
+  ],
+  "Not Applicable": [
+    "smn_site",
+    "response"
+  ],
+  "Brain cancer, NOS": [
+    "smn_type"
+  ],
+  "Carcinoma": [
+    "smn_type"
+  ],
+  "Leukemia": [
+    "smn_type"
+  ],
+  "Lymphoma": [
+    "smn_type"
+  ],
+  "Sarcoma": [
+    "smn_type"
+  ],
+  "In XRT Field": [
+    "smn_field"
+  ],
+  "Margin of XRT Field": [
+    "smn_field"
+  ],
+  "Out of XRT Field": [
+    "smn_field"
+  ],
+  "growing_teratoma_syndrome": [
+    "type"
+  ],
+  "off_protocol_therapy_study": [
+    "type"
+  ],
+  "Protocol Therapy": [
+    "off_type"
+  ],
+  "Study": [
+    "off_type"
+  ],
+  "Death": [
+    "reason_off"
+  ],
+  "Lost to Follow-Up": [
+    "reason_off"
+  ],
+  "Completion of Follow-Up": [
+    "reason_off"
+  ],
+  "Completion of Planned Therapy": [
+    "reason_off"
+  ],
+  "Physician Decision": [
+    "reason_off"
+  ],
+  "Ineligible": [
+    "reason_off"
+  ],
+  "Withdrawal of Consent": [
+    "reason_off"
+  ],
+  "Subject/Guardian Refused Further Treatment": [
+    "reason_off"
+  ],
+  "Subject Non-Compliance": [
+    "reason_off",
+    "mod_reason"
+  ],
+  "Disease Progression": [
+    "reason_off",
+    "cause_of_death"
+  ],
+  "Adverse Event": [
+    "reason_off"
+  ],
+  "Development of SMN": [
+    "reason_off"
+  ],
+  "Study Discontinuation": [
+    "reason_off"
+  ],
+  "Failure to Attain Remission": [
+    "reason_off"
+  ],
+  "protocol_treatment_modification": [
+    "type"
+  ],
+  "Dose Reduction": [
+    "mod_type"
+  ],
+  "New Agent Added": [
+    "mod_type"
+  ],
+  "Substitution": [
+    "mod_type"
+  ],
+  "Discontinued": [
+    "mod_type"
+  ],
+  "Delayed": [
+    "mod_type",
+    "procedure_treatment_timing"
+  ],
+  "Not given": [
+    "mod_type"
+  ],
+  "Per Protocol": [
+    "mod_rationale"
+  ],
+  "Clinical Indication": [
+    "mod_rationale"
+  ],
+  "Hematologic Toxicity": [
+    "mod_reason"
+  ],
+  "Non-hematologic Toxicity": [
+    "mod_reason"
+  ],
+  "Surgical Complications": [
+    "mod_reason"
+  ],
+  "Scheduling Issues": [
+    "mod_reason"
+  ],
+  "Drug Not Available": [
+    "mod_reason"
+  ],
+  "Pre-existing Organ Dysfunction": [
+    "mod_reason"
+  ],
+  "Allergic Reaction": [
+    "toxicity_details"
+  ],
+  "GI Toxicity": [
+    "toxicity_details"
+  ],
+  "Endocrine Toxicity": [
+    "toxicity_details"
+  ],
+  "Musculoskeletal Toxicity": [
+    "toxicity_details"
+  ],
+  "Psychiatric Toxicity": [
+    "toxicity_details"
+  ],
+  "Brentuximab vedotin": [
+    "original_agent",
+    "sub_agent"
+  ],
+  "Etoposide phosphate": [
+    "original_agent"
+  ],
+  "Pembroluzimab": [
+    "original_agent",
+    "sub_agent"
+  ],
+  "Venoreline": [
+    "original_agent",
+    "sub_agent"
+  ],
+  "Etopophos": [
+    "sub_agent"
+  ],
+  "histology": [
+    "type"
+  ],
+  "Adult Fibrosarcoma (8810/3)": [
+    "histology"
+  ],
+  "Alveolar rhabdomyosarcoma (ARMS)": [
+    "histology"
+  ],
+  "Alveolar soft-part sarcoma (9581/3)": [
+    "histology"
+  ],
+  "Angiomatoid fibrous histiocytoma (8836/1)": [
+    "histology"
+  ],
+  "Angiosarcoma of Soft Tissue (9120/3)": [
+    "histology"
+  ],
+  "Atypical fibromyxanthoma (8830/1)": [
+    "histology"
+  ],
+  "Atypical Lipomatous Tumour (8850/1)": [
+    "histology"
+  ],
+  "Botryoid rhabdomyosarcoma (BRMS)": [
+    "histology"
+  ],
+  "Choriocarcinoma": [
+    "histology"
+  ],
+  "Clear cell sarcoma of soft tissue (9044/3)": [
+    "histology"
+  ],
+  "Composite Haemangioendothelioma (9136/1)": [
+    "histology"
+  ],
+  "Dedifferentiated Liposarcoma (8858/3)": [
+    "histology"
+  ],
+  "Dermatofibrosarcoma Protuberans (8832/1)": [
+    "histology"
+  ],
+  "Desmoid-type Fibromatosis (8821/1)": [
+    "histology"
+  ],
+  "Desmoplastic small round cell tumour (8806/3)": [
+    "histology"
+  ],
+  "Dysgerminoma": [
+    "histology"
+  ],
+  "Ectomesenchymoma (8921/3)": [
+    "histology"
+  ],
+  "Embryonal Carcinoma": [
+    "histology"
+  ],
+  "Embryonal rhabdomyosarcoma (ERMS)": [
+    "histology"
+  ],
+  "Epithelioid Haemangioendothelioma (9133/3)": [
+    "histology"
+  ],
+  "Epithelioid Malignant peripheral nerve sheath tumor (9542/3)": [
+    "histology"
+  ],
+  "Epithelioid sarcoma (8804/3)": [
+    "histology"
+  ],
+  "Extra-renal rhabdoid tumor (8963/3)": [
+    "histology"
+  ],
+  "Extraskeletal Mesenchymal Chondrosarcoma (9240/3)": [
+    "histology"
+  ],
+  "Extraskeletal myxoid chondrosarcoma (9231/3)": [
+    "histology"
+  ],
+  "Extraskeletal Osteosarcoma (9180/3)": [
+    "histology"
+  ],
+  "Fibrosarcomatous Dermatofibrosarcoma Protuberans (8832/3)": [
+    "histology"
+  ],
+  "Ganglioneuroblastoma, Intermixed (Schwannian Stroma-Rich)": [
+    "histology"
+  ],
+  "Ganglioneuroblastoma, Nodular (Composite)": [
+    "histology"
+  ],
+  "Ganglioneuroma (Schwannian Stroma-Dominant), Maturing Subtype": [
+    "histology"
+  ],
+  "Gastrointestinal Stromal Tumour, Malignant (8936/3)": [
+    "histology"
+  ],
+  "Gastrointestinal Stromal Tumour, Uncertain Malignant Potential (8936/1)": [
+    "histology"
+  ],
+  "Germinoma": [
+    "histology"
+  ],
+  "Giant cell Fibroblastoma (8834/1)": [
+    "histology"
+  ],
+  "Giant Cell Tumour of Soft Tissues (9251/1)": [
+    "histology"
+  ],
+  "Glomangiomatosis (8711/1)": [
+    "histology"
+  ],
+  "Glomus Tumour (and Variants) (8711/0)": [
+    "histology"
+  ],
+  "Gonadoblastoma": [
+    "histology"
+  ],
+  "Haemosiderotic fibrolipomatous Tumour (8811/1)": [
+    "histology"
+  ],
+  "Hodgkin Lymphoma, Classical, NOS": [
+    "histology"
+  ],
+  "Hodgkin Lymphoma, Lymphocyte Depletion, NOS": [
+    "histology"
+  ],
+  "Hodgkin Lymphoma, Lymphocyte-Rich": [
+    "histology"
+  ],
+  "Hodgkin Lymphoma, Mixed Cellularity, NOS": [
+    "histology"
+  ],
+  "Hodgkin Lymphoma, Nodular Lymphocyte Predominance": [
+    "histology"
+  ],
+  "Hodgkin Lymphoma, Nodular Sclerosis, NOS": [
+    "histology"
+  ],
+  "Hodgkin Lymphoma, NOS": [
+    "histology"
+  ],
+  "Immature Teratoma": [
+    "histology"
+  ],
+  "Infantile Fibrosarcoma (8814/3)": [
+    "histology"
+  ],
+  "Inflammatory myofibroblastic tumour (8825/1)": [
+    "histology"
+  ],
+  "Intimal sarcoma (9137/3)": [
+    "histology"
+  ],
+  "Kaposi Sarcoma (9140/3)": [
+    "histology"
+  ],
+  "Kaposiform Haemangioendothelioma (9130/1)": [
+    "histology"
+  ],
+  "Large Cell Ewing Tumor": [
+    "histology"
+  ],
+  "Leiomyosarcoma (Excluding Skin) (8890/3)": [
+    "histology"
+  ],
+  "Lipofibromatosis (8851/1)": [
+    "histology"
+  ],
+  "Liposarcoma, NOS (8850/3)": [
+    "histology"
+  ],
+  "Low-Grade Fibromyxoid Sarcoma (8840/3)": [
+    "histology"
+  ],
+  "Low-grade myofibroblastic sarcoma (8825/3)": [
+    "histology"
+  ],
+  "Malignant Glomus Tumour (8711/3)": [
+    "histology"
+  ],
+  "Malignant granular cell Tumour (9580/3)": [
+    "histology"
+  ],
+  "Malignant peripheral nerve sheath tumor (9540/3)": [
+    "histology"
+  ],
+  "Malignant Teratoma": [
+    "histology"
+  ],
+  "Malignant Triton Tumour (9561/3)": [
+    "histology"
+  ],
+  "Mature Teratoma": [
+    "histology"
+  ],
+  "Mixed Germ Cell Tumor": [
+    "histology"
+  ],
+  "Mixed Tumour NOS (8940/0)": [
+    "histology"
+  ],
+  "Mixed Tumour NOS, Malignant (8940/3)": [
+    "histology"
+  ],
+  "Myoepithelioma (8982/0)": [
+    "histology"
+  ],
+  "Myoepithelioma carcinoma (8982/3)": [
+    "histology"
+  ],
+  "Myxofibrosarcoma (8811/3)": [
+    "histology"
+  ],
+  "Myxoid Liposarcoma (8852/3)": [
+    "histology"
+  ],
+  "Myxoinflammatory fibroblastic sarcoma/Atypical myxoinflammatory fibroblastic tumour (8811/1)": [
+    "histology"
+  ],
+  "Necrotic Tumor": [
+    "histology"
+  ],
+  "Neuro-differentiated Ewing Tumor": [
+    "histology"
+  ],
+  "Neuroblastoma (Schwannian Stroma-Poor)": [
+    "histology"
+  ],
+  "Ossifying fibromyxoid Tumour (8842/0)": [
+    "histology"
+  ],
+  "Ossifying fibromyxoid Tumour, Malignant (8842/3)": [
+    "histology"
+  ],
+  "Palmar/plantar Fibromatosis (8813/1)": [
+    "histology"
+  ],
+  "Papillary Intralymphatic Angioendothelioma (9135/1)": [
+    "histology"
+  ],
+  "PEComa NOS, benign (8714/0)": [
+    "histology"
+  ],
+  "PEComa NOS, malignant (8714/3)": [
+    "histology"
+  ],
+  "Phosphaturic mesenchymal Tumour, Benign (8990/0)": [
+    "histology"
+  ],
+  "Phosphaturic mesenchymal Tumour, Malignant (8990/3)": [
+    "histology"
+  ],
+  "Pigmented Dermatofibrosarcoma Protuberans (8833/1)": [
+    "histology"
+  ],
+  "Pleomorphic Liposarcoma (8854/3)": [
+    "histology"
+  ],
+  "Pleomorphic rhabdomyosarcoma (PRMS)": [
+    "histology"
+  ],
+  "Plexiform fibrohistiocytic tumour (8835/1)": [
+    "histology"
+  ],
+  "Pseudomyogenic (Epithelioid Sarcoma-Like) Haemangioendothelioma (9136/1)": [
+    "histology"
+  ],
+  "Retiform Haemangioendothelioma (9136/1)": [
+    "histology"
+  ],
+  "Rhabdomyosarcoma (RMS), inadequate tissue for classification": [
+    "histology"
+  ],
+  "Rhabdomyosarcoma (RMS), not classifiable": [
+    "histology"
+  ],
+  "Rhabdomyosarcoma (RMS), with Mixed Embryonal and Alveolar Features": [
+    "histology"
+  ],
+  "Sclerosing Epithelioid Fibrosarcoma (8840/3)": [
+    "histology"
+  ],
+  "Seminoma": [
+    "histology"
+  ],
+  "Seminoma/Dysgerminoma/Germinoma": [
+    "histology"
+  ],
+  "Soft Tissue Chondroma (9220/0)": [
+    "histology"
+  ],
+  "Solitary Fibrous tumour (8815/1)": [
+    "histology"
+  ],
+  "Solitary Fibrous tumour, malignant (8815/3)": [
+    "histology"
+  ],
+  "Somatic Malignancy": [
+    "histology"
+  ],
+  "Spindle cell": [
+    "histology"
+  ],
+  "Synovial sarcoma NOS (9040/3)": [
+    "histology"
+  ],
+  "Synovial sarcoma, biphasic (9043/3)": [
+    "histology"
+  ],
+  "Synovial sarcoma, spindle cell (9041/3)": [
+    "histology"
+  ],
+  "Tenosynovial Giant Cell Tumour Diffuse Type (9252/1)": [
+    "histology"
+  ],
+  "Tenosynovial Giant Cell Tumour Localized Type (9252/0)": [
+    "histology"
+  ],
+  "Tenosynovial Giant Cell Tumour Malignant (9252/3)": [
+    "histology"
+  ],
+  "Teratoma, NOS": [
+    "histology"
+  ],
+  "Undifferentiated epithelioid sarcoma (8804/3)": [
+    "histology"
+  ],
+  "Undifferentiated Ewing Tumor": [
+    "histology"
+  ],
+  "Undifferentiated pleomorphic sarcoma (8802/3)": [
+    "histology"
+  ],
+  "Undifferentiated round cell sarcoma (8803/3)": [
+    "histology"
+  ],
+  "Undifferentiated sarcoma NOS (8805/3)": [
+    "histology"
+  ],
+  "Undifferentiated spindle cell sarcoma (8801/3)": [
+    "histology"
+  ],
+  "Well differentiated Liposarcoma (8850/3)": [
+    "histology"
+  ],
+  "Yolk Sac Tumor": [
+    "histology"
+  ],
+  "Undifferentiated or Poorly Differentiated": [
+    "histology_grade"
+  ],
+  "Differentiating": [
+    "histology_grade"
+  ],
+  "FNCLCC, Grade GX": [
+    "histology_grade"
+  ],
+  "FNCLCC, Grade 1": [
+    "histology_grade"
+  ],
+  "FNCLCC, Grade 2": [
+    "histology_grade"
+  ],
+  "FNCLCC, Grade 3": [
+    "histology_grade"
+  ],
+  "Rhabdomyosarcoma": [
+    "somatic_malignancy_type"
+  ],
+  "Sarcoma, NOS": [
+    "somatic_malignancy_type"
+  ],
+  "Adenocarcinoma": [
+    "somatic_malignancy_type"
+  ],
+  "Primitive Neuroectodermal Tumor": [
+    "somatic_malignancy_type"
+  ],
+  "Squamous Cell Carcinoma": [
+    "somatic_malignancy_type"
+  ],
+  "Malignant Histiocytosis": [
+    "somatic_malignancy_type"
+  ],
+  "Favorable": [
+    "histology_inpc"
+  ],
+  "Unfavorable": [
+    "histology_inpc"
+  ],
+  "tumor_assessment": [
+    "type"
+  ],
+  "PET": [
+    "tumor_detection_method",
+    "response_method",
+    "imaging_method"
+  ],
+  "Regional": [
+    "tumor_classification"
+  ],
+  "Abdominal Wall": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Acetabulum": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Adrenal Gland": [
+    "tumor_site"
+  ],
+  "Anal/Perianal": [
+    "tumor_site"
+  ],
+  "Ankle": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Ascitic Fluid": [
+    "tumor_site"
+  ],
+  "Axilla": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site",
+    "rt_site"
+  ],
+  "Bladder": [
+    "tumor_site"
+  ],
+  "Bladder/Prostate": [
+    "tumor_site"
+  ],
+  "Bone or Bone Marrow": [
+    "tumor_site"
+  ],
+  "Brain": [
+    "tumor_site",
+    "procedure_site"
+  ],
+  "Brain/Leptomeninges": [
+    "tumor_site"
+  ],
+  "Breast": [
+    "tumor_site"
+  ],
+  "Buttock": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Calcaneum": [
+    "tumor_site",
+    "extension_site"
+  ],
+  "Carpal Bone": [
+    "tumor_site",
+    "extension_site"
+  ],
+  "Cervical Vertebra": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Cervix": [
+    "tumor_site",
+    "nodal_site"
+  ],
+  "Cervix Lymph Nodes": [
+    "tumor_site"
+  ],
+  "Cheek": [
+    "tumor_site"
+  ],
+  "Chest": [
+    "tumor_site",
+    "procedure_site",
+    "rt_site"
+  ],
+  "Clavicle": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Coccyx": [
+    "tumor_site",
+    "procedure_site"
+  ],
+  "Distant Lymph Nodes": [
+    "tumor_site"
+  ],
+  "Dorsal Vertebra": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Elbow": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Ethmoid Bone": [
+    "tumor_site",
+    "procedure_site"
+  ],
+  "Eyelid": [
+    "tumor_site"
+  ],
+  "Face": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Femur": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Fibula": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Fibular Head": [
+    "tumor_site"
+  ],
+  "Finger": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Foot": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Forearm": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Frontal Bone": [
+    "tumor_site",
+    "procedure_site"
+  ],
+  "Frontal Cortex": [
+    "tumor_site",
+    "procedure_site",
+    "rt_site"
+  ],
+  "Hand": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Head": [
+    "tumor_site"
+  ],
+  "Hip": [
+    "tumor_site"
+  ],
+  "Hip/Inguinal Region": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Humerus": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Hypopharynx": [
+    "tumor_site"
+  ],
+  "Infratemporal Fossa/Pterygopalatine": [
+    "tumor_site"
+  ],
+  "Infratemporal Fossa/Pterygopalatine and Parapharyngeal Area": [
+    "tumor_site"
+  ],
+  "Inguinal Nodes": [
+    "tumor_site"
+  ],
+  "Intra-abdominal": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Intraperitoneal": [
+    "tumor_site"
+  ],
+  "Intrathoracic": [
+    "tumor_site"
+  ],
+  "Ischium": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Kidney": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Knee": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Lacrimal Bone": [
+    "tumor_site",
+    "procedure_site"
+  ],
+  "Larynx": [
+    "tumor_site"
+  ],
+  "Leg": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Limbs, NOS": [
+    "tumor_site"
+  ],
+  "Liver/Biliary Tract": [
+    "tumor_site"
+  ],
+  "Lower Arm": [
+    "tumor_site"
+  ],
+  "Lower Extremity": [
+    "tumor_site",
+    "procedure_site",
+    "rt_site"
+  ],
+  "Lower Leg": [
+    "tumor_site"
+  ],
+  "Lumbar Vertebra": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Lymph Nodes": [
+    "tumor_site"
+  ],
+  "Mandible": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Maxilla": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Mediastinal Lymph Nodes": [
+    "tumor_site"
+  ],
+  "Metacarpus": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Metatarsus": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Middle Ear": [
+    "tumor_site"
+  ],
+  "Nasal Bone": [
+    "tumor_site",
+    "procedure_site"
+  ],
+  "Nasal Cavity": [
+    "tumor_site"
+  ],
+  "Nasal Cavity and Paranasal Sinuses": [
+    "tumor_site"
+  ],
+  "Nasopharynx": [
+    "tumor_site"
+  ],
+  "Neck": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site",
+    "rt_site"
+  ],
+  "Occipital Bone": [
+    "tumor_site",
+    "procedure_site"
+  ],
+  "Occiptal Cortex": [
+    "tumor_site",
+    "procedure_site",
+    "rt_site"
+  ],
+  "Omentum Lymph Nodes": [
+    "tumor_site"
+  ],
+  "Omentum/Peritoneum": [
+    "tumor_site"
+  ],
+  "Oral Cavity": [
+    "tumor_site"
+  ],
+  "Oropharynx": [
+    "tumor_site"
+  ],
+  "Other Extremity": [
+    "tumor_site"
+  ],
+  "Other Face": [
+    "tumor_site"
+  ],
+  "Other GU Non-Bladder/Prostate": [
+    "tumor_site"
+  ],
+  "Other Head and Neck": [
+    "tumor_site"
+  ],
+  "Other Orbit": [
+    "tumor_site"
+  ],
+  "Other Parameningeal": [
+    "tumor_site"
+  ],
+  "Ovary": [
+    "tumor_site",
+    "procedure_site",
+    "rt_site"
+  ],
+  "Paranasal Sinuses": [
+    "tumor_site"
+  ],
+  "Parapharyngeal Area": [
+    "tumor_site"
+  ],
+  "Paraspinal": [
+    "tumor_site"
+  ],
+  "Paratesticular": [
+    "tumor_site"
+  ],
+  "Parietal Bone": [
+    "tumor_site",
+    "procedure_site"
+  ],
+  "Parietal Cortex": [
+    "tumor_site",
+    "procedure_site",
+    "rt_site"
+  ],
+  "Parotid": [
+    "tumor_site"
+  ],
+  "Patella": [
+    "tumor_site",
+    "procedure_site"
+  ],
+  "Pelvic Lymph Nodes": [
+    "tumor_site"
+  ],
+  "Perineum": [
+    "tumor_site"
+  ],
+  "Peritoneum": [
+    "tumor_site"
+  ],
+  "Pineal": [
+    "tumor_site",
+    "procedure_site",
+    "rt_site"
+  ],
+  "Pleural Effusion": [
+    "tumor_site"
+  ],
+  "Prostate": [
+    "tumor_site"
+  ],
+  "Radius Bone": [
+    "tumor_site",
+    "extension_site"
+  ],
+  "Regional Lymph Nodes": [
+    "tumor_site"
+  ],
+  "Retroperitoneum": [
+    "tumor_site",
+    "nodal_site",
+    "procedure_site",
+    "rt_site"
+  ],
+  "Retroperitoneum Lymph Nodes": [
+    "tumor_site"
+  ],
+  "Rib": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Sacral Region": [
+    "tumor_site",
+    "extension_site"
+  ],
+  "Sacrococcygeal": [
+    "tumor_site",
+    "procedure_site",
+    "rt_site"
+  ],
+  "Scalp": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site",
+    "rt_site"
+  ],
+  "Scapula": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Shoulder": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site",
+    "rt_site"
+  ],
+  "Site cannot be confirmed": [
+    "tumor_site"
+  ],
+  "Skull": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Spheniod Bone": [
+    "tumor_site"
+  ],
+  "Spinal Cord": [
+    "tumor_site",
+    "procedure_site",
+    "rt_site"
+  ],
+  "Spine": [
+    "tumor_site",
+    "procedure_site",
+    "rt_site"
+  ],
+  "Sternum": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Suprasellar/Neurohypophyseal": [
+    "tumor_site",
+    "procedure_site",
+    "rt_site"
+  ],
+  "Talus": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Tarsal Bone": [
+    "tumor_site"
+  ],
+  "Temporal Bone": [
+    "tumor_site",
+    "procedure_site"
+  ],
+  "Temporal Cortex": [
+    "tumor_site",
+    "procedure_site",
+    "rt_site"
+  ],
+  "Thalamus": [
+    "tumor_site",
+    "procedure_site",
+    "rt_site"
+  ],
+  "Thigh": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Thoracic Vertebra": [
+    "tumor_site"
+  ],
+  "Thyroid and Parathyroid": [
+    "tumor_site"
+  ],
+  "Tibia": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Trunk": [
+    "tumor_site"
+  ],
+  "Ulna": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Upper Arm": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Upper Extremity": [
+    "tumor_site",
+    "procedure_site",
+    "rt_site"
+  ],
+  "Urogenital": [
+    "tumor_site"
+  ],
+  "Uterus": [
+    "tumor_site"
+  ],
+  "Vagina": [
+    "tumor_site",
+    "procedure_site",
+    "rt_site"
+  ],
+  "Vulva": [
+    "tumor_site"
+  ],
+  "Wrist": [
+    "tumor_site",
+    "extension_site",
+    "procedure_site"
+  ],
+  "Zygomatic Bone": [
+    "tumor_site"
+  ],
+  "Distal": [
+    "site_within_bone"
+  ],
+  "Proximal": [
+    "site_within_bone"
+  ],
+  "Epiphysis": [
+    "site_within_bone"
+  ],
+  "Metaphysis": [
+    "site_within_bone"
+  ],
+  "Diaphysis": [
+    "site_within_bone"
+  ],
+  "<200 mL": [
+    "tumor_volume"
+  ],
+  ">=200 mL": [
+    "tumor_volume"
+  ],
+  "<=5 cm": [
+    "tumor_size"
+  ],
+  ">5 cm": [
+    "tumor_size"
+  ],
+  "T1 Stage Finding": [
+    "invasiveness"
+  ],
+  "T2 Stage Finding": [
+    "invasiveness"
+  ],
+  "TX Stage Finding": [
+    "invasiveness"
+  ],
+  "Superficial": [
+    "depth"
+  ],
+  "Deep": [
+    "depth"
+  ],
+  "Score 0: No Necrosis": [
+    "necrosis"
+  ],
+  "<50% Necrosis": [
+    "necrosis"
+  ],
+  ">=50% Necrosis": [
+    "necrosis"
+  ],
+  "N0 Stage Finding": [
+    "nodal_pathology",
+    "nodal_clinical"
+  ],
+  "N1 Stage Finding": [
+    "nodal_pathology",
+    "nodal_clinical"
+  ],
+  "NX Stage Finding": [
+    "nodal_pathology",
+    "nodal_clinical"
+  ],
+  "Omentum": [
+    "nodal_site"
+  ],
+  "Negative": [
+    "pleural_cytology",
+    "peritoneal_cytology",
+    "imaging_result"
+  ],
+  "Positive": [
+    "pleural_cytology",
+    "peritoneal_cytology",
+    "imaging_result"
+  ],
+  "Intraspinal": [
+    "extension_site"
+  ],
+  "Retroperitoneal": [
+    "extension_site"
+  ],
+  "Toe": [
+    "extension_site"
+  ],
+  "family_medical_history": [
+    "type"
+  ],
+  "Father": [
+    "relative"
+  ],
+  "Mother": [
+    "relative"
+  ],
+  "Brother": [
+    "relative"
+  ],
+  "Sister": [
+    "relative"
+  ],
+  "Son": [
+    "relative"
+  ],
+  "Daughter": [
+    "relative"
+  ],
+  "concomitant_medication": [
+    "type"
+  ],
+  "Dexrazoxane": [
+    "medication"
+  ],
+  "Systemic corticosteroid": [
+    "medication"
+  ],
+  "Topical corticosteroid": [
+    "medication"
+  ],
+  "Non-corticosteroid immunosuppressive agent": [
+    "medication"
+  ],
+  "Growth Factor - red cells (erythropoeitin)": [
+    "medication"
+  ],
+  "Growth Factor - platelets (give ex)": [
+    "medication"
+  ],
+  "Growth Factor - white cells, short acting (give ex in NCI def)": [
+    "medication"
+  ],
+  "Growth Factor - white cells, long acting (give ex in NCI def)": [
+    "medication"
+  ],
+  "Analgesics - opioid (give ex)": [
+    "medication"
+  ],
+  "Neuropathy analgesics - non-opioid (give ex)": [
+    "medication"
+  ],
+  "Thyroid hormone replacement": [
+    "medication"
+  ],
+  "Plerixafor": [
+    "medication"
+  ],
+  "Sodium Thiosulfate": [
+    "medication"
+  ],
+  "Treatment for Adverse Event": [
+    "medication_reason"
+  ],
+  "Prevention of Adverse Event": [
+    "medication_reason"
+  ],
+  "Stem Cell Mobilization": [
+    "medication_reason"
+  ],
+  "minimal_residual_disease": [
+    "type"
+  ],
+  "Flow Cytometry": [
+    "mrd_method",
+    "bm_analysis_method_at_response"
+  ],
+  "Molecular Real-time Quantitative PCR": [
+    "mrd_method"
+  ],
+  "Leukemia-Associated Immunophenotypes": [
+    "flow_cytometry_type"
+  ],
+  "Different-from-Normal": [
+    "flow_cytometry_type"
+  ],
+  "NCN": [
+    "mrd_result_unit"
+  ],
+  "Any MLL rearrangement": [
+    "mrd_molecular_markers"
+  ],
+  "FLT3 internal tandem duplication": [
+    "mrd_molecular_markers"
+  ],
+  "inv(16)(p13q22) (G2704-G2759)": [
+    "mrd_molecular_markers"
+  ],
+  "non-KMT2A MLLT10": [
+    "mrd_molecular_markers"
+  ],
+  "RUNX1-RUNXT1 Fusion": [
+    "mrd_molecular_markers"
+  ],
+  "t(3;3)(q21;q26.2)": [
+    "mrd_molecular_markers"
+  ],
+  "t(3;5)(q25;q34)NPM1/MLF1": [
+    "mrd_molecular_markers"
+  ],
+  "t(3;5)(q25;q34)NPM1/MLF2": [
+    "mrd_molecular_markers"
+  ],
+  "t(3;5)(q25;q34)NPM1/MLF3": [
+    "mrd_molecular_markers"
+  ],
+  "t(6;9)(p23;q34) DEK/NUP214": [
+    "mrd_molecular_markers"
+  ],
+  "t(8;21)": [
+    "mrd_molecular_markers"
+  ],
+  "stem_cell_transplant": [
+    "type"
+  ],
+  "Peripheral blood": [
+    "sct_source"
+  ],
+  "Cord blood": [
+    "sct_source"
+  ],
+  "Mixture of stem cells": [
+    "sct_source"
+  ],
+  "Biological sibling": [
+    "sct_donor_relationship"
+  ],
+  "Biological parent": [
+    "sct_donor_relationship"
+  ],
+  "Biological relative": [
+    "sct_donor_relationship"
+  ],
+  "Biologically unrelated": [
+    "sct_donor_relationship"
+  ],
+  "Match": [
+    "hla_match"
+  ],
+  "Non-match": [
+    "hla_match"
+  ],
+  "Both alleles matched": [
+    "hla_a_result",
+    "hla_b_result",
+    "hla_c_result",
+    "hla_drb1_result",
+    "hla_dq_result"
+  ],
+  "One allele mismatched": [
+    "hla_a_result",
+    "hla_b_result",
+    "hla_c_result",
+    "hla_drb1_result",
+    "hla_dq_result"
+  ],
+  "Two alleles mismatched": [
+    "hla_a_result",
+    "hla_b_result",
+    "hla_c_result",
+    "hla_drb1_result",
+    "hla_dq_result"
+  ],
+  "Myeloablative": [
+    "sct_conditioning_type"
+  ],
+  "Reduced Intensity Conditioning/Reduced Toxicity Conditioning": [
+    "sct_conditioning_type"
+  ],
+  "Non-Myeloablative": [
+    "sct_conditioning_type"
+  ],
+  "4": [
+    "sct_cycles",
+    "le_severity_grade"
+  ],
+  "function_test": [
+    "type"
+  ],
+  "Echocardiogram": [
+    "function_category"
+  ],
+  "EKG": [
+    "function_category"
+  ],
+  "Pulmonary Function Test": [
+    "function_category"
+  ],
+  "Ejection Fraction": [
+    "function_test"
+  ],
+  "Shortening Fraction": [
+    "function_test"
+  ],
+  "QTc": [
+    "function_test"
+  ],
+  "FVC": [
+    "function_test"
+  ],
+  "FEV1": [
+    "function_test"
+  ],
+  "FEF at 25-75%": [
+    "function_test"
+  ],
+  "Total lung capacity": [
+    "function_test"
+  ],
+  "DLCO": [
+    "function_test"
+  ],
+  "mL": [
+    "function_result_unit"
+  ],
+  "interval/second": [
+    "function_result_unit"
+  ],
+  "biopsy_surgical_procedure": [
+    "type"
+  ],
+  "Regional nodes": [
+    "tumor_classification"
+  ],
+  "Waldeyer's Ring: Nasopharynx, Tonsils": [
+    "procedure_site"
+  ],
+  "Calcaneus": [
+    "procedure_site"
+  ],
+  "Carpus": [
+    "procedure_site"
+  ],
+  "Cervical Nodes, Occipital, Submental": [
+    "procedure_site"
+  ],
+  "Epitrochlear or Brachial Nodes": [
+    "procedure_site"
+  ],
+  "Fibula Head": [
+    "procedure_site"
+  ],
+  "Para-aortic Nodes, Portal, Retrocrural": [
+    "procedure_site"
+  ],
+  "Pre-auricular Nodes": [
+    "procedure_site"
+  ],
+  "Radius": [
+    "procedure_site"
+  ],
+  "Sacrum": [
+    "procedure_site"
+  ],
+  "Spheniod bone": [
+    "procedure_site"
+  ],
+  "Tarsus": [
+    "procedure_site"
+  ],
+  "Thoracic vertebra": [
+    "procedure_site"
+  ],
+  "Zygomatic bone": [
+    "procedure_site"
+  ],
+  "Fine Needle Aspiration": [
+    "procedure_type"
+  ],
+  "Amputation": [
+    "limb_surgery_type"
+  ],
+  "Limb-salvage": [
+    "limb_surgery_type"
+  ],
+  "Amputation - Through Involved Bone": [
+    "amputation_type"
+  ],
+  "Amputation - Proximal to Involved Bone": [
+    "amputation_type"
+  ],
+  "Disarticulation": [
+    "amputation_type"
+  ],
+  "Internal Hemipelvectomy": [
+    "amputation_type",
+    "limb_salvage_surgery_type"
+  ],
+  "External Hemipelvectomy": [
+    "amputation_type"
+  ],
+  "Intra-Articular Resection": [
+    "limb_salvage_surgery_type"
+  ],
+  "Extra-Articular Resection": [
+    "limb_salvage_surgery_type"
+  ],
+  "Intercalary Resection": [
+    "limb_salvage_surgery_type"
+  ],
+  "Endoprosthetic": [
+    "reconstruction_type"
+  ],
+  "Osteoarticular Allograft": [
+    "reconstruction_type"
+  ],
+  "Intercalary Allograft": [
+    "reconstruction_type"
+  ],
+  "Allograft-Prosthetic": [
+    "reconstruction_type"
+  ],
+  "Non-Vascularized Autograft": [
+    "reconstruction_type"
+  ],
+  "Vascularized Autograft": [
+    "reconstruction_type"
+  ],
+  "Allograft + Vascularized Autograft": [
+    "reconstruction_type"
+  ],
+  "Vascularized Autograft Endoprosthetic Composite": [
+    "reconstruction_type"
+  ],
+  "Arthrodesis": [
+    "reconstruction_type"
+  ],
+  "Flail": [
+    "reconstruction_type"
+  ],
+  "Gross Total": [
+    "procedure_extent"
+  ],
+  "Complete Resection": [
+    "procedure_extent",
+    "margins"
+  ],
+  "Partial Resection": [
+    "procedure_extent"
+  ],
+  "Equivocal": [
+    "procedure_extent",
+    "imaging_result"
+  ],
+  "Biopsy Only": [
+    "margins"
+  ],
+  "Incomplete Resection": [
+    "margins"
+  ],
+  "R0 - Complete Resection, Negative Margins": [
+    "margins"
+  ],
+  "R1 - Complete Resection, Positive Margins": [
+    "margins"
+  ],
+  "R2 - Gross Residual Disease": [
+    "margins"
+  ],
+  "Core needle Biopsy": [
+    "biopsy_type"
+  ],
+  "Incisional Biopsy": [
+    "biopsy_type"
+  ],
+  "Excisional Biopsy": [
+    "biopsy_type"
+  ],
+  "Thoracotomy": [
+    "met_lung_mgmt"
+  ],
+  "Sternotomy": [
+    "met_lung_mgmt"
+  ],
+  "Video-Assisted Thoroscopic Surgery": [
+    "met_lung_mgmt"
+  ],
+  "Navigation and Robotics": [
+    "localization_technique"
+  ],
+  "Indocyanine Green (ICG) Fluorescence Angiography": [
+    "localization_technique"
+  ],
+  "Methylene Blue Dye Marking": [
+    "localization_technique"
+  ],
+  "Wire Localization": [
+    "localization_technique"
+  ],
+  "None": [
+    "localization_technique",
+    "rt_timing"
+  ],
+  "Single Lymph Node": [
+    "number_nodes"
+  ],
+  "Multiple Lymph Nodes": [
+    "number_nodes"
+  ],
+  "Initial Diagnostic Procedure": [
+    "procedure_purpose"
+  ],
+  "Second Look Surgery to Attempt Total Resection": [
+    "procedure_purpose"
+  ],
+  "Biopsy of Distant Site for Staging": [
+    "procedure_purpose"
+  ],
+  "Diagnostic Biopsy for Possible Recurrence": [
+    "procedure_purpose"
+  ],
+  "Initial": [
+    "procedure_treatment_timing"
+  ],
+  "cytology": [
+    "type"
+  ],
+  "cellular_immunotherapy": [
+    "type"
+  ],
+  "Donor Lymphocyte Infusion": [
+    "cimt_type"
+  ],
+  "Chimeric Antigen Receptor T-cell Therapy": [
+    "cimt_type"
+  ],
+  "subject": [
+    "type"
+  ],
+  "INSTRuCT": [
+    "consortium"
+  ],
+  "MaGIC": [
+    "consortium"
+  ],
+  "INRG": [
+    "consortium"
+  ],
+  "NODAL": [
+    "consortium"
+  ],
+  "INTERACT": [
+    "consortium"
+  ],
+  "HIBISCUS": [
+    "consortium"
+  ],
+  "ALL": [
+    "consortium"
+  ],
+  "AIEOP": [
+    "data_contributor_id"
+  ],
+  "BFM-SG": [
+    "data_contributor_id"
+  ],
+  "CCLG": [
+    "data_contributor_id"
+  ],
+  "CRCTU": [
+    "data_contributor_id"
+  ],
+  "CWS": [
+    "data_contributor_id"
+  ],
+  "DCOG": [
+    "data_contributor_id"
+  ],
+  "DFCI": [
+    "data_contributor_id"
+  ],
+  "EpSSG": [
+    "data_contributor_id"
+  ],
+  "EURO-EWING": [
+    "data_contributor_id"
+  ],
+  "FSG": [
+    "data_contributor_id"
+  ],
+  "GPLP": [
+    "data_contributor_id"
+  ],
+  "GPOH": [
+    "data_contributor_id"
+  ],
+  "ICG": [
+    "data_contributor_id"
+  ],
+  "ISG": [
+    "data_contributor_id"
+  ],
+  "JACLS": [
+    "data_contributor_id"
+  ],
+  "JCCG": [
+    "data_contributor_id"
+  ],
+  "JNBSG": [
+    "data_contributor_id"
+  ],
+  "JPLSG": [
+    "data_contributor_id"
+  ],
+  "MMT": [
+    "data_contributor_id"
+  ],
+  "MRC": [
+    "data_contributor_id"
+  ],
+  "NOPHO": [
+    "data_contributor_id"
+  ],
+  "NRG-Oncology": [
+    "data_contributor_id"
+  ],
+  "PPLLSG": [
+    "data_contributor_id"
+  ],
+  "SFCE": [
+    "data_contributor_id"
+  ],
+  "SIOP MMT": [
+    "data_contributor_id"
+  ],
+  "SIOPEN": [
+    "data_contributor_id"
+  ],
+  "SJCRH": [
+    "data_contributor_id"
+  ],
+  "SOPOBE": [
+    "data_contributor_id"
+  ],
+  "SSG": [
+    "data_contributor_id"
+  ],
+  "UK": [
+    "data_contributor_id"
+  ],
+  "University College of London": [
+    "data_contributor_id"
+  ],
+  "Utah-Huntsman": [
+    "data_contributor_id"
+  ],
+  "Subject is censored (i.e. has had no event(s))": [
+    "censor_status"
+  ],
+  "Subject has had one or more events": [
+    "censor_status"
+  ],
+  "radiation_therapy": [
+    "type"
+  ],
+  "Regional Nodes": [
+    "tumor_classification"
+  ],
+  "Cranium": [
+    "rt_site"
+  ],
+  "Epitrochlear and Brachial": [
+    "rt_site"
+  ],
+  "Heart/Pericardium": [
+    "rt_site"
+  ],
+  "Hilar": [
+    "rt_site"
+  ],
+  "Inguinal and Femoral": [
+    "rt_site"
+  ],
+  "Mesenteric/Hepatic Porta": [
+    "rt_site"
+  ],
+  "Para-aortic": [
+    "rt_site"
+  ],
+  "Popliteal": [
+    "rt_site"
+  ],
+  "Spleen, Splenic Hilar": [
+    "rt_site"
+  ],
+  "Sternum/Chest Wall": [
+    "rt_site"
+  ],
+  "3D Conformal": [
+    "energy_type"
+  ],
+  "Brachytherapy": [
+    "energy_type"
+  ],
+  "Electrons": [
+    "energy_type"
+  ],
+  "Intensity-Modulated Radiation Therapy": [
+    "energy_type"
+  ],
+  "Photon": [
+    "energy_type"
+  ],
+  "Photon Stereotactic Body Radiation Therapy": [
+    "energy_type"
+  ],
+  "Proton": [
+    "energy_type"
+  ],
+  "Proton Stereotactic Body Radiation Therapy": [
+    "energy_type"
+  ],
+  "Gy": [
+    "rt_unit"
+  ],
+  "Ovaries": [
+    "transposition_organ"
+  ],
+  "Administered": [
+    "administration_status"
+  ],
+  "Not Administered": [
+    "administration_status"
+  ],
+  "Prior to Diagnosis": [
+    "rt_timing"
+  ],
+  "Definitive": [
+    "rt_timing"
+  ],
+  "Pre-operative": [
+    "rt_timing"
+  ],
+  "Post-operative": [
+    "rt_timing"
+  ],
+  "late_effect": [
+    "type"
+  ],
+  "Endocrine Disorder": [
+    "le"
+  ],
+  "Cardiovascular Disorder": [
+    "le"
+  ],
+  "Muskuloskeletal Disorder": [
+    "le"
+  ],
+  "Neurological Disorder": [
+    "le"
+  ],
+  "Pulmonary Disorder": [
+    "le"
+  ],
+  "Breast Hypoplasia": [
+    "le"
+  ],
+  "Dermatologic Disorder": [
+    "le"
+  ],
+  "Xerostomia": [
+    "le"
+  ],
+  "Genitourinary Disorder": [
+    "le"
+  ],
+  "Immunologic Disorder": [
+    "le"
+  ],
+  "GI Disorder": [
+    "le"
+  ],
+  "Psychiatric Disorder": [
+    "le"
+  ],
+  "Thyroid Disorder": [
+    "le_detail"
+  ],
+  "Gonadal Dysfunction": [
+    "le_detail"
+  ],
+  "Conduction abnormality": [
+    "le_detail"
+  ],
+  "Arrhythmia": [
+    "le_detail"
+  ],
+  "Valvular Disease": [
+    "le_detail"
+  ],
+  "Ventricular Dysfunction": [
+    "le_detail"
+  ],
+  "Pericarditis": [
+    "le_detail"
+  ],
+  "Vascular Disorder": [
+    "le_detail"
+  ],
+  "Hypertension": [
+    "le_detail"
+  ],
+  "Avascular-Necrosis": [
+    "le_detail"
+  ],
+  "Osteopenia": [
+    "le_detail"
+  ],
+  "Osteoporosis": [
+    "le_detail"
+  ],
+  "Scoliosis": [
+    "le_detail"
+  ],
+  "Arthritis": [
+    "le_detail"
+  ],
+  "Muskuloskeletal Hypoplasia": [
+    "le_detail"
+  ],
+  "Neurocognitive": [
+    "le_detail"
+  ],
+  "Stroke": [
+    "le_detail"
+  ],
+  "Restrictive Lung Disease": [
+    "le_detail"
+  ],
+  "Obstructive Lung Disease": [
+    "le_detail"
+  ],
+  "Reactive Airway Disease": [
+    "le_detail"
+  ],
+  "Pigment Changes": [
+    "le_detail"
+  ],
+  "Dryness": [
+    "le_detail"
+  ],
+  "Atrophy": [
+    "le_detail"
+  ],
+  "Contraction": [
+    "le_detail"
+  ],
+  "Scarring": [
+    "le_detail"
+  ],
+  "Telengectasia": [
+    "le_detail"
+  ],
+  "Renal Disorder": [
+    "le_detail"
+  ],
+  "Bladder Disorder": [
+    "le_detail"
+  ],
+  "Autoimmune Reaction": [
+    "le_detail"
+  ],
+  "Acquired Immunodeficiency": [
+    "le_detail"
+  ],
+  "GI Adhesions": [
+    "le_detail"
+  ],
+  "Pancreatitis": [
+    "le_detail"
+  ],
+  "Hepatic Dysfunction": [
+    "le_detail"
+  ],
+  "Esophagitis": [
+    "le_detail"
+  ],
+  "Gastritis": [
+    "le_detail"
+  ],
+  "Hyperthyroid": [
+    "le_sub_detail"
+  ],
+  "Hypothyroid": [
+    "le_sub_detail"
+  ],
+  "Thyroid Nodule": [
+    "le_sub_detail"
+  ],
+  "Menstrual Cycle Dysfunction": [
+    "le_sub_detail"
+  ],
+  "Germ Cell Failure, Suspected": [
+    "le_sub_detail"
+  ],
+  "Germ Cell Failure, Sonfirmed": [
+    "le_sub_detail"
+  ],
+  "Testosterone Deficiency": [
+    "le_sub_detail"
+  ],
+  "Fertility Disorder": [
+    "le_sub_detail"
+  ],
+  "Ammenorrhea": [
+    "le_sub_detail"
+  ],
+  "Heart Block": [
+    "le_sub_detail"
+  ],
+  "Prolonged QT": [
+    "le_sub_detail"
+  ],
+  "Supraventricular Tachycardia": [
+    "le_sub_detail"
+  ],
+  "Cardiomyopathy, NOS": [
+    "le_sub_detail"
+  ],
+  "Restrictive Cardiomyopathy": [
+    "le_sub_detail"
+  ],
+  "Dilated Cardiomyopathy": [
+    "le_sub_detail"
+  ],
+  "Sensory Neuropathy": [
+    "le_sub_detail"
+  ],
+  "Motor Neuropathy": [
+    "le_sub_detail"
+  ],
+  "Pulmonary Fibrosis": [
+    "le_sub_detail"
+  ],
+  "Asthma": [
+    "le_sub_detail"
+  ],
+  "Decreased Creatinine Clearance": [
+    "le_sub_detail"
+  ],
+  "Tubular Damage": [
+    "le_sub_detail"
+  ],
+  "AKI": [
+    "le_sub_detail"
+  ],
+  "Decreased GFR": [
+    "le_sub_detail"
+  ],
+  "AIN": [
+    "le_sub_detail"
+  ],
+  "5": [
+    "le_severity_grade"
+  ],
+  "survival_characteristic": [
+    "type"
+  ],
+  "Alive": [
+    "lkss"
+  ],
+  "Dead": [
+    "lkss"
+  ],
+  "Pre-Treatment Disease Complications": [
+    "cause_of_death"
+  ],
+  "Post-Treatment Disease Complications": [
+    "cause_of_death"
+  ],
+  "Treatment-Related Mortality": [
+    "cause_of_death"
+  ],
+  "Acute Respiratory Distress Syndrome": [
+    "cause_of_death_detail"
+  ],
+  "Bacterial Infection": [
+    "cause_of_death_detail"
+  ],
+  "Cardiac Disease": [
+    "cause_of_death_detail"
+  ],
+  "Cardiac Failure": [
+    "cause_of_death_detail"
+  ],
+  "Fungal Infection": [
+    "cause_of_death_detail"
+  ],
+  "Immunotherapy-Related": [
+    "cause_of_death_detail"
+  ],
+  "Infection, NOS": [
+    "cause_of_death_detail"
+  ],
+  "Multi-Organ Failure": [
+    "cause_of_death_detail"
+  ],
+  "Organ Failure, NOS": [
+    "cause_of_death_detail"
+  ],
+  "Pulmonary Disease": [
+    "cause_of_death_detail"
+  ],
+  "Surgical Complication": [
+    "cause_of_death_detail"
+  ],
+  "Viral Infection": [
+    "cause_of_death_detail"
+  ],
+  "Contributory": [
+    "cause_of_death_ranking"
+  ],
+  "subject_response": [
+    "type"
+  ],
+  "Overall Response": [
+    "response_category"
+  ],
+  "Overall Response by Method": [
+    "response_category"
+  ],
+  "Bone Marrow Response": [
+    "response_category"
+  ],
+  "CNS Response": [
+    "response_category"
+  ],
+  "Myeloid Sarcoma Response": [
+    "response_category"
+  ],
+  "Target Lesions": [
+    "response_category"
+  ],
+  "Non-Target Lesions": [
+    "response_category"
+  ],
+  "Chemoradiotherapy": [
+    "tx_prior_response"
+  ],
+  "Rapid Early Response (adequate)": [
+    "interim_response"
+  ],
+  "Slow Early Response (inadequate)": [
+    "interim_response"
+  ],
+  "Progressive Disease": [
+    "interim_response",
+    "response"
+  ],
+  "Complete Response": [
+    "response"
+  ],
+  "Mixed Response": [
+    "response"
+  ],
+  "Non-Response": [
+    "response"
+  ],
+  "Not Evaluable": [
+    "response"
+  ],
+  "Partial Response": [
+    "response"
+  ],
+  "Stable Disease": [
+    "response"
+  ],
+  "Very Good Partial Response": [
+    "response"
+  ],
+  "Pathology": [
+    "response_method"
+  ],
+  "Gallium": [
+    "response_method",
+    "imaging_method"
+  ],
+  "Bone Marrow Biopsy": [
+    "response_method"
+  ],
+  "RECIST": [
+    "response_criteria"
+  ],
+  "WHO": [
+    "response_criteria"
+  ],
+  "Choi": [
+    "response_criteria"
+  ],
+  "mRECIST": [
+    "response_criteria"
+  ],
+  "PERCIST": [
+    "response_criteria"
+  ],
+  "< 50% Necrosis": [
+    "necrosis"
+  ],
+  "<= 90% Necrosis": [
+    "necrosis"
+  ],
+  ">= 50% Necrosis": [
+    "necrosis"
+  ],
+  "> 90% Necrosis": [
+    "necrosis"
+  ],
+  "patient_reported_outcomes_metadata": [
+    "type"
+  ],
+  "PROMIS Global": [
+    "pro_measures"
+  ],
+  "PROMIS Fatigue Short Form": [
+    "pro_measures"
+  ],
+  "Fact NTX": [
+    "pro_measures"
+  ],
+  "PRO-CTCAE": [
+    "pro_measures"
+  ],
+  "PEDPRO-CTCAE": [
+    "pro_measures"
+  ],
+  "PedsQL Multi-Dimensional Fatigue Scale": [
+    "pro_measures"
+  ],
+  "PedsQL 4.0 Generic Core Scale": [
+    "pro_measures"
+  ],
+  "AYA-HEARS": [
+    "pro_measures"
+  ],
+  "Health Profile": [
+    "pro_measurement_type"
+  ],
+  "Health Utility": [
+    "pro_measurement_type"
+  ],
+  "Symptom Scale": [
+    "pro_measurement_type"
+  ],
+  "Subject": [
+    "raters"
+  ],
+  "Parent/Guardian": [
+    "raters"
+  ],
+  "Subject and Parent/Guardian": [
+    "raters"
+  ],
+  "Baseline": [
+    "time_point"
+  ],
+  "On Treatment": [
+    "time_point"
+  ],
+  "End of Treatment": [
+    "time_point"
+  ],
+  "Follow-Up Assessment": [
+    "time_point"
+  ],
+  "imaging": [
+    "type"
+  ],
+  "Score 1": [
+    "deauville_score"
+  ],
+  "Score 2": [
+    "deauville_score"
+  ],
+  "Score 3": [
+    "deauville_score"
+  ],
+  "Score 4": [
+    "deauville_score"
+  ],
+  "Score 5": [
+    "deauville_score"
+  ]
+}

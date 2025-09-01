@@ -10,7 +10,6 @@ from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
 import json
 
-# Import custom modules
 from utils.schema_parser import *
 from utils.query_builder import *
 from utils.context_manager import session_manager
@@ -18,6 +17,7 @@ from utils.prompt_builder import *
 from utils.filter_utils import *
 from utils.credential_helper import *
 
+from utils.nested_graphql_helper import *
 
 # Load environment variables
 load_dotenv()
@@ -51,93 +51,8 @@ class GraphQLHttpResponse(BaseModel):
     success: bool
     message: Optional[str] = None
 
-def process_dotted_paths(variables):
-    """
-    dot-separated paths to nested structure
-    e.g. {"disease_characteristics.bulky_nodal_aggregate": ["No"]} to
-    {"nested": {"path": "disease_characteristics", "AND": [{"IN": {"bulky_nodal_aggregate": ["No"]}}]}}
-    """
-    if not isinstance(variables, dict):
-        return variables
-    
-    result = {}
-    dotted_paths = {}
-    
-    # collect all dot-separated paths and group by parent path
-    for key, value in list(variables.items()):
-        if "." in key:
-            parts = key.split(".", 1)
-            parent, child = parts[0], parts[1]
-            
-            if parent not in dotted_paths:
-                dotted_paths[parent] = []
-            
-            # check if value is a list (corresponding to IN operation)
-            if isinstance(value, list):
-                dotted_paths[parent].append({"IN": {child: value}})
-            else:
-                # non-list value
-                dotted_paths[parent].append({child: value})
-            
-            # remove dot-separated path from original dict
-            del variables[key]
-        elif isinstance(value, dict):
-            # recursive process nested dict
-            variables[key] = process_dotted_paths(value)
-    
-    # build nested structure
-    for parent, conditions in dotted_paths.items():
-        nested_obj = {
-            "nested": {
-                "path": parent,
-                "AND": conditions
-            }
-        }
-        
-        # if result already has nested structure for this parent path, merge them
-        if parent in result and "nested" in result[parent]:
-            result[parent]["nested"]["AND"].extend(conditions)
-        else:
-            result[parent] = nested_obj
-    
-    # merge processed results
-    result.update(variables)
-    
-    return result
-
-def process_variables_string(variables_string):
-    """
-    directly process dot-separated paths on variables string, no need to parse to dict first
-    """
-    try:
-        # try standard processing first
-        vars_dict = json.loads(variables_string)
-        
-        # recursive process dot-separated paths
-        if isinstance(vars_dict, dict):
-            # if it is a dict, start processing
-            processed_vars = process_dotted_paths(vars_dict)
-            
-            # ensure filter wrapper layer is included
-            if "filter" not in processed_vars:
-                processed_vars = {"filter": processed_vars}
-            
-            return json.dumps(processed_vars)
-        else:
-            # if not a dict, return original string
-            return variables_string
-    except json.JSONDecodeError:
-        # if cannot parse JSON, return original string
-        print(f"Error decoding JSON string: {variables_string}")
-        return variables_string
-    except Exception as e:
-        # other errors, return original string
-        print(f"Error processing variables string: {str(e)}")
-        return variables_string
-
-# Main convert function
-@app.post("/convert")
-async def convert_to_graphql(query: Query):
+@app.post("/flat_graphql")
+async def convert_to_flat_graphql(query: Query):
     # Load PCDC schema
     node_properties = {}
     term_mappings = {}
@@ -152,8 +67,8 @@ async def convert_to_graphql(query: Query):
 
     def convert_line_level_query_to_aggregation_query(line_level_query):
         ''' 
-        In order to return non-empty data, convert line level query to aggregation query because:
-            The user associated with that API key is a normal user so any query will work for aggregation only and will return zero results for line level data which is the normal behavior for any user.
+        Convert line level query to aggregation query to return non-empty data because:
+        The user with this API key is a normal user so queries only work for aggregation and return zero results for line level data.
         '''
         prompt = f"""
             Here is the line level query: \n
@@ -184,81 +99,36 @@ async def convert_to_graphql(query: Query):
         print(f"Successfully loaded PCDC schema, node count: {len(node_properties)}")
     except Exception as e:
         print(f"Failed to load PCDC schema: {str(e)}")
+
     try:
-        # Get or create session
-        session_id = query.session_id if query.session_id else str(uuid.uuid4())
-        memory = session_manager.get_or_create_session(session_id)
-        
+        # session_id = query.session_id if query.session_id else str(uuid.uuid4())
         # Standardize user input
         standardized_query = standardize_terms(query.text, term_mappings)
-        
-        # Analyze query complexity
-        complexity = analyze_query_complexity(standardized_query)
-        
         # Extract relevant schema information
         relevant_schema = extract_relevant_schema(standardized_query, node_properties)
-        # print(f"relevant schema: {relevant_schema} \n")
-        
+
         result = None
         aggregation_query_mode = True
-        if complexity == "complex":
-            # Handle complex query
-            query_parts = decompose_query(standardized_query)
-            
-            # Create a comprehensive schema that includes all related nodes
-            comprehensive_schema = relevant_schema.copy()
-            
-            # Add schema information for related nodes
-            for node in query_parts["related_nodes"]:
-                node_schema = extract_relevant_schema(node, node_properties)
-                comprehensive_schema.update(node_schema)
-            
-            # # LLM has its own memory, don't need to feed conversation_history again.
-            # conversation_history = memory.get_formatted_context()
-            
-            # Create prompt with enhanced schema to generate a line level/aggregation query
-            prompt_text = create_enhanced_prompt(standardized_query, comprehensive_schema)
-            
-            # Call LLM
-            response = llm.invoke(prompt_text)
-            if aggregation_query_mode:
-                print(f"convert line level query to aggregation query.")
-                response = convert_line_level_query_to_aggregation_query(response)
-
-            # Parse results
-            try:
-                result = json.loads(response.content)
-                
-                # Update session memory
-                # memory.add_message({"role": "user", "content": standardized_query})
-                # memory.add_message({"role": "assistant", "content": response.content})
-            except Exception as e:
-                # Use the utility function to parse the response
-                result = parse_llm_response(response.content, "Complex query")
-        else:
-            # Handle simple query
-            # conversation_history = memory.get_formatted_context()
-            
-            # Create prompt
-            prompt_text = create_enhanced_prompt(standardized_query, relevant_schema)
-            
-            # Call LLM
-            response = llm.invoke(prompt_text)
-            if aggregation_query_mode:
-                print(f"convert line level query to aggregation query.")
-                response = convert_line_level_query_to_aggregation_query(response)
-            
-            # Parse results
-            try:
-                result = json.loads(response.content)
-            except Exception as json_error:
-                # Use the utility function to parse the response
-                result = parse_llm_response(response.content, "Simple query")
-            
-            # Update session memory
-            memory.add_message({"role": "user", "content": query.text})
-            memory.add_message({"role": "assistant", "content": json.dumps(result)})
-        
+        query_parts = decompose_query(standardized_query)
+        # Create a comprehensive schema that includes all related nodes
+        comprehensive_schema = relevant_schema.copy()
+        # Add schema information for related nodes
+        for node in query_parts["related_nodes"]:
+            node_schema = extract_relevant_schema(node, node_properties)
+            comprehensive_schema.update(node_schema)
+        # LLM has its own memory, don't need to feed conversation_history again.
+        prompt_text = create_enhanced_prompt(standardized_query, comprehensive_schema)
+        # Call LLM
+        response = llm.invoke(prompt_text)
+        if aggregation_query_mode:
+            print(f"convert line level query to aggregation query.")
+            response = convert_line_level_query_to_aggregation_query(response)
+        # Parse results
+        try:
+            result = json.loads(response.content)
+        except Exception as json_error:
+            # Use the utility function to parse the response
+            result = parse_llm_response(response.content, "Simple query")
         # Save results to file
         timestamp = time.strftime("%Y%m%d-%H%M%S")
         file_path = f"chat_history/{timestamp}.txt"
@@ -273,11 +143,9 @@ async def convert_to_graphql(query: Query):
             f.write(f"GraphQL Query: {result.get('query', '')}\n")
             f.write(f"Variables: {result.get('variables', '')}\n")
         
-        # process and format variables
+        # Process and format variables
         variables = result.get("variables", "{}")
 
-        # === 简化处理：直接使用LLM生成的variables ===
-        # 1. 解析LLM生成的variables为dict
         if isinstance(variables, str):
             try:
                 variables_dict = json.loads(variables)
@@ -286,16 +154,11 @@ async def convert_to_graphql(query: Query):
         else:
             variables_dict = variables
             
-        # 2. 确保variables有正确的结构
         if variables_dict and "filter" not in variables_dict:
-            # 如果没有filter包装，添加它
             variables = json.dumps({"filter": variables_dict})
         else:
-            # 已经有正确结构或为空，直接使用
             variables = json.dumps(variables_dict) if variables_dict else "{}"
-        # === 结束 ===
 
-        # save processed variables for debugging
         with open(f"chat_history/{timestamp}_processed.txt", "w") as f:
             f.write(variables)
         
@@ -307,6 +170,167 @@ async def convert_to_graphql(query: Query):
         print(f"Error in convert_to_graphql: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
     
+@app.post("/nested_graphql")
+async def convert_to_nested_graphql(user_query: Query):
+    """
+    Workflow:
+        1. Extract context from user query. For example:
+            User query:
+                The cohort consists of participants from the INRG consortium who have metastatic tumors. Specifically, these tumors are classified as absent and are located on the skin.
+            Context:
+                ["INRG", "consortium", "metastatic", "tumors", "absent", "skin"]
+        2. Map Context to all schemas needed in nested graphql
+            1. query pcdc-schema-prod.json, for example:
+                "INRG" -> "consortium"(pcdc-schema-prod.json)
+                "Metastatic" -> "tumor_classification"(pcdc-schema-prod.json)
+                "Absent" -> "tumor_state"(pcdc-schema-prod.json)
+                "Skin" "tumor_site"(pcdc-schema-prod.json)
+            2. query gitops.json, for example:
+                "INRG" -> "consortium"(pcdc-schema-prod.json) -> ""(gitops.json)
+                "Metastatic" -> "tumor_classification"(pcdc-schema-prod.json) -> "tumor_assessments"(gitops.json)
+                "Absent" -> "tumor_state"(pcdc-schema-prod.json) -> "tumor_assessments"(gitops.json)
+                "Skin" "tumor_site"(pcdc-schema-prod.json) -> "tumor_assessments"(gitops.json)
+        3. Feed GraphQL generation code to LLM.
+        4. Ask LLM to return nested graphql format(nested graphql control flow).
+    """
+    llm = ChatOpenAI(
+        model="gpt-4o",
+        temperature=0,
+        api_key=os.getenv("OPENAI_API_KEY")
+    )
+    # 1. Extract context from user query
+    print(f"user_query: {user_query}")
+    context = extract_context_from_user_query(user_query.text)
+    print(f"keywords: {context}")
+
+    # 2. Map context to all schemas needed in nested graphql
+    # Use code to generate two query tables (processed_pcdc_schema_prod_file & processed_gitops_file)
+    processed_pcdc_schema_prod_file = "../../schema/processed_pcdc_schema_prod.json"
+    if not os.path.exists(processed_pcdc_schema_prod_file) or os.path.getsize(processed_pcdc_schema_prod_file) == 0:
+        pcdc_schema_prod_file = "../../schema/pcdc-schema-prod-20250114.json"
+        processed_pcdc_result = parse_pcdc_schema_prod(pcdc_schema_prod_file)
+    
+    processed_gitops_file = "../../schema/processed_gitops.json"
+    if not os.path.exists(processed_gitops_file) or os.path.getsize(processed_gitops_file) == 0:
+        gitops_file = "../../schema/gitops.json"
+        processed_gitops_result = parse_gitops(gitops_file)
+    
+    # 2.1 Query pcdc-schema-prod.json, map schemas in pcdc_schema_prod: ['consortium', 'tumor_classification', 'tumor_state', 'tumor_site']
+    with open(processed_pcdc_schema_prod_file, 'r', encoding='utf-8') as f:
+        processed_pcdc_schema_prod_dict = json.load(f)
+    lowercase_pcdc_dict = {key.lower(): value for key, value in processed_pcdc_schema_prod_dict.items()}
+    pcdc_schema_prod_result = []
+    for keyword in context:
+        pcdc_schema_prod_schema_mapping_result = await query_processed_pcdc_result(lowercase_pcdc_dict, keyword, user_query, llm)
+        if pcdc_schema_prod_schema_mapping_result and pcdc_schema_prod_schema_mapping_result not in pcdc_schema_prod_result:
+            pcdc_schema_prod_result.append(pcdc_schema_prod_schema_mapping_result)
+    print(f"Mapping schemas in pcdc_schema_prod.json: {pcdc_schema_prod_result}")
+
+    # 2.2 Query gitops.json and map context to gitops_file: ["tumor_assessments"]
+    with open(processed_gitops_file, 'r', encoding='utf-8') as f:
+        processed_gitops_dict = json.load(f)
+    lowercase_gitops_dict = {key.lower(): value for key, value in processed_gitops_dict.items()}
+    gitops_result = []
+    for pcdc_schema in pcdc_schema_prod_result:
+        gitops_schema_mapping_result = await query_processed_gitops_result(lowercase_gitops_dict, pcdc_schema, user_query, llm)
+        if gitops_schema_mapping_result and gitops_schema_mapping_result not in gitops_result:
+            gitops_result.append(gitops_schema_mapping_result)
+    print(f"All schema terms: {pcdc_schema_prod_result} \n {gitops_result} \n for user query {user_query}. \n")
+    
+    # 3. Feed GraphQL generation code file ("../../assets/queries.js"), let LLM identify the format to generate
+    try:
+        with open("../../assets/queries.js", 'r', encoding='utf-8') as f:
+            queries_js_content = f.read()
+        print("Successfully loaded queries.js file")
+    except Exception as e:
+        print(f"Error loading queries.js: {str(e)}")
+        queries_js_content = ""
+    
+    # 4. Provide two actual nested GraphQL examples, let LLM generate final nested GraphQL format based on results
+    nested_graphql_examples = [
+        {"AND": [{"IN": {"consortium": ["INRG"]}}, {"nested": {"AND": [{"IN": {"tumor_classification": ["Metastatic"]}}, {"IN": {"tumor_state": ["Absent"]}}, {"IN": {"tumor_site": ["Skin"]}}], "path": "tumor_assessments"}}]},
+        {"AND": [{"IN": {"consortium": ["NODAL"]}}, {"nested": {"AND": [{"IN": {"bulky_nodal_aggregate": ["No"]}}], "path": "disease_characteristics"}}]}
+    ]
+    
+    # Build final LLM prompt
+    final_prompt = f"""
+    You are a professional GraphQL nested query generator specializing in creating nested GraphQL filters for pediatric cancer databases (PCDC).
+
+    User Query: {user_query.text}
+    
+    Extracted PCDC Schema Properties: {pcdc_schema_prod_result}
+    Corresponding GitOps Field Nodes: {gitops_result}
+    
+    Reference the following generated GraphQL code as format specification:
+    {queries_js_content[:1000]}...
+    
+    Reference the following nested GraphQL query examples:
+    Example 1: {json.dumps(nested_graphql_examples[0], ensure_ascii=False)}
+    Example 2: {json.dumps(nested_graphql_examples[1], ensure_ascii=False)}
+    
+    Based on the above information, please generate a nested GraphQL format query filter.
+    
+    Rules:
+    1. Use AND logic to connect multiple conditions
+    2. Main table fields like consortium use IN operator directly
+    3. Fields requiring nested queries (like tumor_classification, tumor_state) go in nested structure
+    4. Nested structure must include path field pointing to corresponding GitOps node
+    5. Infer appropriate values from user query (like "INRG", "Metastatic", "Absent", "Skin")
+    6. Return standard JSON format without any explanatory text
+    Please generate the final nested GraphQL filter:
+    """
+    
+    try:
+        # Call LLM to generate nested GraphQL query
+        response = llm.invoke(final_prompt)
+        response_content = response.content if hasattr(response, 'content') else str(response)
+        
+        # Try parsing LLM returned JSON
+        try:
+            # Remove possible markdown format markers
+            clean_response = response_content.strip()
+            if clean_response.startswith('```json'):
+                clean_response = clean_response[7:-3]
+            elif clean_response.startswith('```'):
+                clean_response = clean_response[3:-3]
+            
+            nested_graphql_query = json.loads(clean_response.strip())
+            print(f"Generated nested GraphQL: {json.dumps(nested_graphql_query, ensure_ascii=False, indent=2)}")
+            
+        except json.JSONDecodeError as e:
+            print(f"Error parsing LLM response as JSON: {str(e)}")
+            print(f"Raw LLM response: {response_content}")
+            # Return default format
+            nested_graphql_query = {
+                "error": "Failed to parse LLM response",
+                "raw_response": response_content,
+                "pcdc_schemas": pcdc_schema_prod_result,
+                "gitops_nodes": gitops_result
+            }
+        guppy_nested_graphql = convert_to_executable_nested_graphql(response_content, llm)
+        # Return complete result
+        return {
+            "user_query": user_query.text,
+            "extracted_keywords": context,
+            "pcdc_schemas": pcdc_schema_prod_result,
+            "gitops_nodes": gitops_result,
+            "nested_graphql_filter": nested_graphql_query,
+            "executable_nested_graphql": guppy_nested_graphql,
+            "success": True
+        }
+        
+    except Exception as e:
+        print(f"Error in LLM processing: {str(e)}")
+        return {
+            "user_query": user_query.text,
+            "extracted_keywords": context,
+            "pcdc_schemas": pcdc_schema_prod_result,
+            "gitops_nodes": gitops_result,
+            "error": str(e),
+            "executable_nested_graphql": None,
+            "success": False
+        }
+
 async def execute_graphql_query(
     query: str,
     variables: Optional[Dict[str, Any]] = None,

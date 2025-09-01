@@ -40,7 +40,7 @@ async def start():
     user = cl.user_session.get("user")
     if not user:
         await cl.Message(
-            content="❌ Authentication required. Please login first."
+            content=" Authentication required. Please login first."
         ).send()
         return
     
@@ -50,18 +50,18 @@ async def start():
     cl.user_session.set("message_count", 0)
     
     # Welcome message
-    welcome_msg = f"""👋 **Welcome to PCDC GraphQL Query Generator!**
+    welcome_msg = f""" **Welcome to PCDC GraphQL Generator!**
 
-✅ **Logged in as**: {user.identifier}
-🔗 **Session ID**: {session_id}
-📋 **Chat History**: Enabled (check left sidebar)
+ **Logged in as**: {user.identifier}
+ **Session ID**: {session_id}
+ **Chat History**: Enabled (check left sidebar)
 
-Enter your natural language query to generate GraphQL queries.
+Enter your natural language query to generate nested GraphQL filters for PCDC data.
 
 **Example queries:**
-- Get all users older than 18
-- Find patients with diabetes
-- Show available fields"""
+- The cohort consists of participants from the INRG consortium who have metastatic tumors
+- Find patients with absent tumor state and skin tumor site
+- Show NODAL consortium participants with bulky nodal aggregate"""
     
     await cl.Message(content=welcome_msg, author="System").send()
 
@@ -86,10 +86,10 @@ async def main(message: cl.Message):
         # Get session ID
         session_id = cl.user_session.get("session_id")
         
-        # Step 1: Call /convert API to generate GraphQL query
+        # Step 1: Call /nested_graphql API to generate nested GraphQL query
         async with httpx.AsyncClient() as client:
-            convert_response = await client.post(
-                f"{BACKEND_URL}/convert",
+            nested_response = await client.post(
+                f"{BACKEND_URL}/nested_graphql",
                 json={
                     "text": message.content,
                     "session_id": session_id
@@ -97,56 +97,77 @@ async def main(message: cl.Message):
                 headers={"Content-Type": "application/json"},
                 timeout=30.0
             )
-            convert_response.raise_for_status()
-            convert_result = convert_response.json()
+            nested_response.raise_for_status()
+            nested_result = nested_response.json()
         
-        # Extract query and variables from convert result
-        query_str = convert_result.get("query", "")
-        variables_str = convert_result.get("variables", "{}")
+        # Extract results from nested_graphql response
+        user_query = nested_result.get("user_query", "")
+        extracted_keywords = nested_result.get("extracted_keywords", [])
+        pcdc_schemas = nested_result.get("pcdc_schemas", [])
+        gitops_nodes = nested_result.get("gitops_nodes", [])
+        nested_graphql_filter = nested_result.get("nested_graphql_filter", {})
+        executable_nested_graphql = nested_result.get("executable_nested_graphql", None)
+        success = nested_result.get("success", False)
         
-        # Try to format variables JSON for better display
+        # Format the nested GraphQL filter for display
         try:
-            variables_obj = json.loads(variables_str)
-            formatted_variables = json.dumps(variables_obj, indent=2)
+            formatted_filter = json.dumps(nested_graphql_filter, indent=2, ensure_ascii=False)
         except:
-            formatted_variables = variables_str
-            variables_obj = {}
+            formatted_filter = str(nested_graphql_filter)
+        
+        # Format the executable nested GraphQL for display
+        try:
+            formatted_executable = json.dumps(executable_nested_graphql, indent=2, ensure_ascii=False) if executable_nested_graphql else "None"
+        except:
+            formatted_executable = str(executable_nested_graphql) if executable_nested_graphql else "None"
         
         # Step 2: Call /query API to execute the GraphQL query
         query_result = None
         query_error = None
         
-        if query_str.strip():  # Only execute if we have a valid query
-            try:
-                async with httpx.AsyncClient() as client:
-                    query_response = await client.post(
-                        f"{BACKEND_URL}/query",
-                        json={
-                            "query": query_str,
-                            "variables": variables_obj,
-                            "use_cached_token": True
-                        },
-                        headers={"Content-Type": "application/json"},
-                        timeout=30.0
-                    )
-                    query_response.raise_for_status()
-                    query_result = query_response.json()
-            except Exception as e:
-                query_error = str(e)
-        
+        # graph query execution
+        if executable_nested_graphql and isinstance(executable_nested_graphql, dict):  # Only execute if we have a valid executable GraphQL
+            query_str = executable_nested_graphql.get("query", "")
+            variables_obj = executable_nested_graphql.get("variables", {})
+            
+            if query_str.strip():  # Only execute if we have a valid query string
+                try:
+                    async with httpx.AsyncClient() as client:
+                        query_response = await client.post(
+                            f"{BACKEND_URL}/query",
+                            json={
+                                "query": query_str,
+                                "variables": variables_obj,
+                                "use_cached_token": True
+                            },
+                            headers={"Content-Type": "application/json"},
+                            timeout=5.0
+                        )
+                        query_response.raise_for_status()
+                        query_result = query_response.json()
+                except Exception as e:
+                    query_error = str(e)
+
         # Format the complete response
-        response_content = f"""✅ **GraphQL Query Generated & Executed**
+        status_icon = "✅" if success else "❌"
+        response_content = f"""{status_icon} **Nested GraphQL Filter Generated**
 
 **Input**: {message.content}
 
-**Generated GraphQL Query**:
-```graphql
-{query_str}
+**Extracted Keywords**: {', '.join(extracted_keywords)}
+
+**PCDC Schemas**: {', '.join(pcdc_schemas)}
+
+**GitOps Nodes**: {', '.join(gitops_nodes)}
+
+**Generated Nested GraphQL Filter**:
+```json
+{formatted_filter}
 ```
 
-**Variables**:
+**Executable Nested GraphQL**:
 ```json
-{formatted_variables}
+{formatted_executable}
 ```"""
 
         # Add query execution results
@@ -175,24 +196,39 @@ async def main(message: cl.Message):
 
 **Query Execution**: ❌ **Error**
 **Error**: {query_error}"""
-        elif not query_str.strip():
+        elif not executable_nested_graphql:
             response_content += f"""
 
-**Query Execution**: ⚠️ **Skipped** (No valid query generated)"""
+**Query Execution**: ⚠️ **Skipped** (No executable GraphQL generated)"""
+        else:
+            response_content += f"""
+
+**Query Execution**: ⚠️ **Skipped** (Executable GraphQL available but not executed)"""
+
+        # Add error information if processing failed
+        if not success and nested_result.get("error"):
+            response_content += f"""
+
+**Error Details**:
+```
+{nested_result.get("error")}
+```"""
         
         response_content += f"""
 
-**Session Info**: Message #{count} from {user.identifier}"""
+**Session Info**: Message #{count} from {user.identifier}
+
+ **Tip**: If you need to query multiple fields, please provide more specific context to help generate accurate GraphQL."""
         
     except httpx.TimeoutException:
-        response_content = f"""⏰ **Request Timeout**
+        response_content = f""" **Request Timeout**
 
 The query took too long to process. Please try again with a simpler query.
 
 **Input**: {message.content}"""
         
     except httpx.HTTPStatusError as e:
-        response_content = f"""❌ **API Error**
+        response_content = f""" **API Error**
 
 Failed to process your query. Status: {e.response.status_code}
 
@@ -200,7 +236,7 @@ Failed to process your query. Status: {e.response.status_code}
 **Error**: {e.response.text if hasattr(e.response, 'text') else 'Unknown error'}"""
         
     except Exception as e:
-        response_content = f"""❌ **Processing Error**
+        response_content = f""" **Processing Error**
 
 An error occurred while processing your query.
 
@@ -226,7 +262,7 @@ async def on_chat_resume(thread):
     cl.user_session.set("message_count", message_count)
     
     await cl.Message(
-        content=f"📂 **Conversation Resumed**\n\nWelcome back, {user.identifier}! You have {message_count} previous messages.",
+        content=f" **Conversation Resumed**\n\nWelcome back, {user.identifier}! You have {message_count} previous messages.",
         author="System"
     ).send()
 
@@ -234,8 +270,8 @@ async def on_chat_resume(thread):
 def rename(orig_author: str):
     """Rename authors for display"""
     rename_dict = {
-        "System": "🤖 Assistant",
-        "User": "👤 You"
+        "System": " Assistant",
+        "User": " You"
     }
     return rename_dict.get(orig_author, orig_author)
 
