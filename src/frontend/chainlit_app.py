@@ -218,7 +218,7 @@ async def main(message: cl.Message):
 
 **Session Info**: Message #{count} from {user.identifier}
 
- **Tip**: If you need to query multiple fields, please provide more specific context to help generate accurate filters."""
+ **Tip**: If you need to query multiple fields, please provide more specific context to help generate accurate GraphQL."""
         
     except httpx.TimeoutException:
         response_content = f""" **Request Timeout**

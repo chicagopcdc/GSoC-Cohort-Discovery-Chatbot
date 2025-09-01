@@ -67,8 +67,8 @@ async def convert_to_flat_graphql(query: Query):
 
     def convert_line_level_query_to_aggregation_query(line_level_query):
         ''' 
-        In order to return non-empty data, convert line level query to aggregation query because:
-            The user associated with that API key is a normal user so any query will work for aggregation only and will return zero results for line level data which is the normal behavior for any user.
+        Convert line level query to aggregation query to return non-empty data because:
+        The user with this API key is a normal user so queries only work for aggregation and return zero results for line level data.
         '''
         prompt = f"""
             Here is the line level query: \n
@@ -116,7 +116,7 @@ async def convert_to_flat_graphql(query: Query):
         for node in query_parts["related_nodes"]:
             node_schema = extract_relevant_schema(node, node_properties)
             comprehensive_schema.update(node_schema)
-        # # LLM has its own memory, don't need to feed conversation_history again.
+        # LLM has its own memory, don't need to feed conversation_history again.
         prompt_text = create_enhanced_prompt(standardized_query, comprehensive_schema)
         # Call LLM
         response = llm.invoke(prompt_text)
@@ -143,7 +143,7 @@ async def convert_to_flat_graphql(query: Query):
             f.write(f"GraphQL Query: {result.get('query', '')}\n")
             f.write(f"Variables: {result.get('variables', '')}\n")
         
-        # process and format variables
+        # Process and format variables
         variables = result.get("variables", "{}")
 
         if isinstance(variables, str):
@@ -173,7 +173,7 @@ async def convert_to_flat_graphql(query: Query):
 @app.post("/nested_graphql")
 async def convert_to_nested_graphql(user_query: Query):
     """
-    Worlflow:
+    Workflow:
         1. Extract context from user query. For example:
             User query:
                 The cohort consists of participants from the INRG consortium who have metastatic tumors. Specifically, these tumors are classified as absent and are located on the skin.
@@ -198,13 +198,13 @@ async def convert_to_nested_graphql(user_query: Query):
         temperature=0,
         api_key=os.getenv("OPENAI_API_KEY")
     )
-    # 1. Extract context from user query.
+    # 1. Extract context from user query
     print(f"user_query: {user_query}")
     context = extract_context_from_user_query(user_query.text)
     print(f"keywords: {context}")
 
-    # 2. Map Context to all schemas needed in nested graphql
-    # Use code to generate two query tables(processed_pcdc_schema_prod_file & processed_gitops_file)
+    # 2. Map context to all schemas needed in nested graphql
+    # Use code to generate two query tables (processed_pcdc_schema_prod_file & processed_gitops_file)
     processed_pcdc_schema_prod_file = "../../schema/processed_pcdc_schema_prod.json"
     if not os.path.exists(processed_pcdc_schema_prod_file) or os.path.getsize(processed_pcdc_schema_prod_file) == 0:
         pcdc_schema_prod_file = "../../schema/pcdc-schema-prod-20250114.json"
@@ -226,7 +226,7 @@ async def convert_to_nested_graphql(user_query: Query):
             pcdc_schema_prod_result.append(pcdc_schema_prod_schema_mapping_result)
     print(f"Mapping schemas in pcdc_schema_prod.json: {pcdc_schema_prod_result}")
 
-    # 2.2 query gitops.json, and map context to gitops_file: ["tumor_assessments"].
+    # 2.2 Query gitops.json and map context to gitops_file: ["tumor_assessments"]
     with open(processed_gitops_file, 'r', encoding='utf-8') as f:
         processed_gitops_dict = json.load(f)
     lowercase_gitops_dict = {key.lower(): value for key, value in processed_gitops_dict.items()}
@@ -237,7 +237,7 @@ async def convert_to_nested_graphql(user_query: Query):
             gitops_result.append(gitops_schema_mapping_result)
     print(f"All schema terms: {pcdc_schema_prod_result} \n {gitops_result} \n for user query {user_query}. \n")
     
-    # 3. Feed graphql generation code file("../../assets/queries.js"), 让llm从code中识别要生成的graphql的format
+    # 3. Feed GraphQL generation code file ("../../assets/queries.js"), let LLM identify the format to generate
     try:
         with open("../../assets/queries.js", 'r', encoding='utf-8') as f:
             queries_js_content = f.read()
@@ -246,48 +246,48 @@ async def convert_to_nested_graphql(user_query: Query):
         print(f"Error loading queries.js: {str(e)}")
         queries_js_content = ""
     
-    # 4. 给两个实际的nested graphql例子, 让 LLM 基于结果生成最终的nested graphql format
+    # 4. Provide two actual nested GraphQL examples, let LLM generate final nested GraphQL format based on results
     nested_graphql_examples = [
         {"AND": [{"IN": {"consortium": ["INRG"]}}, {"nested": {"AND": [{"IN": {"tumor_classification": ["Metastatic"]}}, {"IN": {"tumor_state": ["Absent"]}}, {"IN": {"tumor_site": ["Skin"]}}], "path": "tumor_assessments"}}]},
         {"AND": [{"IN": {"consortium": ["NODAL"]}}, {"nested": {"AND": [{"IN": {"bulky_nodal_aggregate": ["No"]}}], "path": "disease_characteristics"}}]}
     ]
     
-    # 构建最终的LLM提示
+    # Build final LLM prompt
     final_prompt = f"""
-    你是一个专业的GraphQL嵌套查询生成器，专门为儿童癌症数据库(PCDC)生成嵌套GraphQL过滤器。
+    You are a professional GraphQL nested query generator specializing in creating nested GraphQL filters for pediatric cancer databases (PCDC).
 
-    用户查询: {user_query.text}
+    User Query: {user_query.text}
     
-    从用户查询中提取的PCDC Schema Properties: {pcdc_schema_prod_result}
-    对应的GitOps Field Nodes: {gitops_result}
+    Extracted PCDC Schema Properties: {pcdc_schema_prod_result}
+    Corresponding GitOps Field Nodes: {gitops_result}
     
-    参考以下生成的GraphQL代码作为格式规范:
+    Reference the following generated GraphQL code as format specification:
     {queries_js_content[:1000]}...
     
-    参考以下嵌套GraphQL查询示例:
-    示例1: {json.dumps(nested_graphql_examples[0], ensure_ascii=False)}
-    示例2: {json.dumps(nested_graphql_examples[1], ensure_ascii=False)}
+    Reference the following nested GraphQL query examples:
+    Example 1: {json.dumps(nested_graphql_examples[0], ensure_ascii=False)}
+    Example 2: {json.dumps(nested_graphql_examples[1], ensure_ascii=False)}
     
-    基于以上信息，请生成符合嵌套GraphQL格式的查询过滤器。
+    Based on the above information, please generate a nested GraphQL format query filter.
     
-    规则:
-    1. 使用AND逻辑连接多个条件
-    2. consortium等主表字段直接使用IN操作符
-    3. 需要嵌套查询的字段(如tumor_classification, tumor_state等)放在nested结构中
-    4. nested结构必须包含path字段，指向对应的GitOps节点
-    5. 从用户查询中推断合适的值(如"INRG", "Metastatic", "Absent", "Skin"等)
-    6. 返回标准的JSON格式，不要包含任何解释文字
-    请生成最终的嵌套GraphQL过滤器:
+    Rules:
+    1. Use AND logic to connect multiple conditions
+    2. Main table fields like consortium use IN operator directly
+    3. Fields requiring nested queries (like tumor_classification, tumor_state) go in nested structure
+    4. Nested structure must include path field pointing to corresponding GitOps node
+    5. Infer appropriate values from user query (like "INRG", "Metastatic", "Absent", "Skin")
+    6. Return standard JSON format without any explanatory text
+    Please generate the final nested GraphQL filter:
     """
     
     try:
-        # 调用LLM生成嵌套GraphQL查询
+        # Call LLM to generate nested GraphQL query
         response = llm.invoke(final_prompt)
         response_content = response.content if hasattr(response, 'content') else str(response)
         
-        # 尝试解析LLM返回的JSON
+        # Try parsing LLM returned JSON
         try:
-            # 移除可能的markdown格式标记
+            # Remove possible markdown format markers
             clean_response = response_content.strip()
             if clean_response.startswith('```json'):
                 clean_response = clean_response[7:-3]
@@ -300,7 +300,7 @@ async def convert_to_nested_graphql(user_query: Query):
         except json.JSONDecodeError as e:
             print(f"Error parsing LLM response as JSON: {str(e)}")
             print(f"Raw LLM response: {response_content}")
-            # 返回一个默认的格式
+            # Return default format
             nested_graphql_query = {
                 "error": "Failed to parse LLM response",
                 "raw_response": response_content,
@@ -308,7 +308,7 @@ async def convert_to_nested_graphql(user_query: Query):
                 "gitops_nodes": gitops_result
             }
         guppy_nested_graphql = convert_to_executable_nested_graphql(response_content, llm)
-        # 返回完整结果
+        # Return complete result
         return {
             "user_query": user_query.text,
             "extracted_keywords": context,

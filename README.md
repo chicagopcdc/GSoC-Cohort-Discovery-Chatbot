@@ -249,6 +249,7 @@ To login, you can use any of follwing accounts:
     username: user password: user123
 
 ### 4. Postgresql db schema
+![Database table schema](./assets/db_table_schema.png)
 ```
 create table public."Element" (
   id uuid not null default extensions.uuid_generate_v4 (),
@@ -362,7 +363,41 @@ create index IF not exists idx_thread_useridentifier on public."Thread" using bt
 
 create index IF not exists idx_thread_createdat on public."Thread" using btree ("createdAt" desc) TABLESPACE pg_default;
 ```
-
+### 5. Future work
+#### 5.1 Support disease_phase field in nested graphql (Todo)
+```sql
+{"query":"query ($filter: JSON) { _aggregation { subject (filter: $filter, accessibility: all) { sex { histogram { key count } } race { histogram { key count } } ethnicity { histogram { key count } } consortium { histogram { key count } } } } }","variables":{"filter":{"AND":[{"nested":{"path":"tumor_assessments","AND":[{"AND":[{"IN":{"disease_phase":["Initial Diagnosis"]}},{"AND":[{"IN":{"tumor_classification":["Metastatic"]}},{"IN":{"tumor_site":["Bone"]}}]}]}]}}]}}}
+```
+#### 5.2 Support number field(GTE, LTE) in nested graphql (Todo)
+```sql
+{
+  "filter_main": {
+    "AND": [
+      {
+        "nested": {
+          "path": "tumor_assessments",
+          "AND": [
+            {
+              "AND": [
+                {
+                  "GTE": {
+                    "age_at_tumor_assessment": 0
+                  }
+                },
+                {
+                  "LTE": {
+                    "age_at_tumor_assessment": 100
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+```
 
 
 
