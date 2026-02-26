@@ -65,6 +65,13 @@ This project is a GraphQL generation agent that converts human language queries 
 1. After cloning the project, install dependencies:  
 You need to build frontend env and backend env seperately, because ```gen3``` and ```chainlit``` have version conflict on ```aiofiles```.  
 
+> **Windows users:** Python 3.13 wheels for some packages (e.g. numpy) are not
+> always available; if you hit a build error while installing requirements, run
+> the command below first and try again.
+> ```powershell
+> python -m pip install numpy==1.26.2 --only-binary numpy
+> ```
+
 Build frontend venv
 ```bash
 python3 -m venv frontend_env
@@ -77,6 +84,8 @@ Build backend venv
 python3 -m venv backend_env
 source backend_env/bin/activate
 pip install --upgrade pip
+# (optional) pre-install numpy wheel to avoid compilation:
+# python -m pip install numpy==1.26.2 --only-binary numpy
 pip install -r backend_requirements.txt
 ```
 
@@ -87,6 +96,10 @@ DATABASE_URL=postgresql://postgres:your_postgresql_address
 ```
 
 ### 2. Run the Application Backend
+The Chainlit frontend must call `POST /sessions/create`
+immediately after user login to obtain a valid session ID.
+All subsequent requests must include this ID.
+
 First, make sure you start the backend server in ```backend_env```:
 ```bash
 source backend_env/bin/activate
@@ -94,6 +107,13 @@ cd src/backend/
 python -m uvicorn app:app --reload
 ```
 The backend API will run at http://localhost:8000
+
+> **Important (functional requirement #10):**
+> The frontend must request a session ID from the backend by calling
+> `POST /sessions/create` after a user logs in. Do not generate your own
+> UUID in the client code; the server tracks active sessions and rejects
+> any request that does not carry a valid ID.  The shipped Chainlit frontend
+> already handles this automatically.
 
 #### Backend API Usage
 ```bash

@@ -1,3 +1,6 @@
+# pin a numpy wheel version before other deps to avoid needing a compiler
+numpy==1.26.2
+
 langchain==0.1.0
 langchain-openai==0.0.2
 python-dotenv==1.0.0
@@ -7,9 +10,10 @@ pydantic==2.5.2
 requests==2.31.0
 regex==2023.10.3
 httpx==0.23.0
-pysqlite3-binary>=0.5.0
-chromadb==0.4.15
+# pysqlite3-binary>=0.5.0  # removed for Windows; use built-in sqlite3
+
+chromadb==0.4.15  # install with --only-binary if build fails (requires Rust)
 langchain-community>=0.0.10
 asyncpg==0.30.0
-psycopg2==2.9.10
+psycopg2-binary==2.9.10
 gen3==4.24.1

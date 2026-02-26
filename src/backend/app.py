@@ -53,6 +53,10 @@ class GraphQLHttpResponse(BaseModel):
 
 @app.post("/flat_graphql")
 async def convert_to_flat_graphql(query: Query):
+    # enforce that the session_id came from /sessions/create
+    if not query.session_id or query.session_id not in active_sessions:
+        raise HTTPException(status_code=401, detail="Unauthorized: invalid or missing session_id")
+
     # Load PCDC schema
     node_properties = {}
     term_mappings = {}
@@ -172,6 +176,8 @@ async def convert_to_flat_graphql(query: Query):
     
 @app.post("/nested_graphql")
 async def convert_to_nested_graphql(user_query: Query):
+    if not user_query.session_id or user_query.session_id not in active_sessions:
+        raise HTTPException(status_code=401, detail="Unauthorized: invalid or missing session_id")
     """
     Workflow:
         1. Extract context from user query. For example:
@@ -384,6 +390,12 @@ async def execute_graphql_query(
 
 @app.post("/query", response_model=GraphQLHttpResponse)
 async def run_graphql_query(query_request: GraphQLQuery) -> GraphQLHttpResponse:
+    # if frontend includes a session_id field in variables, validate it as well
+    sid = None
+    if isinstance(query_request.variables, dict):
+        sid = query_request.variables.get("session_id")
+    if sid and sid not in active_sessions:
+        raise HTTPException(status_code=401, detail="Unauthorized: invalid session_id")
     """
     Run GraphQL query via guppy/graphql API
     
@@ -425,12 +437,33 @@ async def run_graphql_query(query_request: GraphQLQuery) -> GraphQLHttpResponse:
             detail=f"Internal server error: {str(e)}"
         )
 
+# A simple registry of sessions issued by the API (used for authentication/authorization)
+active_sessions = set()
+
 # Add session management routes
 @app.post("/sessions/create")
 async def create_session():
+    """Issue a new session ID and register it.
+    This endpoint must be called by the frontend after the user has logged in.
+    By keeping a central list of active session IDs we prevent clients from
+    fabricating their own identifiers (functional requirement #10).
+    """
     session_id = str(uuid.uuid4())
+    active_sessions.add(session_id)
     session_manager.get_or_create_session(session_id)
     return {"session_id": session_id}
+
+
+@app.delete("/sessions/{session_id}")
+async def delete_session(session_id: str):
+    active_sessions.discard(session_id)
+    session_manager.delete_session(session_id)
+    return {"status": "success"}
+
+@app.get("/sessions")
+async def list_sessions():
+    # return only the list of active (issued) sessions
+    return {"sessions": list(active_sessions)}
 
 @app.delete("/sessions/{session_id}")
 async def delete_session(session_id: str):

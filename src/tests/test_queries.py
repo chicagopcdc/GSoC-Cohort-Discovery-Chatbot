@@ -20,13 +20,17 @@ test_queries = [
     "How among patients on study AHOD0031 with Ann Arbor Stage II disease experienced rapid early response? What disease do patients on this study have?"
 ]
 
-def test_query(query):
-    """Test a single query"""
+def test_query(query, session_id=None):
+    """Test a single query (must include valid backend session)"""
     try:
+        if session_id is None:
+            # create a temporary session for this query
+            session_response = requests.post("http://localhost:8000/sessions/create")
+            session_id = session_response.json().get("session_id")
         # Send request
         response = requests.post(
             API_URL,
-            json={"text": query}
+            json={"text": query, "session_id": session_id}
         )
         
         # Check response
@@ -96,13 +100,27 @@ if __name__ == "__main__":
     
     # Test all queries
     success_count = 0
+    # create a single session to reuse for all queries
+    session_response = requests.post("http://localhost:8000/sessions/create")
+    general_session = session_response.json().get("session_id")
     for i, query in enumerate(test_queries):
         print(f"Testing query {i+1}/{len(test_queries)}")
-        if test_query(query):
+        if test_query(query, session_id=general_session):
             success_count += 1
     
     print(f"Query tests completed: {success_count}/{len(test_queries)} successful")
     
+    # verify that unauthenticated queries are rejected
+    print("\n🔐 Testing unauthorized access...")
+    try:
+        unauth_resp = requests.post(API_URL, json={"text": "Should fail"})
+        if unauth_resp.status_code == 401:
+            print("✅ Unauthorized request was correctly rejected")
+        else:
+            print(f"❌ Unauthorized request returned status {unauth_resp.status_code}")
+    except Exception as e:
+        print(f"❌ Unauthorized test exception: {e}")
+
     # Test session functionality
     print("\nStarting session test...")
     if test_session():
