@@ -15,4 +15,4 @@ def verify_jwt(authorization: str = Header(...)):
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
     except Exception:
-        raise HTTPException(status_code=401, detail="Invalid token")g
+        raise HTTPException(status_code=401, detail="Invalid token")
