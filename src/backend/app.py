@@ -308,6 +308,32 @@ async def convert_to_nested_graphql(user_query: Query):
                 "gitops_nodes": gitops_result
             }
         guppy_nested_graphql = convert_to_executable_nested_graphql(response_content, llm)
+
+        # ── Schema validation ─────────────────────────────────────────────────
+        # Build the valid-field and valid-path sets from the already-loaded dicts
+        # (processed_pcdc_schema_prod.json and processed_gitops.json).
+        # This is a pure dict walk — zero extra I/O or LLM calls.
+        validation_errors = []
+        if guppy_nested_graphql and isinstance(guppy_nested_graphql, dict):
+            filter_to_validate = guppy_nested_graphql.get("variables", {}).get("filter", {})
+            if filter_to_validate:
+                valid_pcdc_fields = set(
+                    field
+                    for field_list in processed_pcdc_schema_prod_dict.values()
+                    for field in field_list
+                )
+                valid_gitops_paths = set(
+                    path
+                    for path_list in processed_gitops_dict.values()
+                    for path in path_list
+                )
+                validation_errors = validate_filter_fields(
+                    filter_to_validate, valid_pcdc_fields, valid_gitops_paths
+                )
+                if validation_errors:
+                    print(f"[VALIDATION] Filter contains unknown fields: {validation_errors}")
+        # ─────────────────────────────────────────────────────────────────────
+
         # Return complete result
         return {
             "user_query": user_query.text,
@@ -316,6 +342,7 @@ async def convert_to_nested_graphql(user_query: Query):
             "gitops_nodes": gitops_result,
             "nested_graphql_filter": nested_graphql_query,
             "executable_nested_graphql": guppy_nested_graphql,
+            "validation_errors": validation_errors,
             "success": True
         }
         
