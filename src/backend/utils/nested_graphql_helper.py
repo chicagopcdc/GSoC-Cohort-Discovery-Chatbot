@@ -1,3 +1,11 @@
+"""Utilities for building nested GraphQL queries.
+
+Provides the core helpers that power the natural-language to nested
+GraphQL pipeline: keyword extraction, schema parsing (enum-to-field
+and field-to-table mappings), LLM-based disambiguation when a keyword
+maps to multiple fields, and conversion to executable Guppy payloads.
+"""
+
 import json
 import os
 from typing import List
@@ -5,9 +13,10 @@ import re
 import ast
 
 def extract_context_from_user_query(input) -> List:
-    """
-    Split input by spaces or punctuation (, .) and return array
-    Extract keywords from user query, filtering out common stop words
+    """Extract meaningful keywords from a user's natural-language query.
+
+    Splits on whitespace and punctuation, then removes stop words,
+    very short tokens, and pure numbers.
     """
     stop_words = {
         'the', 'a', 'an', 'but', 'on', 'at', 'to', 'for', 
@@ -37,6 +46,13 @@ def extract_context_from_user_query(input) -> List:
     return filtered_words
 
 def parse_pcdc_schema_prod(file):
+    """Parse pcdc-schema-prod.json into an enum-value to field-names map.
+
+    Walks the entire JSON tree looking for "enum" arrays. For each enum
+    value found, records the parent key (the field name) so that a
+    keyword like "Metastatic" resolves to ["tumor_classification"].
+    Also saves the result to processed_pcdc_schema_prod.json.
+    """
     def recursive_enum_extract(obj, current_key=None, result=None):
         """Recursively extract all enum values and associate with corresponding keys"""
         if result is None:
@@ -90,6 +106,13 @@ def parse_pcdc_schema_prod(file):
         return {}
 
 def parse_gitops(file):
+    """Parse gitops.json into a field-name to table-names map.
+
+    Walks the JSON tree looking for "fields" arrays. Entries containing
+    a dot (e.g. "tumor_assessments.tumor_site") are split into
+    (table, field); plain entries map to an empty table list.
+    Also saves the result to processed_gitops.json.
+    """
     def recursive_fields_extract(obj, result=None):
         """Recursively extract all fields values and analyze field mappings, each field maps to a list of all table names"""
         if result is None:
@@ -159,33 +182,30 @@ def parse_gitops(file):
 
 
 async def query_processed_pcdc_result(lowercase_pcdc_dict, keyword, user_query, llm):
-    """
-    Handle one-to-many mapping relationships, e.g.:
-    "Metastatic": [
-        "lesion_classification",
-        "molecular_analysis_classification", 
-        "tumor_classification"
-    ],
-    Let LLM decide final mapping schema based on user_query context
+    """Resolve a keyword to a single PCDC schema field.
+
+    When a keyword (e.g. "cancer") maps to multiple schema fields, the
+    LLM is asked to pick the most contextually appropriate one based on
+    the user's original query. Returns the field name directly when
+    there is only one match, or empty string if no match.
     """
     try:
-        # Use lowercase keyword for lookup
         keyword_lower = keyword.lower()
         if keyword_lower in lowercase_pcdc_dict:
-            mapping_schemas_in_pcdc_schema_prod = lowercase_pcdc_dict[keyword_lower]
-            print(f"keyword: {keyword}, mapping_list_in_pcdc_schema_prod: {mapping_schemas_in_pcdc_schema_prod}")
-            if len(mapping_schemas_in_pcdc_schema_prod) == 1:
-                return mapping_schemas_in_pcdc_schema_prod[0]
-            elif len(mapping_schemas_in_pcdc_schema_prod) > 1:
+            matching_fields = lowercase_pcdc_dict[keyword_lower]
+            print(f"keyword: {keyword}, matching_fields: {matching_fields}")
+            if len(matching_fields) == 0:
+                return ""
+            elif len(matching_fields) == 1:
+                return matching_fields[0]
+            elif len(matching_fields) > 1:
+                # Multiple fields match, need LLM to choose most appropriate based on context
                 prompt = f"""
-                    Multiple medical terms from the query map to overlapping or conflicting database fields in pcdc-schema-prod.json. Resolve these conflicts to choose the most appropriate field.
-
-                    Original Query: "{user_query}"
+                    Multiple PCDC schema fields match the keyword "{keyword}".
+                    Conflicting fields: {matching_fields}
+                    User query: "{user_query}"
                     
-                    Current Term: "{keyword}"
-                    Conflicting Fields: {mapping_schemas_in_pcdc_schema_prod}
-                    
-                    Resolve by:
+                    Resolve this by:
                     1. Identifying semantic overlaps (e.g., "cancer" and "tumor" might refer to same field)
                     2. Choosing more specific terms over general ones  
                     3. Maintaining clinical accuracy
@@ -209,17 +229,11 @@ async def query_processed_pcdc_result(lowercase_pcdc_dict, keyword, user_query, 
         return ""
 
 async def query_processed_gitops_result(lowercase_gitops_dict, pcdc_schema, user_query, llm):
-    """
-    Handle one-to-many mapping relationships (e.g., one PCDC schema property maps to multiple GitOps field nodes)
-    Let LLM decide final mapping schema based on user query context
-    
-    Args:
-        query_pcdc_schema_prod_result: Property name from PCDC schema query
-        processed_gitops_file: Processed GitOps file path
-        user_query: User query
-        llm: LLM agent
-    Returns:
-        Corresponding GitOps field node name
+    """Resolve a PCDC schema field to its GitOps node (table) name.
+
+    When a field maps to multiple GitOps tables, the LLM picks the
+    best match based on the user query context. Returns the node name
+    directly when there is only one match, or empty string if no match.
     """
     try:
         # Return empty string if PCDC query result is empty
@@ -276,59 +290,17 @@ async def query_processed_gitops_result(lowercase_gitops_dict, pcdc_schema, user
         return ""
 
 def convert_to_executable_nested_graphql(nested_graphql, llm):
-    """
-    Convert nested GraphQL filter to executable GraphQL format
-    
-    Args:
-        nested_graphql: The raw LLM response content containing nested GraphQL
-        llm: LLM instance for processing
-        
-    Returns:
-        Executable GraphQL query in the format expected by execute_graphql_query()
+    """Convert a nested GraphQL filter into an executable Guppy payload.
+
+    Takes the abstract filter structure produced by the first LLM call
+    and asks a second LLM call to wrap it in a complete {query, variables}
+    object that Guppy can execute directly.
     """
     prompt = f"""
     Generate an executable nested GraphQL version based on the following nested GraphQL result that can actually query the interface.
 
-    Input nested GraphQL result:
+    Nested GraphQL result:
     {nested_graphql}
-
-    Please output an executable nested GraphQL in the following format:
-    {{
-      "query": "query GetAggregation($filter: JSON) {{ _aggregation {{ subject(accessibility: all, filter: $filter) {{ _totalCount }} }} }}",
-      "variables": {{
-        "filter": {{
-          "AND": [
-            {{
-              "IN": {{
-                "consortium": ["INRG"]
-              }}
-            }},
-            {{
-              "nested": {{
-                "path": "tumor_assessments",
-                "AND": [
-                  {{
-                    "IN": {{
-                      "tumor_classification": ["Metastatic"]
-                    }}
-                  }},
-                  {{
-                    "IN": {{
-                      "tumor_state": ["Absent"]
-                    }}
-                  }},
-                  {{
-                    "IN": {{
-                      "tumor_site": ["Skin"]
-                    }}
-                  }}
-                ]
-              }}
-            }}
-          ]
-        }}
-      }}
-    }}
 
     Requirements:
     1. Query field must use aggregation query format
