@@ -1,3 +1,11 @@
+"""Chainlit frontend for the PCDC GraphQL Generator.
+
+Provides the interactive chat UI where users type natural-language
+queries and receive generated nested GraphQL filters plus optional
+live query execution results from the Guppy endpoint. Requires the
+FastAPI backend (app.py) to be running on BACKEND_URL.
+"""
+
 import chainlit as cl
 from typing import Optional
 import os
@@ -15,7 +23,7 @@ BACKEND_URL = "http://localhost:8000"
 # Authentication using Chainlit's built-in password auth
 @cl.password_auth_callback
 def auth_callback(username: str, password: str) -> Optional[cl.User]:
-    """Simple password authentication"""
+    """Simple password authentication. Hardcoded credentials for demo use."""
     # In production, check against a database
     valid_users = {
         "test": "test",
@@ -35,7 +43,7 @@ def auth_callback(username: str, password: str) -> Optional[cl.User]:
 
 @cl.on_chat_start
 async def start():
-    """Initialize a new chat session"""
+    """Initialize a new chat session."""
     # Get current user
     user = cl.user_session.get("user")
     if not user:
@@ -67,7 +75,11 @@ Enter your natural language query to generate nested GraphQL filters for PCDC da
 
 @cl.on_message
 async def main(message: cl.Message):
-    """Process user messages"""
+    """Process user messages through the backend pipeline.
+
+    Calls /nested_graphql to generate the filter, then optionally
+    calls /query to execute it against the Guppy endpoint.
+    """
     # Get user session
     user = cl.user_session.get("user")
     if not user:
@@ -249,7 +261,7 @@ An error occurred while processing your query.
 
 @cl.on_chat_resume
 async def on_chat_resume(thread):
-    """Resume a previous conversation"""
+    """Resume a previous conversation."""
     user = cl.user_session.get("user")
     if not user:
         return
@@ -268,7 +280,7 @@ async def on_chat_resume(thread):
 
 @cl.author_rename
 def rename(orig_author: str):
-    """Rename authors for display"""
+    """Rename authors for display."""
     rename_dict = {
         "System": " Assistant",
         "User": " You"
