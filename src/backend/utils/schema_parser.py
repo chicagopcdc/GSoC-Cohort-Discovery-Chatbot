@@ -1,8 +1,23 @@
+"""Parse PCDC/GitOps schemas into lookup structures.
+
+Reads the project's JSON schema files and produces node_properties
+(node_type to field definitions) and term_mappings (common English
+words to schema field names). Also provides helpers to extract the
+relevant schema subset for a query and to annotate query strings with
+resolved field names.
+"""
+
 import json
 import re
 
 def parse_pcdc_schema(schema_file):
-    """Parse PCDC schema and build property mappings"""
+    """Parse a PCDC schema JSON file into node properties and term mappings.
+
+    Supports two schema layouts: YAML-keyed (top-level keys like
+    "subject.yaml") and a hardcoded fallback for unrecognised formats.
+    Returns (node_properties, term_mappings) on success, or the
+    fallback values on error.
+    """
     try:
         with open(schema_file, 'r') as f:
             schema = json.load(f)
@@ -85,7 +100,11 @@ def parse_pcdc_schema(schema_file):
         }
 
 def extract_relevant_schema(query, node_properties):
-    """Extract relevant schema information based on query"""
+    """Return the subset of node_properties mentioned in the query.
+
+    Performs a case-insensitive check for known node types. Defaults to
+    the "subject" node when nothing else matches.
+    """
     relevant_schema = {}
     
     # Check node types mentioned in the query
@@ -102,7 +121,12 @@ def extract_relevant_schema(query, node_properties):
     return relevant_schema
 
 def standardize_terms(user_input, term_mappings):
-    """Standardize user input terms to PCDC schema terms"""
+    """Annotate recognised terms in user_input with their schema fields.
+
+    Each matched term is rewritten as "term (field_name)" so downstream
+    components can see the mapping inline. For example, "male" becomes
+    "male (sex)".
+    """
     standardized_input = user_input
     
     # Common term mappings
@@ -149,4 +173,4 @@ if __name__ == "__main__":
     
     # Test term standardization
     standardized_query = standardize_terms(test_query, term_mappings)
-    print(f"Standardized query: {standardized_query}") 
+    print(f"Standardized query: {standardized_query}")
