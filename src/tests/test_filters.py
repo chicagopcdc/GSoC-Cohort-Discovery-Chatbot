@@ -8,7 +8,7 @@ Run from repository root:
 import pytest
 from pydantic import ValidationError
 
-from src.backend.models.filters import GraphQLFilter, InClause, NestedClause
+from models.filters import GraphQLFilter, InClause, NestedClause
 
 class TestRoundTripBasic:
     """Baseline filter shapes that should round-trip unchanged."""
