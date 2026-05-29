@@ -47,13 +47,6 @@
           "body": "The Exploration Page gives you insights and a clear overview under selected factors.",
           "link": "/explorer",
           "label": "Explore data"
-        },
-        {
-          "name": "Access Data",
-          "icon": "data-access",
-          "body": "Use our selected tool to filter out the data you need.",
-          "link": "/query",
-          "label": "Query data"
         }
       ],
       "barChart": {
@@ -73,12 +66,6 @@
           "link": "/explorer",
           "color": "#a2a2a2",
           "name": "Exploration"
-        },
-        {
-          "icon": "query",
-          "link": "/query",
-          "color": "#a2a2a2",
-          "name": "Query"
         }
       ]
     },
@@ -101,7 +88,7 @@
     "login": {
       "title": "Pediatric Cancer Data Commons",
       "subTitle": "Connect. Share. Cure.",
-      "text": "The Pediatric Cancer Data Commons (PCDC) harnesses pediatric cancer clinical data from around the globe into a single combined platform, connecting the data to other sources and making it available to clinicians and researchers everywhere. Headquartered at the University of Chicago, the PCDC team works with international leaders in pediatric cancers to develop and apply uniform data standards that facilitate the collection, combination, and analysis of data from many different sources. The PCDC currently houses the world's largest sets of clinical data for pediatric neuroblastoma and soft tissue sarcoma and is in the process of onboarding additional pediatric cancer disease groups.",
+      "text": "Welcome to the Pediatric Cancer Data Commons (PCDC), brought to you by Data for the Common Good (D4CG). Headquartered at the University of Chicago, D4CG works with international leaders to develop and apply uniform data standards that facilitate the collection, combination, and analysis of data from many different sources.\n\nThe PCDC harnesses pediatric, AYA, and adult cancer clinical data from around the world into a single unified platform, making it possible to explore and access data across multiple types of cancer. The PCDC Data Portal currently includes some of the world's largest sets of clinical data for pediatric neuroblastoma, soft tissue sarcoma, germ cell tumors, AML, and Hodgkin lymphoma, with the addition of more cancer types in progress.",
       "contact": "If you have any questions about access or the registration process, please contact ",
       "email": "pcdc_help@lists.uchicago.edu"
     },
@@ -165,7 +152,8 @@
               "age_at_censor_status",
               "medical_histories.medical_history",
               "medical_histories.medical_history_status",
-              "external_references.external_resource_name"
+              "external_references.external_resource_name",
+              "biospecimen_status"
             ]
           },
           {
@@ -198,7 +186,10 @@
               "disease_characteristics.mki",
               "disease_characteristics.bulk_disease",
               "disease_characteristics.BULK_MED_MASS",
-              "disease_characteristics.bulky_nodal_aggregate"
+              "disease_characteristics.bulky_nodal_aggregate",
+              "disease_characteristics.who_aml",
+              "disease_characteristics.CNS_disease_status",
+              "disease_characteristics.MLDS"
             ]
           },
           {
@@ -221,7 +212,12 @@
             "fields": [
               "biopsy_surgical_procedures.tumor_classification",
               "biopsy_surgical_procedures.procedure_type",
-              "biopsy_surgical_procedures.margins"
+              "biopsy_surgical_procedures.margins",
+              "biopsy_surgical_procedures.procedure_performed",
+              "biopsy_surgical_procedures.procedure_treatment_timing",
+              "biopsy_surgical_procedures.mass_present",
+              "biopsy_surgical_procedures.viable_tumor_margin",
+              "biopsy_surgical_procedures.viable_tumor_specimen"
             ]
           },
           {
@@ -238,7 +234,12 @@
               "subject_responses.tx_prior_response",
               "subject_responses.response",
               "subject_responses.interim_response",
-              "subject_responses.response_method"
+              "subject_responses.response_method",
+              "minimal_residual_diseases.mrd_result",
+              "minimal_residual_diseases.mrd_result_numeric",
+              "minimal_residual_diseases.mrd_result_unit",
+              "minimal_residual_diseases.mrd_method",
+              "minimal_residual_diseases.mrd_sample_source"
             ]
           },
           {
@@ -247,6 +248,7 @@
               "secondary_malignant_neoplasm.age_at_smn",
               "secondary_malignant_neoplasm.smn_site",
               "secondary_malignant_neoplasm.smn_type",
+              "secondary_malignant_neoplasm.smn_yn",
               "secondary_malignant_neoplasm.smn_morph_icdo"
             ]
           },
@@ -269,10 +271,66 @@
           {
             "title": "SCT",
             "fields": [
-              "stem_cell_transplants.sct_type"
+              "stem_cell_transplants.sct_type",
+              "stem_cell_transplants.sct_source",
+              "stem_cell_transplants.sct_donor_relationship"
             ]
           }
-        ]
+        ],
+        "unitCalcConfig": {
+          "ageUnits": {
+            "quantity": "age",
+            "desiredUnit": "days",
+            "selectUnits": { "months": 30, "years": 365.25 }
+          },
+          "calculatorMapping": {
+            "number": [
+              "year_at_disease_phase",
+              "tumor_assessments.longest_diam_dim1",
+              "radiation_therapies.rt_dose",
+              "tumor_assessments.necrosis_pct",
+              "labs.lab_result_numeric"
+            ],
+            "age": [
+              "age_at_censor_status",
+              "tumor_assessments.age_at_tumor_assessment",
+              "molecular_analysis.age_at_molecular_analysis",
+              "secondary_malignant_neoplasm.age_at_smn",
+              "radiation_therapies.age_at_rt_start",
+              "subject_responses.age_at_response"
+            ]
+          }
+        },
+        "filterDependencyConfig": {
+          "relations": {
+            "molecular_abnormality": [
+              "molecular_analysis.molecular_abnormality",
+              "molecular_analysis.molecular_abnormality_result"
+            ],
+            "tumor_site_state": [
+              "tumor_assessments.tumor_state",
+              "tumor_assessments.tumor_site"
+            ],
+            "stage": ["stagings.stage_system", "stagings.stage"],
+            "mrd_result": [
+              "minimal_residual_diseases.mrd_result_numeric",
+              "minimal_residual_diseases.mrd_result_unit"
+            ],
+            "lab_result": ["labs.lab_result_numeric", "labs.lab_result_unit"]
+          },
+          "filterToRelation": {
+            "molecular_analysis.molecular_abnormality": "molecular_abnormality",
+            "molecular_analysis.molecular_abnormality_result": "molecular_abnormality",
+            "tumor_assessments.tumor_state": "tumor_site_state",
+            "tumor_assessments.tumor_site": "tumor_site_state",
+            "stagings.stage_system": "stage",
+            "stagings.stage": "stage",
+            "minimal_residual_diseases.mrd_result_numeric": "mrd_result",
+            "minimal_residual_diseases.mrd_result_unit": "mrd_result",
+            "labs.lab_result_numeric": "lab_result",
+            "labs.lab_result_unit": "lab_result"
+          }
+        }
       },
       "projectId": "search",
       "graphqlField": "subject",
@@ -296,7 +354,7 @@
         }
       ],
       "table": {
-        "enabled": true,
+        "enabled": false,
         "fields": [
           "external_references.external_links",
           "consortium",
@@ -311,7 +369,9 @@
       },
       "patientIds": {
         "filter": false,
-        "export": true
+        "export": true,
+        "filterName": "subject_submitter_id",
+        "displayName": "Subject Submitter Ids"
       },
       "survivalAnalysis": {
         "result": {
@@ -352,6 +412,10 @@
             "name": "Last Known Survival Status (LKSS)"
           },
           {
+            "field": "age_at_censor_status",
+            "name": "Age At Censor Status (days)"
+          },
+          {
             "field": "medical_histories.medical_history",
             "name": "Medical History"
           },
@@ -362,6 +426,10 @@
           {
             "field": "external_references.external_resource_name",
             "name": "External Resource Name"
+          },
+          {
+            "field": "biospecimen_status",
+            "name": "Biospecimen Availability"
           },
           {
             "field": "histologies.histology",
@@ -377,7 +445,7 @@
           },
           {
             "field": "tumor_assessments.age_at_tumor_assessment",
-            "name": "Age at Tumor Assessment"
+            "name": "Age at Tumor Assessment (days)"
           },
           {
             "field": "tumor_assessments.tumor_classification",
@@ -430,7 +498,7 @@
           {
             "field": "tumor_assessments.tumor_laterality",
             "name": "Tumor Laterality"
-          },         
+          },
           {
             "field": "stagings.irs_group",
             "name": "IRS Group"
@@ -476,6 +544,18 @@
             "name": "Bulky Nodal Aggregate"
           },
           {
+            "field": "disease_characteristics.who_aml",
+            "name": "WHO AML"
+          },
+          {
+            "field": "disease_characteristics.CNS_disease_status",
+            "name": "CNS Disease Status"
+          },
+          {
+            "field": "disease_characteristics.MLDS",
+            "name": "MLDS"
+          },
+          {
             "field": "molecular_analysis.anaplasia",
             "name": "Anaplasia"
           },
@@ -505,7 +585,7 @@
           },
           {
             "field": "molecular_analysis.age_at_molecular_analysis",
-            "name": "Age at Molecular Analysis"
+            "name": "Age at Molecular Analysis (days)"
           },
           {
             "field": "molecular_analysis.mitoses",
@@ -524,12 +604,28 @@
             "name": "Procedure Type"
           },
           {
-            "field": "biopsy_surgical_procedures.procedure_site",
-            "name": "Procedure Site"
-          },
-          {
             "field": "biopsy_surgical_procedures.margins",
             "name": "Margins"
+          },
+          {
+            "field": "biopsy_surgical_procedures.procedure_performed",
+            "name": "Procedure Performed"
+          },
+          {
+            "field": "biopsy_surgical_procedures.procedure_treatment_timing",
+            "name": "Procedure Treatment Timing"
+          },
+          {
+            "field": "biopsy_surgical_procedures.mass_present",
+            "name": "Mass Present"
+          },
+          {
+            "field": "biopsy_surgical_procedures.viable_tumor_margin",
+            "name": "Viable Tumor Margin"
+          },
+          {
+            "field": "biopsy_surgical_procedures.viable_tumor_specimen",
+            "name": "Viable Tumor Specimen"
           },
           {
             "field": "radiation_therapies.tumor_classification",
@@ -537,7 +633,7 @@
           },
           {
             "field": "radiation_therapies.age_at_rt_start",
-            "name": "Age at Radiation Therapy"
+            "name": "Age at Radiation Therapy (days)"
           },
           {
             "field": "radiation_therapies.rt_site",
@@ -557,7 +653,7 @@
           },
           {
             "field": "subject_responses.age_at_response",
-            "name": "Age at Response"
+            "name": "Age at Response (days)"
           },
           {
             "field": "subject_responses.tx_prior_response",
@@ -576,12 +672,32 @@
             "name": "Response Method"
           },
           {
+            "field": "minimal_residual_diseases.mrd_result",
+            "name": "MRD Result"
+          },
+          {
+            "field": "minimal_residual_diseases.mrd_result_numeric",
+            "name": "MRD Result Numeric"
+          },
+          {
+            "field": "minimal_residual_diseases.mrd_result_unit",
+            "name": "MRD Result Unit"
+          },
+          {
+            "field": "minimal_residual_diseases.mrd_method",
+            "name": "MRD Method"
+          },
+          {
+            "field": "minimal_residual_diseases.mrd_sample_source",
+            "name": "MRD Sample Source"
+          },
+          {
             "field": "subject_responses.necrosis",
             "name": "Necrosis"
           },
           {
             "field": "secondary_malignant_neoplasm.age_at_smn",
-            "name": "Age at SMN"
+            "name": "Age at SMN (days)"
           },
           {
             "field": "secondary_malignant_neoplasm.smn_site",
@@ -590,6 +706,10 @@
           {
             "field": "secondary_malignant_neoplasm.smn_type",
             "name": "SMN Type"
+          },
+          {
+            "field": "secondary_malignant_neoplasm.smn_yn",
+            "name": "Secondary Malignancy"
           },
           {
             "field": "secondary_malignant_neoplasm.smn_morph_icdo",
@@ -622,6 +742,14 @@
           {
             "field": "stem_cell_transplants.sct_type",
             "name": "SCT Type"
+          },
+          {
+            "field": "stem_cell_transplants.sct_source",
+            "name": "SCT Source"
+          },
+          {
+            "field": "stem_cell_transplants.sct_donor_relationship",
+            "name": "SCT Donor Relationship"
           }
         ]
       },
