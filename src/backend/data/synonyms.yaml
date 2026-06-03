@@ -1,0 +1,16 @@
+# v1 synonym map used during query normalization.
+# Future versions can expand this list with benchmark misses and NCIt synonyms.
+
+# tumor site phrasing
+"brain tumor": Brain
+"brain tumour": Brain
+
+# classification shorthand
+"mets": Metastatic
+"metastatic cancer": Metastatic
+
+# disease phase
+"relapse": Relapse
+"initial dx": Initial Diagnosis
+"diagnosis": Initial Diagnosis
+
