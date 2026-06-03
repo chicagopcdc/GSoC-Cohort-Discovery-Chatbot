@@ -26,7 +26,7 @@ app = FastAPI()
 
 BASE_URL = "https://portal-dev.pedscommons.org"
 GRAPHQL_ENDPOINT = f"{BASE_URL}/guppy/graphql"
-GUPPY_ACCESS_TOKEN = "eyJhbGciOiJSUzI1NiIsImtpZCI6ImZlbmNlX2tleV8yMDIyLTA5LTE1VDE2OjE5OjUwWiIsInR5cCI6IkpXVCJ9.eyJwdXIiOiJhY2Nlc3MiLCJpc3MiOiJodHRwczovL3BvcnRhbC1kZXYucGVkc2NvbW1vbnMub3JnL3VzZXIiLCJhdWQiOlsiaHR0cHM6Ly9wb3J0YWwtZGV2LnBlZHNjb21tb25zLm9yZy91c2VyIiwiZ29vZ2xlX2xpbmsiLCJ1c2VyIiwib3BlbmlkIiwiZGF0YSIsImdhNGdoX3Bhc3Nwb3J0X3YxIiwiZmVuY2UiLCJnb29nbGVfc2VydmljZV9hY2NvdW50IiwiZ29vZ2xlX2NyZWRlbnRpYWxzIiwiYWRtaW4iXSwiaWF0IjoxNzUzNTg4NDY3LCJleHAiOjE3NTM1OTIwNjcsImp0aSI6IjMwZTZmMWI1LTc4MjktNDZiZi04YTI0LTgwNTNlMDNhMGZhYiIsInNjb3BlIjpbImdvb2dsZV9saW5rIiwidXNlciIsIm9wZW5pZCIsImRhdGEiLCJnYTRnaF9wYXNzcG9ydF92MSIsImZlbmNlIiwiZ29vZ2xlX3NlcnZpY2VfYWNjb3VudCIsImdvb2dsZV9jcmVkZW50aWFscyIsImFkbWluIl0sImNvbnRleHQiOnsidXNlciI6eyJuYW1lIjoiZ3JhZ2xpYTAxQGdtYWlsLmNvbSIsImlzX2FkbWluIjp0cnVlLCJnb29nbGUiOnsicHJveHlfZ3JvdXAiOm51bGx9fX0sImF6cCI6IiIsInN1YiI6IjIifQ.VxQdRWarOzz5j947exC_yqGtoy2ieJ_0CLzseG0eQpV6dL7Vv2ObDvcNynE6tX8uTRQTrbMGy8DnnD36ZD0ux84R2pDseL-TgPrkW9euCfAMAewg0E1MmOvCU9AYun1qwJKTVPyme4IhBzeZvfpn5PU7Om6iAKT9KFAkh8n-rc6p_oqrG3vV9pOmh-aUnLgTLt94gCbXzK_rjAbndo6zELYBiu8vev7RQZIKc5itHDYXqZmRSE258jQU6CoglyFG69JwfXfcZRNTbv5u0gk9qdQ3DYPbXaBrMS1vKJUkvHShJcFBra74HNefNcwHeiB_-AW8vqW30MX03JzsWpcLpA"
+# Guppy access token is fetched on-demand via credential_helper.generate_access_token()
 
 # Define input model
 class Query(BaseModel):
@@ -348,7 +348,7 @@ async def execute_graphql_query(
         Query results
     """
     if not token:
-        token = await generate_access_token()
+        token =  generate_access_token()
     
     headers = {
         "Content-Type": "application/json",
@@ -395,10 +395,11 @@ async def run_graphql_query(query_request: GraphQLQuery) -> GraphQLHttpResponse:
     """
     try:
         # Execute the query
+        token = generate_access_token()
         result = await execute_graphql_query(
             query=query_request.query,
             variables=query_request.variables,
-            token=GUPPY_ACCESS_TOKEN
+            token=token
         )
         
         # Check if there are errors in the response
