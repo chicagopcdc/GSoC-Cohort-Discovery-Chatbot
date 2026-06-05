@@ -42,6 +42,8 @@ _OverrideValue = Union[tuple[str, str], tuple[str, FieldSpec]]
 _OVERRIDES: dict[tuple[Optional[str], str], _OverrideValue] = {
     # Defined in timing.yaml, but exposed as top-level in gitops.
     (None, "year_at_disease_phase"): ("redirect", "timing"),
+    # Anchor field in gitops; same timing.yaml origin, flattened to top-level.
+    (None, "disease_phase"): ("redirect", "timing"),
 
     # Flattened Guppy field.
     (None, "subject_submitter_id"): (
@@ -131,7 +133,7 @@ def _build_path_to_stem(pcdc: dict) -> dict[str, str]:
 
 def _build_field_spec(
     name: str,
-    prop: dict,
+    prop: Union[dict, str],
     parent_path: Optional[str],
 ) -> FieldSpec:
     """Convert a schema property into a FieldSpec."""
@@ -209,6 +211,18 @@ def _find_filterable_fields(gitops: dict) -> list[tuple[Optional[str], str]]:
                             out.append((path, name))
                         else:
                             out.append((None, entry))
+                elif key =="anchor" and isinstance(value, dict):
+                    field = value.get("field")
+                    if isinstance(field, str) and field:
+                         if "." in field:
+                              path, name = field.split(".", 1)
+                              out.append((path, name))
+                         else:
+                                out.append((None, field))
+                    recurse(value)
+                                
+                                
+                
                 else:
                     recurse(value)
 
