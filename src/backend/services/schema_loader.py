@@ -263,7 +263,7 @@ class SchemaIndex:
         fields_by_key: dict[tuple[Optional[str], str], FieldSpec],
         unresolved: Optional[list[tuple[Optional[str], str]]] = None,
     ):
-        self._fields = fields_by_key
+        self._fields = dict(fields_by_key)
         self._unresolved = list(unresolved or [])
 
         self._by_name: dict[str, list[FieldSpec]] = defaultdict(list)
