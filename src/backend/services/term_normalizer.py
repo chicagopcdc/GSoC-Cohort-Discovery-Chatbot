@@ -67,7 +67,7 @@ class NormalizedQuery:
                         {"field": p.field, "path": p.path} for p in t.placements
                     ],
                     "negated": t.negated,
-                    "span" : list(t.span),
+                    "span": list(t.span),
                 }
                 for t in self.terms
             ],
@@ -183,8 +183,11 @@ def load_synonyms(path: Union[str, Path]) -> dict[str, str]:
     # BaseLoader keeps values as strings, which avoids YAML converting words
     # like "No", "Yes", "On", or "Off" into booleans.
     data = yaml.load(p.read_text(encoding="utf-8"), Loader=yaml.BaseLoader) or {}
+    if not isinstance(data, dict):
+        return {}
+        
 
-    return {str(k).strip().lower(): str(v) for k, v in data.items()}
+    return {str(k).strip().lower(): str(v).strip() for k, v in data.items()}
 
 
 class TermNormalizer:
