@@ -152,7 +152,7 @@ def _check_range(clause, path, schema, issues) -> None:
         if spec.field_type not in ("number", "unknown"):
             issues.append(ValidationIssue(
                 CODE_TYPE_MISMATCH,
-                f"{op} can't be applied to enum field {field!r}",
+                f"{op} can't be applied to to {spec.field_type} field {field!r}",
                 field=field, path=path))
 
 
