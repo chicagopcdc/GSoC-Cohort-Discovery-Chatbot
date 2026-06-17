@@ -49,6 +49,8 @@ class NumericConstraint:
     quantity: Optional[str]       # "age" when it can be inferred, otherwise None.
     span: tuple[int, int]
     negated: bool = False         # The operator is already flipped when needed.
+    field: Optional[str] = None   # resolved schema field, e.g. age_at_censor_status
+    path: Optional[str] = None    # parent path of that field; None = top-level
 
 
 @dataclass
@@ -78,6 +80,8 @@ class NormalizedQuery:
                     "unit": r.unit,
                     "quantity": r.quantity,
                     "negated": r.negated,
+                    "field": r.field,
+                    "path": r.path,
                     "span": list(r.span),
                 }
                 for r in self.ranges
@@ -191,23 +195,37 @@ def load_synonyms(path: Union[str, Path]) -> dict[str, str]:
 
 
 class TermNormalizer:
-    def __init__(self, schema: SchemaIndex, synonyms: Optional[dict[str, str]] = None):
+    def __init__(self, schema: SchemaIndex, synonyms: Optional[dict[str, str]] = None,*,age_field: str = "age_at_censor_status"):
         self._schema = schema
+        self._age_placement= self._resolve_age_field(age_field)
 
         # normalized phrase -> (canonical value, possible field placements)
         self._phrases: dict[str, tuple[str, tuple[FieldPlacement, ...]]] = {}
         self._max_words = 1
 
         self._build_index(synonyms or {})
+        
+    def _resolve_age_field(self, name: str) -> Optional[tuple[str, Optional[str]]]:
+        # Bind "age" ranges to one canonical field so downstream does not have to
+        # guess among the many age_at_* fields. Only used if it exists and is
+        # numeric; otherwise age ranges stay unresolved (handled as before).
+        if not name:
+            return None
+        for spec in self._schema.get_fields(name):
+            if spec.field_type in ("number", "unknown"):
+                return (spec.name, spec.parent_path)
+        return None
 
     @classmethod
     def from_files(
         cls,
         schema: SchemaIndex,
         synonyms_path: Optional[Union[str, Path]] = None,
+        *,
+        age_field: str = "age_at_censor_status",
     ) -> "TermNormalizer":
         syn = load_synonyms(synonyms_path) if synonyms_path else {}
-        return cls(schema, syn)
+        return cls(schema, syn, age_field=age_field)
 
     def _placements_for(self, value: str) -> tuple[FieldPlacement, ...]:
         # A schema value can appear under more than one field or nested path.
@@ -338,6 +356,11 @@ class TermNormalizer:
 
             seen.add(key)
 
+            if quantity == "age" and self._age_placement is not None:
+                field, path = self._age_placement
+            else:
+                field, path = None, None
+
             cue = _negation_before(text, start)
 
             if cue is not None:
@@ -351,6 +374,8 @@ class TermNormalizer:
                         quantity,
                         (start, end),
                         True,
+                        field,
+                        path,
                     )
                 )
             else:
@@ -362,6 +387,8 @@ class TermNormalizer:
                         quantity,
                         (start, end),
                         False,
+                        field,
+                        path,
                     )
                 )
 
