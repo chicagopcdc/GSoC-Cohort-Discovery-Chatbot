@@ -248,11 +248,73 @@ To login, you can use any of follwing accounts:
     username: admin password: admin
     username: user password: user123
 
-### 4. Postgresql db schema
-![Database table schema](./assets/db_table_schema.png)
+### 4. PostgreSQL Database Setup
+
+#### 4.1 Table Creation Order
+PostgreSQL tables must be created in the following order to avoid foreign key constraint failures:
+
+1. **User** - No dependencies
+2. **Thread** - References User
+3. **Element** - References Thread
+4. **Feedback** - References Thread
+5. **Step** - References Thread and self (parentId)
+
+#### 4.2 UUID Generation Note
+If `extensions.uuid_generate_v4()` does NOT work when running the scripts, replace `extensions` with `public`:
+```sql
+-- Change this:
+default extensions.uuid_generate_v4()
+-- To this:
+default public.uuid_generate_v4()
 ```
+
+#### 4.3 Database Schema
+![Database table schema](./assets/db_table_schema.png)
+
+**Table: User** (create first)
+```sql
+create table public."User" (
+  id uuid not null default public.uuid_generate_v4 (),
+  identifier text not null,
+  metadata jsonb null default '{}'::jsonb,
+  "createdAt" timestamp with time zone null default CURRENT_TIMESTAMP,
+  "updatedAt" timestamp with time zone null default CURRENT_TIMESTAMP,
+  "deletedAt" timestamp with time zone null,
+  constraint User_pkey primary key (id),
+  constraint User_identifier_key unique (identifier)
+) TABLESPACE pg_default;
+
+create index IF not exists idx_user_identifier on public."User" using btree (identifier) TABLESPACE pg_default;
+```
+
+**Table: Thread** (create second)
+```sql
+create table public."Thread" (
+  id uuid not null default public.uuid_generate_v4 (),
+  "createdAt" timestamp with time zone null default CURRENT_TIMESTAMP,
+  name text null,
+  "userId" uuid null,
+  "userIdentifier" text null,
+  tags text[] null,
+  metadata jsonb null default '{}'::jsonb,
+  "updatedAt" timestamp with time zone null default CURRENT_TIMESTAMP,
+  "deletedAt" timestamp with time zone null,
+  participant jsonb null,
+  constraint Thread_pkey primary key (id),
+  constraint Thread_userId_fkey foreign KEY ("userId") references "User" (id) on delete CASCADE
+) TABLESPACE pg_default;
+
+create index IF not exists idx_thread_userid on public."Thread" using btree ("userId") TABLESPACE pg_default;
+
+create index IF not exists idx_thread_useridentifier on public."Thread" using btree ("userIdentifier") TABLESPACE pg_default;
+
+create index IF not exists idx_thread_createdat on public."Thread" using btree ("createdAt" desc) TABLESPACE pg_default;
+```
+
+**Table: Element** (create third)
+```sql
 create table public."Element" (
-  id uuid not null default extensions.uuid_generate_v4 (),
+  id uuid not null default public.uuid_generate_v4 (),
   "threadId" uuid null,
   type text null,
   url text null,
@@ -273,9 +335,11 @@ create table public."Element" (
 
 create index IF not exists idx_element_threadid on public."Element" using btree ("threadId") TABLESPACE pg_default;
 ```
-```
+
+**Table: Feedback** (create fourth)
+```sql
 create table public."Feedback" (
-  id uuid not null default extensions.uuid_generate_v4 (),
+  id uuid not null default public.uuid_generate_v4 (),
   "forId" uuid not null,
   "threadId" uuid not null,
   value integer not null,
@@ -291,9 +355,11 @@ create index IF not exists idx_feedback_threadid on public."Feedback" using btre
 
 create index IF not exists idx_feedback_forid on public."Feedback" using btree ("forId") TABLESPACE pg_default;
 ```
-```
+
+**Table: Step** (create fifth)
+```sql
 create table public."Step" (
-  id uuid not null default extensions.uuid_generate_v4 (),
+  id uuid not null default public.uuid_generate_v4 (),
   name text null default 'step'::text,
   type text not null,
   "threadId" uuid null,
@@ -330,42 +396,6 @@ create index IF not exists idx_step_threadid on public."Step" using btree ("thre
 create index IF not exists idx_step_parentid on public."Step" using btree ("parentId") TABLESPACE pg_default;
 
 create index IF not exists idx_step_createdat on public."Step" using btree ("createdAt" desc) TABLESPACE pg_default;
-```
-```
-create table public."User" (
-  id uuid not null default extensions.uuid_generate_v4 (),
-  identifier text not null,
-  metadata jsonb null default '{}'::jsonb,
-  "createdAt" timestamp with time zone null default CURRENT_TIMESTAMP,
-  "updatedAt" timestamp with time zone null default CURRENT_TIMESTAMP,
-  "deletedAt" timestamp with time zone null,
-  constraint User_pkey primary key (id),
-  constraint User_identifier_key unique (identifier)
-) TABLESPACE pg_default;
-
-create index IF not exists idx_user_identifier on public."User" using btree (identifier) TABLESPACE pg_default;
-```
-```
-create table public."Thread" (
-  id uuid not null default extensions.uuid_generate_v4 (),
-  "createdAt" timestamp with time zone null default CURRENT_TIMESTAMP,
-  name text null,
-  "userId" uuid null,
-  "userIdentifier" text null,
-  tags text[] null,
-  metadata jsonb null default '{}'::jsonb,
-  "updatedAt" timestamp with time zone null default CURRENT_TIMESTAMP,
-  "deletedAt" timestamp with time zone null,
-  participant jsonb null,
-  constraint Thread_pkey primary key (id),
-  constraint Thread_userId_fkey foreign KEY ("userId") references "User" (id) on delete CASCADE
-) TABLESPACE pg_default;
-
-create index IF not exists idx_thread_userid on public."Thread" using btree ("userId") TABLESPACE pg_default;
-
-create index IF not exists idx_thread_useridentifier on public."Thread" using btree ("userIdentifier") TABLESPACE pg_default;
-
-create index IF not exists idx_thread_createdat on public."Thread" using btree ("createdAt" desc) TABLESPACE pg_default;
 ```
 ### 5. Future work
 #### 5.1 Support disease_phase field in nested graphql (Todo)

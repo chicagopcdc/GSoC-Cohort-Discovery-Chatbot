@@ -4,3 +4,11 @@ langchain==0.1.0
 langchain-openai==0.0.2
 requests==2.31.0
 asyncpg==0.30.0
+
+# Chainlit version notes:
+# - Most recent: 2.7.2
+# - Current version on chatbot: 2.3.0
+# - Compatible and tested: 2.4.3
+# 
+# Troubleshooting:
+# - If some buttons do not appear on screen, delete files at .chainlit/translations
