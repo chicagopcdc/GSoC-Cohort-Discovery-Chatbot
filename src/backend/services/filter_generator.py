@@ -272,7 +272,7 @@ def _partition_ranges(ranges) -> Tuple[list, list]:
     for r in ranges:
         # A range bound to a schema field is ready to use; only an unresolved
         # unit-bearing range is deferred until conversion lands.
-        if r.field is not None or r.unit is None:
+        if r.unit is None:
             usable.append(r)
         else:
             deferred.append(r)
