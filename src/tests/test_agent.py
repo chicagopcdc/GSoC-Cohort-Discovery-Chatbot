@@ -204,3 +204,40 @@ class TestLoopControl:
         res = agent.chat("s1", "count")
         assert sm.reset_calls == ["s1"]
         assert "error" in res.steps[-1].result
+
+
+class FakeExplorer:
+    def __init__(self, result):
+        self._result = result
+        self.calls = []
+
+    def answer(self, query_type, *, field=None, path=None, value=None):
+        self.calls.append({"query_type": query_type, "field": field, "path": path, "value": value})
+        return self._result
+
+
+class TestSchemaExplore:
+    def test_explore_passes_args_and_returns_text(self):
+        explorer = FakeExplorer(SimpleNamespace(kind="fields", text="Table: tumor_assessments", data={}))
+        chat = ScriptedChat(
+            tool_call("c1", "explore_schema", {"query_type": "list_fields", "path": "tumor_assessments"}),
+            text_reply("It has these fields: ..."),
+        )
+        agent = CohortAgent(FakeSessionManager(("new", build_obj())),
+                            schema_explorer=explorer, chat_fn=chat)
+        res = agent.chat("s1", "what fields does tumor_assessments have?")
+
+        assert res.steps[0].tool == "explore_schema"
+        assert res.steps[0].result == {"kind": "fields", "text": "Table: tumor_assessments"}
+        assert explorer.calls[0] == {
+            "query_type": "list_fields", "field": None, "path": "tumor_assessments", "value": None,
+        }
+
+    def test_explore_unavailable_without_explorer(self):
+        chat = ScriptedChat(
+            tool_call("c1", "explore_schema", {"query_type": "list_tables"}),
+            text_reply("Schema browsing isn't available right now."),
+        )
+        agent = CohortAgent(FakeSessionManager(("new", build_obj())), chat_fn=chat)  # no explorer
+        res = agent.chat("s1", "list tables")
+        assert "not available" in res.steps[0].result["error"]
