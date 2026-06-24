@@ -18,11 +18,13 @@ from utils.filter_utils import *
 from utils.credential_helper import *
 
 from utils.nested_graphql_helper import *
+from api_v2 import router as api_v2_router
 
 # Load environment variables
 load_dotenv()
 
 app = FastAPI()
+app.include_router(api_v2_router)
 
 BASE_URL = "https://portal-dev.pedscommons.org"
 GRAPHQL_ENDPOINT = f"{BASE_URL}/guppy/graphql"
