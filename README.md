@@ -402,6 +402,20 @@ create index IF not exists idx_thread_createdat on public."Thread" using btree (
   }
 }
 ```
+## Getting Started
 
+### Prerequisites
+- Node.js >= 16
+- npm or yarn
+
+### Installation
+
+git clone https://github.com/chicagopcdc/GSoC-Cohort-Discovery-Chatbot.git  
+cd GSoC-Cohort-Discovery-Chatbot  
+npm install  
+npm run dev  
+
+### Usage
+Open http://localhost:3000 in your browser
 
 
