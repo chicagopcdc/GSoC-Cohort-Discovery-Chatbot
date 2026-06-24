@@ -1,14 +1,9 @@
-"""
-filter_utils.py - GraphQL filter conversion utilities
+"""Bidirectional conversion between FilterState and GraphQL filters.
 
-This module provides tools for converting frontend FilterState objects to GraphQL filter format,
-and converting GraphQL filters back to FilterState objects.
-Supports automatic field type reading from PCDC schema for dynamic handling of different filter types.
-
-Main functions:
-- getGQLFilter: Convert FilterState to GraphQL filter
-- getFilterState: Convert GraphQL filter to FilterState
-- SchemaTypeHandler: Auto-handle different field types based on schema
+Provides tools for converting frontend FilterState objects to GraphQL
+filter format, and converting GraphQL filters back to FilterState
+objects. Supports automatic field type reading from PCDC schema for
+dynamic handling of different filter types.
 """
 
 import json
@@ -22,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 # Filter type constants
 class FILTER_TYPE:
-    """Filter type constants"""
+    """Filter type constants."""
     COMPOSED = 'COMPOSED'
     ANCHORED = 'ANCHORED'
     STANDARD = 'STANDARD'
@@ -36,29 +31,28 @@ GqlSimpleFilter = Dict[str, Any]
 GqlNestedFilter = Dict[str, Dict[str, Any]]
 
 class SchemaTypeHandler:
-    """
-    Handle filter conversion for different field types based on PCDC schema
-    """
+    """Handle filter conversion for different field types based on PCDC schema."""
     
     def __init__(self, node_properties: Dict = None):
-        """
-        Initialize SchemaTypeHandler
+        """Initialize with parsed node properties.
         
         Args:
-            node_properties: Node property info from schema_parser.parse_pcdc_schema
+            node_properties: Node property info from
+                schema_parser.parse_pcdc_schema.
         """
         self.node_properties = node_properties or {}
         self._field_type_cache = {}  # Cache field type info
     
     def get_field_type_info(self, field_path: str) -> Tuple[str, Dict]:
-        """
-        Get field type information
+        """Look up the schema type of a field by its dot-separated path.
         
         Args:
             field_path: Field path, may contain dots for nested fields
-            
+                (e.g. "disease_characteristic.bulky_nodal_aggregate").
+        
         Returns:
-            Tuple of (field_type, field_details)
+            Tuple of (field_type, field_details) where field_type is one
+            of "enum", "number", "string", or "unknown".
         """
         # Check cache
         if field_path in self._field_type_cache:
@@ -92,15 +86,10 @@ class SchemaTypeHandler:
         return result
     
     def parse_filter_value(self, field_name: str, filter_values: Dict[str, Any]) -> Optional[GqlSimpleFilter]:
-        """
-        Parse filter value to GraphQL filter based on field type
+        """Convert a single FilterState entry into a GraphQL filter clause.
         
-        Args:
-            field_name: Field name
-            filter_values: Filter value object
-            
-        Returns:
-            GraphQL simple filter object or None
+        Dispatches to the correct operator (IN, GTE/LTE, etc.) based on
+        the filter type and the schema's field type.
         """
         # Get field type info
         field_type, field_info = self.get_field_type_info(field_name)
@@ -149,17 +138,7 @@ class SchemaTypeHandler:
 
 
 def parse_anchored_filters(field_name: str, filter_values: Dict[str, Any], combine_mode: str) -> List[Dict[str, Any]]:
-    """
-    Parse anchored type filters
-    
-    Args:
-        field_name: Field name
-        filter_values: Filter value object
-        combine_mode: Combine mode (AND/OR)
-        
-    Returns:
-        List of parsed filters
-    """
+    """Parse anchored type filters. Currently a placeholder."""
     # Note: This function needs implementation based on actual anchored filter structure
     # Currently returns empty list as placeholder
     logger.warning(f"Anchored filter parsing not fully implemented: {field_name}")
@@ -167,16 +146,10 @@ def parse_anchored_filters(field_name: str, filter_values: Dict[str, Any], combi
 
 
 def parse_simple_filter(field_name: str, filter_values: Dict[str, Any], schema_handler: Optional[SchemaTypeHandler] = None) -> Optional[GqlSimpleFilter]:
-    """
-    Parse simple filter
-    
-    Args:
-        field_name: Field name
-        filter_values: Filter value object
-        schema_handler: Schema type handler
-        
-    Returns:
-        GraphQL simple filter object or None
+    """Convert one filter entry to a GraphQL filter clause.
+
+    Uses the schema_handler for type-aware conversion if provided,
+    otherwise falls back to handling OPTION type only.
     """
     # Use schema handler for smart parsing if provided
     if schema_handler:
@@ -190,15 +163,10 @@ def parse_simple_filter(field_name: str, filter_values: Dict[str, Any], schema_h
 
 
 def getGQLFilter(filter_state: Optional[FilterState], schema_handler: Optional[SchemaTypeHandler] = None) -> Optional[GqlFilter]:
-    """
-    Convert FilterState object to GraphQL filter format
-    
-    Args:
-        filter_state: FilterState object
-        schema_handler: Schema type handler
-        
-    Returns:
-        GraphQL filter object or None
+    """Convert a FilterState object to GraphQL filter format.
+
+    Handles flat fields (emitting IN/GTE/LTE clauses) and dotted field
+    paths (emitting nested wrappers).
     """
     # Check null values
     if (
@@ -273,14 +241,10 @@ def getGQLFilter(filter_state: Optional[FilterState], schema_handler: Optional[S
 
 
 def getFilterState(gql_filter: Optional[GqlFilter]) -> Optional[FilterState]:
-    """
-    Convert GraphQL filter to FilterState object
-    
-    Args:
-        gql_filter: GraphQL filter object
-        
-    Returns:
-        FilterState object or None
+    """Convert a GraphQL filter back into a FilterState object.
+
+    Supports IN, GTE, LTE, and nested operators within AND/OR
+    combinators.
     """
     # Check null values
     if gql_filter is None:
@@ -372,15 +336,14 @@ def getFilterState(gql_filter: Optional[GqlFilter]) -> Optional[FilterState]:
 
 
 def parse_llm_response(response_content: str, query_type: str = "") -> Dict[str, Any]:
-    """
-    Parse LLM response content to extract query and variables
-    
+    """Extract query and variables from a raw LLM response.
+
+    Tries three strategies in order: direct JSON parse, repair
+    truncated JSON, then regex extraction as a last resort.
+
     Args:
-        response_content: Raw LLM response content
-        query_type: Query type identifier (for logging)
-        
-    Returns:
-        Dictionary containing query and variables
+        query_type: A label used in log messages to identify which
+            pipeline stage produced this response (e.g. "nested").
     """
     try:
         # Try direct JSON parsing
@@ -445,4 +408,4 @@ def parse_llm_response(response_content: str, query_type: str = "") -> Dict[str,
 
 
 # Main exported functions
-__all__ = ['getGQLFilter', 'getFilterState', 'SchemaTypeHandler', 'FILTER_TYPE', 'parse_llm_response'] 
+__all__ = ['getGQLFilter', 'getFilterState', 'SchemaTypeHandler', 'FILTER_TYPE', 'parse_llm_response']

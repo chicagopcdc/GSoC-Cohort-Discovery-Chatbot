@@ -1,3 +1,11 @@
+"""FastAPI backend for natural-language to GraphQL conversion.
+
+Exposes HTTP endpoints for query generation (/flat_graphql,
+/nested_graphql), query execution (/query), and session management.
+The conversion pipeline extracts keywords, maps them to PCDC schema
+fields and GitOps nodes, then asks the LLM to produce a GraphQL filter.
+"""
+
 import os
 import time
 import uuid
@@ -39,13 +47,13 @@ class GraphQLResponse(BaseModel):
     variables: str = "{}"
 
 class GraphQLQuery(BaseModel):
-    """Model for GraphQL query request"""
+    """Model for GraphQL query request."""
     query: str
     variables: Optional[Dict[str, Any]] = None
     use_cached_token: Optional[bool] = True
 
 class GraphQLHttpResponse(BaseModel):
-    """Model for GraphQL query response"""
+    """Model for GraphQL query response."""
     data: Optional[Dict[str, Any]] = None
     errors: Optional[list] = None
     success: bool
@@ -53,6 +61,7 @@ class GraphQLHttpResponse(BaseModel):
 
 @app.post("/flat_graphql")
 async def convert_to_flat_graphql(query: Query):
+    """Generate a flat (non-nested) GraphQL query from natural language."""
     # Load PCDC schema
     node_properties = {}
     term_mappings = {}
@@ -172,7 +181,8 @@ async def convert_to_flat_graphql(query: Query):
     
 @app.post("/nested_graphql")
 async def convert_to_nested_graphql(user_query: Query):
-    """
+    """Generate a nested GraphQL filter from a natural-language query.
+
     Workflow:
         1. Extract context from user query. For example:
             User query:
@@ -237,38 +247,13 @@ async def convert_to_nested_graphql(user_query: Query):
             gitops_result.append(gitops_schema_mapping_result)
     print(f"All schema terms: {pcdc_schema_prod_result} \n {gitops_result} \n for user query {user_query}. \n")
     
-    # 3. Feed GraphQL generation code file ("../../assets/queries.js"), let LLM identify the format to generate
-    try:
-        with open("../../assets/queries.js", 'r', encoding='utf-8') as f:
-            queries_js_content = f.read()
-        print("Successfully loaded queries.js file")
-    except Exception as e:
-        print(f"Error loading queries.js: {str(e)}")
-        queries_js_content = ""
-    
-    # 4. Provide two actual nested GraphQL examples, let LLM generate final nested GraphQL format based on results
-    nested_graphql_examples = [
-        {"AND": [{"IN": {"consortium": ["INRG"]}}, {"nested": {"AND": [{"IN": {"tumor_classification": ["Metastatic"]}}, {"IN": {"tumor_state": ["Absent"]}}, {"IN": {"tumor_site": ["Skin"]}}], "path": "tumor_assessments"}}]},
-        {"AND": [{"IN": {"consortium": ["NODAL"]}}, {"nested": {"AND": [{"IN": {"bulky_nodal_aggregate": ["No"]}}], "path": "disease_characteristics"}}]}
-    ]
-    
-    # Build final LLM prompt
+    # 3. Feed GraphQL generation code to LLM
     final_prompt = f"""
-    You are a professional GraphQL nested query generator specializing in creating nested GraphQL filters for pediatric cancer databases (PCDC).
-
-    User Query: {user_query.text}
+    Based on the following context, generate the final nested GraphQL filter:
     
-    Extracted PCDC Schema Properties: {pcdc_schema_prod_result}
-    Corresponding GitOps Field Nodes: {gitops_result}
-    
-    Reference the following generated GraphQL code as format specification:
-    {queries_js_content[:1000]}...
-    
-    Reference the following nested GraphQL query examples:
-    Example 1: {json.dumps(nested_graphql_examples[0], ensure_ascii=False)}
-    Example 2: {json.dumps(nested_graphql_examples[1], ensure_ascii=False)}
-    
-    Based on the above information, please generate a nested GraphQL format query filter.
+    User query: {user_query.text}
+    PCDC schemas: {pcdc_schema_prod_result}
+    GitOps nodes: {gitops_result}
     
     Rules:
     1. Use AND logic to connect multiple conditions
@@ -336,8 +321,7 @@ async def execute_graphql_query(
     variables: Optional[Dict[str, Any]] = None,
     token: str = None
 ) -> Dict[str, Any]:
-    """
-    Execute GraphQL query via the guppy endpoint
+    """Execute GraphQL query via the guppy endpoint.
     
     Args:
         query: GraphQL query string
@@ -384,15 +368,7 @@ async def execute_graphql_query(
 
 @app.post("/query", response_model=GraphQLHttpResponse)
 async def run_graphql_query(query_request: GraphQLQuery) -> GraphQLHttpResponse:
-    """
-    Run GraphQL query via guppy/graphql API
-    
-    Args:
-        query_request: GraphQL query request containing query and optional variables
-        
-    Returns:
-        GraphQLResponse with query results
-    """
+    """Run GraphQL query via guppy/graphql API."""
     try:
         # Execute the query
         token = generate_access_token()
@@ -429,19 +405,22 @@ async def run_graphql_query(query_request: GraphQLQuery) -> GraphQLHttpResponse:
 # Add session management routes
 @app.post("/sessions/create")
 async def create_session():
+    """Create a new conversation session and return its ID."""
     session_id = str(uuid.uuid4())
     session_manager.get_or_create_session(session_id)
     return {"session_id": session_id}
 
 @app.delete("/sessions/{session_id}")
 async def delete_session(session_id: str):
+    """Delete a conversation session by ID."""
     session_manager.delete_session(session_id)
     return {"status": "success"}
 
 @app.get("/sessions")
 async def list_sessions():
+    """List all active conversation session IDs."""
     return {"sessions": session_manager.get_all_session_ids()}
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    uvicorn.run(app, host="0.0.0.0", port=8000)

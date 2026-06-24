@@ -1,8 +1,20 @@
+"""Build and decompose GraphQL queries from extracted conditions.
+
+Provides low-level utilities for constructing GraphQL query strings and
+filter JSON from structured condition dicts. Used by the flat-query
+path (/flat_graphql); the nested-query path uses
+nested_graphql_helper.py instead.
+"""
+
 import json
 import re
 
 def build_graphql_filter(criteria):
-    """Build GraphQL filter based on criteria"""
+    """Build a GraphQL filter dict from a field-to-condition mapping.
+
+    Supports three condition shapes: list (IN clause), dict with
+    min/max (GTE + LTE range), and dict with op/value (comparison).
+    """
     filters = []
     
     for field, condition in criteria.items():
@@ -33,7 +45,11 @@ def build_graphql_filter(criteria):
         return {"filter": {}}
 
 def extract_query_conditions(query):
-    """Extract conditions from query"""
+    """Extract structured conditions from a natural-language query.
+
+    Uses regex patterns to recognise race, age range, and sex phrases.
+    Returns a dict suitable for build_graphql_filter.
+    """
     conditions = {}
     
     # Extract race condition
@@ -59,7 +75,7 @@ def extract_query_conditions(query):
     return conditions
 
 def build_graphql_query(fields, filter_var="$filter"):
-    """Build GraphQL query"""
+    """Build a GraphQL query string for the subject node."""
     fields_str = "\n    ".join(fields)
     query = f"""query ({filter_var}: JSON) {{
   subject(accessibility: accessible, offset: 0, first: 20, filter: {filter_var}) {{
@@ -68,8 +84,18 @@ def build_graphql_query(fields, filter_var="$filter"):
 }}"""
     return query
 
+def analyze_query_complexity(query):
+    """Classify a query as "simple" or "complex".
+
+    A query is complex when it references more than one node type
+    (e.g. both subject and disease_characteristic).
+    """
+    node_types = ["subject", "disease_characteristic", "staging", "lab", "vital", "medical_history"]
+    mentioned = [nt for nt in node_types if nt in query.lower()]
+    return "complex" if len(mentioned) > 1 else "simple"
+
 def decompose_query(query):
-    """Decompose complex query into multiple related parts
+    """Decompose complex query into multiple related parts.
     
     Instead of creating separate independent queries, this creates a structured 
     representation of a single query with multiple nested parts, ensuring the 
@@ -98,7 +124,7 @@ def decompose_query(query):
     return query_parts
 
 def combine_results(results, original_query):
-    """Process results maintaining relationships between entities
+    """Merge multiple query results into a single structured response.
     
     Instead of simply merging separate results, this ensures that relationships
     between entities are maintained by focusing on the hierarchical structure
@@ -140,4 +166,4 @@ if __name__ == "__main__":
     
     if complexity == "complex":
         query_parts = decompose_query(test_query)
-        print(f"Decomposed query parts: {query_parts}") 
+        print(f"Decomposed query parts: {query_parts}")

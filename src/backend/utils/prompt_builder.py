@@ -1,7 +1,19 @@
+"""LLM prompt templates for GraphQL query generation.
+
+Constructs the system/user prompts sent to the OpenAI LLM to convert a
+natural-language question into a valid PCDC GraphQL query. Two flavours:
+- create_enhanced_prompt: flat (non-nested) GraphQL generation.
+- create_nested_query_prompt: nested query joining related node types.
+"""
+
 import json
 
 def create_enhanced_prompt(user_query, schema_info):
-    """Create enhanced prompt template"""
+    """Build a prompt for flat GraphQL query generation.
+
+    Embeds the user's natural-language question together with the
+    relevant PCDC schema slice so the LLM can map field names correctly.
+    """
     
     # Format schema information as string
     schema_str = json.dumps(schema_info, indent=2)
@@ -129,7 +141,18 @@ def create_enhanced_prompt(user_query, schema_info):
     return template
 
 def create_nested_query_prompt(user_query, schema_info, node_type, conversation_history=None):
-    """Create nested query prompt template"""
+    """Build a prompt for nested GraphQL query generation.
+
+    Similar to create_enhanced_prompt but additionally instructs the LLM
+    to emit the nested filter syntax required when querying related node
+    types (e.g. histologies, tumor_assessments).
+
+    Args:
+        conversation_history: Optional formatted string of prior messages
+            to give the LLM multi-turn context. When provided, it is
+            appended to the prompt so the LLM can reference earlier
+            interactions.
+    """
     
     # Format schema information as string
     schema_str = json.dumps(schema_info, indent=2)
@@ -221,4 +244,4 @@ if __name__ == "__main__":
         {"subject": test_schema["subject"], "histologies": {"histology_grade": None}},
         "histologies"
     )
-    print("\n\n" + nested_prompt) 
+    print("\n\n" + nested_prompt)
