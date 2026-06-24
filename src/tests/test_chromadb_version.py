@@ -52,7 +52,7 @@ if stats.get('is_mock', False):
     print("   - You want to test without dependencies")
     print("\n   To use real ChromaDB:")
     print("   1. pip install chromadb==0.4.15")
-    print("   2. Ensure SQLite >= 3.35.0 (using pysqlite3-binary)")
+    print("   2. Ensure SQLite >= 3.35.0 (built‑in sqlite3 is fine on modern Python)")
 else:
     print("🔸 chroma_manager_mock.py is NOT being used")
     print("   The real ChromaDB is active and working!")

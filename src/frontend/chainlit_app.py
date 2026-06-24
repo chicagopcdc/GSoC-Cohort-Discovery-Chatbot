@@ -44,8 +44,18 @@ async def start():
         ).send()
         return
     
-    # Create session
-    session_id = str(uuid.uuid4())[:8]
+    # Create session by calling backend API (functional requirement #10)
+    session_id = None
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(f"{BACKEND_URL}/sessions/create")
+            resp.raise_for_status()
+            data = resp.json()
+            session_id = data.get("session_id")
+    except Exception as e:
+        # fall back to local uuid if backend is unavailable
+        session_id = str(uuid.uuid4())[:8]
+        await cl.Message(content=f"⚠️ Warning: failed to contact backend for session (\"{e}\"). Using local id.").send()
     cl.user_session.set("session_id", session_id)
     cl.user_session.set("message_count", 0)
     
@@ -128,25 +138,27 @@ async def main(message: cl.Message):
         # graph query execution
         if executable_nested_graphql and isinstance(executable_nested_graphql, dict):  # Only execute if we have a valid executable GraphQL
             query_str = executable_nested_graphql.get("query", "")
-            variables_obj = executable_nested_graphql.get("variables", {})
-            
-            if query_str.strip():  # Only execute if we have a valid query string
-                try:
-                    async with httpx.AsyncClient() as client:
-                        query_response = await client.post(
-                            f"{BACKEND_URL}/query",
-                            json={
-                                "query": query_str,
-                                "variables": variables_obj,
-                                "use_cached_token": True
-                            },
-                            headers={"Content-Type": "application/json"},
-                            timeout=5.0
-                        )
-                        query_response.raise_for_status()
-                        query_result = query_response.json()
-                except Exception as e:
-                    query_error = str(e)
+            variables_obj = executable_nested_graphql.get("variables", {}) or {}
+
+            # attach session_id to the variables so backend can validate
+            if session_id:
+                variables_obj = {**variables_obj, "session_id": session_id}
+            try:
+                async with httpx.AsyncClient() as client:
+                    query_response = await client.post(
+                        f"{BACKEND_URL}/query",
+                        json={
+                            "query": query_str,
+                            "variables": variables_obj,
+                            "use_cached_token": True
+                        },
+                        headers={"Content-Type": "application/json"},
+                        timeout=5.0
+                    )
+                    query_response.raise_for_status()
+                    query_result = query_response.json()
+            except Exception as e:
+                query_error = str(e)
 
         # Format the complete response
         status_icon = "✅" if success else "❌"

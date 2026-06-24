@@ -53,6 +53,10 @@ class GraphQLHttpResponse(BaseModel):
 
 @app.post("/flat_graphql")
 async def convert_to_flat_graphql(query: Query):
+    # enforce that the session_id came from /sessions/create
+    if not query.session_id or query.session_id not in active_sessions:
+        raise HTTPException(status_code=401, detail="Unauthorized: invalid or missing session_id")
+
     # Load PCDC schema
     node_properties = {}
     term_mappings = {}
@@ -172,6 +176,8 @@ async def convert_to_flat_graphql(query: Query):
     
 @app.post("/nested_graphql")
 async def convert_to_nested_graphql(user_query: Query):
+    if not user_query.session_id or user_query.session_id not in active_sessions:
+        raise HTTPException(status_code=401, detail="Unauthorized: invalid or missing session_id")
     """
     Workflow:
         1. Extract context from user query. For example:
@@ -219,11 +225,24 @@ async def convert_to_nested_graphql(user_query: Query):
     with open(processed_pcdc_schema_prod_file, 'r', encoding='utf-8') as f:
         processed_pcdc_schema_prod_dict = json.load(f)
     lowercase_pcdc_dict = {key.lower(): value for key, value in processed_pcdc_schema_prod_dict.items()}
+    # resolve pcdc schema mappings with batching to avoid N+1 LLM calls
     pcdc_schema_prod_result = []
+    ambiguous_keywords = []
     for keyword in context:
-        pcdc_schema_prod_schema_mapping_result = await query_processed_pcdc_result(lowercase_pcdc_dict, keyword, user_query, llm)
-        if pcdc_schema_prod_schema_mapping_result and pcdc_schema_prod_schema_mapping_result not in pcdc_schema_prod_result:
-            pcdc_schema_prod_result.append(pcdc_schema_prod_schema_mapping_result)
+        kw_lower = keyword.lower()
+        if kw_lower in lowercase_pcdc_dict:
+            candidates = lowercase_pcdc_dict[kw_lower]
+            if len(candidates) == 1:
+                if candidates[0] not in pcdc_schema_prod_result:
+                    pcdc_schema_prod_result.append(candidates[0])
+            elif len(candidates) > 1:
+                ambiguous_keywords.append(keyword)
+    # batch-resolve ambiguous ones
+    if ambiguous_keywords:
+        resolved = await resolve_pcdc_ambiguities(ambiguous_keywords, lowercase_pcdc_dict, user_query, llm)
+        for kw, chosen in resolved.items():
+            if chosen and chosen not in pcdc_schema_prod_result:
+                pcdc_schema_prod_result.append(chosen)
     print(f"Mapping schemas in pcdc_schema_prod.json: {pcdc_schema_prod_result}")
 
     # 2.2 Query gitops.json and map context to gitops_file: ["tumor_assessments"]
@@ -231,10 +250,24 @@ async def convert_to_nested_graphql(user_query: Query):
         processed_gitops_dict = json.load(f)
     lowercase_gitops_dict = {key.lower(): value for key, value in processed_gitops_dict.items()}
     gitops_result = []
+    ambiguous_props = []
     for pcdc_schema in pcdc_schema_prod_result:
-        gitops_schema_mapping_result = await query_processed_gitops_result(lowercase_gitops_dict, pcdc_schema, user_query, llm)
-        if gitops_schema_mapping_result and gitops_schema_mapping_result not in gitops_result:
-            gitops_result.append(gitops_schema_mapping_result)
+        # if mapping exists and has more than one candidate
+        lower = pcdc_schema.lower()
+        if lower in lowercase_gitops_dict and len(lowercase_gitops_dict[lower]) > 1:
+            ambiguous_props.append(pcdc_schema)
+        else:
+            # simple case or not present
+            if lower in lowercase_gitops_dict:
+                val = lowercase_gitops_dict[lower][0]
+                if val and val not in gitops_result:
+                    gitops_result.append(val)
+    # resolve ambiguous props in one call
+    if ambiguous_props:
+        resolved_gitops = await resolve_gitops_ambiguities(ambiguous_props, lowercase_gitops_dict, user_query, llm)
+        for prop, chosen in resolved_gitops.items():
+            if chosen and chosen not in gitops_result:
+                gitops_result.append(chosen)
     print(f"All schema terms: {pcdc_schema_prod_result} \n {gitops_result} \n for user query {user_query}. \n")
     
     # 3. Feed GraphQL generation code file ("../../assets/queries.js"), let LLM identify the format to generate
@@ -384,6 +417,12 @@ async def execute_graphql_query(
 
 @app.post("/query", response_model=GraphQLHttpResponse)
 async def run_graphql_query(query_request: GraphQLQuery) -> GraphQLHttpResponse:
+    # if frontend includes a session_id field in variables, validate it as well
+    sid = None
+    if isinstance(query_request.variables, dict):
+        sid = query_request.variables.get("session_id")
+    if sid and sid not in active_sessions:
+        raise HTTPException(status_code=401, detail="Unauthorized: invalid session_id")
     """
     Run GraphQL query via guppy/graphql API
     
@@ -426,12 +465,33 @@ async def run_graphql_query(query_request: GraphQLQuery) -> GraphQLHttpResponse:
             detail=f"Internal server error: {str(e)}"
         )
 
+# A simple registry of sessions issued by the API (used for authentication/authorization)
+active_sessions = set()
+
 # Add session management routes
 @app.post("/sessions/create")
 async def create_session():
+    """Issue a new session ID and register it.
+    This endpoint must be called by the frontend after the user has logged in.
+    By keeping a central list of active session IDs we prevent clients from
+    fabricating their own identifiers (functional requirement #10).
+    """
     session_id = str(uuid.uuid4())
+    active_sessions.add(session_id)
     session_manager.get_or_create_session(session_id)
     return {"session_id": session_id}
+
+
+@app.delete("/sessions/{session_id}")
+async def delete_session(session_id: str):
+    active_sessions.discard(session_id)
+    session_manager.delete_session(session_id)
+    return {"status": "success"}
+
+@app.get("/sessions")
+async def list_sessions():
+    # return only the list of active (issued) sessions
+    return {"sessions": list(active_sessions)}
 
 @app.delete("/sessions/{session_id}")
 async def delete_session(session_id: str):

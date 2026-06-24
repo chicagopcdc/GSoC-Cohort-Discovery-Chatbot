@@ -105,6 +105,14 @@ def test_authentication_setup():
             print("❌ User object creation not found")
             return False
         
+        # Requirement #10: frontend must obtain session ID from backend instead of generating its own
+        if "/sessions/create" not in content:
+            print("❌ Frontend does not call /sessions/create (bypassed functional #10)")
+            return False
+        if 'uuid.uuid4' in content and 'sessions/create' not in content:
+            print("❌ Frontend appears to generate session locally instead of using API")
+            return False
+        
         print("✅ Authentication setup OK")
         return True
         

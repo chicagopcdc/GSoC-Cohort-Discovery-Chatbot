@@ -158,122 +158,89 @@ def parse_gitops(file):
         return {}
 
 
-async def query_processed_pcdc_result(lowercase_pcdc_dict, keyword, user_query, llm):
-    """
-    Handle one-to-many mapping relationships, e.g.:
-    "Metastatic": [
-        "lesion_classification",
-        "molecular_analysis_classification", 
-        "tumor_classification"
-    ],
-    Let LLM decide final mapping schema based on user_query context
-    """
-    try:
-        # Use lowercase keyword for lookup
-        keyword_lower = keyword.lower()
-        if keyword_lower in lowercase_pcdc_dict:
-            mapping_schemas_in_pcdc_schema_prod = lowercase_pcdc_dict[keyword_lower]
-            print(f"keyword: {keyword}, mapping_list_in_pcdc_schema_prod: {mapping_schemas_in_pcdc_schema_prod}")
-            if len(mapping_schemas_in_pcdc_schema_prod) == 1:
-                return mapping_schemas_in_pcdc_schema_prod[0]
-            elif len(mapping_schemas_in_pcdc_schema_prod) > 1:
-                prompt = f"""
-                    Multiple medical terms from the query map to overlapping or conflicting database fields in pcdc-schema-prod.json. Resolve these conflicts to choose the most appropriate field.
 
-                    Original Query: "{user_query}"
-                    
-                    Current Term: "{keyword}"
-                    Conflicting Fields: {mapping_schemas_in_pcdc_schema_prod}
-                    
-                    Resolve by:
-                    1. Identifying semantic overlaps (e.g., "cancer" and "tumor" might refer to same field)
-                    2. Choosing more specific terms over general ones  
-                    3. Maintaining clinical accuracy
-                    4. Preserving user intent
-                    5. Considering the medical context of the query
-                    
-                    From the conflicting fields list, select the ONE field that best matches the user query context.
-                    Only return the selected field name as a string, no explanation needed.
-                """
-                llm_result = llm.invoke(prompt)
-                print(f"llm_result: {llm_result}")
-                # Extract content from the LLM response
-                if hasattr(llm_result, 'content'):
-                    llm_mapping_result = llm_result.content.strip().strip('"')  # Remove quotes if present
-                else:
-                    llm_mapping_result = str(llm_result).strip().strip('"')
-                return llm_mapping_result
-        return ""
-    except Exception as e:
-        print(f"Error in query_processed_pcdc_result: {str(e)}")
-        return ""
+async def resolve_pcdc_ambiguities(keywords, lowercase_pcdc_dict, user_query, llm):
+    """Resolve multiple ambiguous keywords with one LLM call.
+
+    Returns a dict mapping each keyword to the chosen field name.
+    """
+    if not keywords:
+        return {}
+    details = {}
+    for kw in keywords:
+        kw_lower = kw.lower()
+        details[kw] = lowercase_pcdc_dict.get(kw_lower, [])
+    prompt = f"""
+        The following terms each map to multiple pcdc-schema-prod fields. Using
+        the context of the entire user query, choose the most appropriate field
+        for each term.
+
+        Original Query: "{user_query}"
+
+        Ambiguous terms and options:
+        {json.dumps(details, ensure_ascii=False, indent=2)}
+
+        For every term, return a JSON object with the term as the key and the
+        chosen field name as the value. Example:
+        {{"Metastatic": "tumor_classification", "Age": "age_at_diagnosis"}}
+        """
+    llm_result = llm.invoke(prompt)
+    text = llm_result.content if hasattr(llm_result, 'content') else str(llm_result)
+    try:
+        mapping = json.loads(text)
+    except Exception:
+        # fallback: try one-per-line
+        mapping = {}
+        for line in text.splitlines():
+            if ':' in line:
+                term, val = line.split(':', 1)
+                mapping[term.strip().strip('"')] = val.strip().strip('"')
+    return mapping
+
+
+async def query_processed_pcdc_result(lowercase_pcdc_dict, keyword, user_query, llm):
+    """Backward-compatibility wrapper calling batch resolver for single keyword."""
+    # reuse the batch function for a single-entry list
+    result = await resolve_pcdc_ambiguities([keyword], lowercase_pcdc_dict, user_query, llm)
+    return result.get(keyword, "")
+
+async def resolve_gitops_ambiguities(pcdc_properties, lowercase_gitops_dict, user_query, llm):
+    """Resolve multiple pcdc properties mapping to gitops nodes with one LLM call."""
+    details = {}
+    for prop in pcdc_properties:
+        key = prop.lower()
+        details[prop] = lowercase_gitops_dict.get(key, [])
+    if not details:
+        return {}
+    prompt = f"""
+        The following PCDC schema properties each map to multiple GitOps field nodes.
+        Using context from the user query, choose the most appropriate node for each property.
+
+        Original Query: "{user_query}"
+        Ambiguous properties and choices:
+        {json.dumps(details, ensure_ascii=False, indent=2)}
+
+        Return a JSON object mapping property names to selected field node names.
+    """
+    llm_result = llm.invoke(prompt)
+    text = llm_result.content if hasattr(llm_result, 'content') else str(llm_result)
+    try:
+        mapping = json.loads(text)
+    except Exception:
+        mapping = {}
+        for line in text.splitlines():
+            if ':' in line:
+                left, right = line.split(':', 1)
+                mapping[left.strip().strip('"')] = right.strip().strip('"')
+    return mapping
+
 
 async def query_processed_gitops_result(lowercase_gitops_dict, pcdc_schema, user_query, llm):
-    """
-    Handle one-to-many mapping relationships (e.g., one PCDC schema property maps to multiple GitOps field nodes)
-    Let LLM decide final mapping schema based on user query context
-    
-    Args:
-        query_pcdc_schema_prod_result: Property name from PCDC schema query
-        processed_gitops_file: Processed GitOps file path
-        user_query: User query
-        llm: LLM agent
-    Returns:
-        Corresponding GitOps field node name
-    """
-    try:
-        # Return empty string if PCDC query result is empty
-        if not pcdc_schema:
-            return ""
-        # Use lowercase query_pcdc_schema_prod_result for lookup
-        pcdc_property_lower = pcdc_schema.lower()
-        if pcdc_property_lower in lowercase_gitops_dict:
-            mapping_gitops_field_nodes = lowercase_gitops_dict[pcdc_property_lower]
-            print(f"pcdc_schema: {pcdc_schema}, mapping_gitops_field_nodes: {mapping_gitops_field_nodes}")
-            if len(mapping_gitops_field_nodes) == 0:
-                return ""
-            elif len(mapping_gitops_field_nodes) == 1:
-                return mapping_gitops_field_nodes[0]
-            elif len(mapping_gitops_field_nodes) > 1:
-                # Multiple mappings, need LLM to choose most appropriate based on context
-                prompt = f"""
-                    Multiple GitOps field nodes map to the same PCDC schema property. Resolve this conflict to choose the most contextually appropriate field node.
-
-                    Original Query: "{user_query}"
-                    
-                    PCDC Schema Property: "{pcdc_schema}"
-                    Conflicting GitOps Field Nodes: {mapping_gitops_field_nodes}
-                    
-                    Example Context Mapping:
-                    - If query mentions "tumors" + "assessment" → choose "tumor_assessments"
-                    - If query mentions "surgery" or "biopsy" → choose "biopsy_surgical_procedures"  
-                    - If query mentions "radiation" or "therapy" → choose "radiation_therapies"
-                    
-                    Resolve by:
-                    1. Analyzing the medical procedure/context mentioned in the query
-                    2. Choosing the field node that best matches the clinical workflow
-                    3. Considering the temporal or procedural relationship
-                    4. Maintaining semantic consistency with user intent
-                    5. Prioritizing more specific contexts over general ones
-                    
-                    From the conflicting GitOps field nodes, select the ONE that best matches the user query context.
-                    Only return the selected field node name as a string, no explanation needed.
-                """
-                llm_result = llm.invoke(prompt)
-                print(f"gitops llm_result: {llm_result}")
-                # Extract content from the LLM response
-                if hasattr(llm_result, 'content'):
-                    llm_mapping_result = llm_result.content.strip().strip('"')  # Remove quotes if present
-                else:
-                    llm_mapping_result = str(llm_result).strip().strip('"')
-                return llm_mapping_result
-        
-        # Return empty string if no corresponding mapping found in GitOps
+    """Backward-compatible wrapper for single-property resolution."""
+    if not pcdc_schema:
         return ""
-        
-    except Exception as e:
-        print(f"Error in query_processed_gitops_result: {str(e)}")
-        return ""
+    result = await resolve_gitops_ambiguities([pcdc_schema], lowercase_gitops_dict, user_query, llm)
+    return result.get(pcdc_schema, "")
 
 def convert_to_executable_nested_graphql(nested_graphql, llm):
     """

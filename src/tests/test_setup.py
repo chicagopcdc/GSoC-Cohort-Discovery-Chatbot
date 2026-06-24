@@ -49,8 +49,7 @@ def test_sqlite_version():
             return True
             
         except ImportError:
-            print("❌ pysqlite3-binary not installed")
-            print("💡 Solution: pip install pysqlite3-binary")
+print("⚠️  pysqlite3-binary not installed; continuing with built-in sqlite3")
             return False
             
     except Exception as e:
