@@ -143,7 +143,14 @@ class CandidateRetriever:
 
     def _get_client(self):
         if self._client is None:
-            from openai import OpenAI
+            try:
+                from openai import OpenAI  # type: ignore
+            except ImportError as e:
+                raise ImportError(
+                    "CandidateRetriever requires the `openai` package when "
+                    "embed_fn is not provided. Install it with `pip install openai` "
+                    "or pass an embed_fn for offline/test use."
+                ) from e
 
             self._client = OpenAI()
         return self._client
@@ -190,7 +197,12 @@ class CandidateRetriever:
         top_k: int = 12,
         include_placed: bool = True,
     ) -> List[FieldCandidate]:
-        """Return the top schema fields for a query."""
+        """Return ranked schema fields for a query.
+
+        When include_placed is true and query is a NormalizedQuery, exact
+        placements from the normalizer are always included and may increase the
+        result size beyond top_k.
+        """
         if top_k < 1:
             raise ValueError(f"top_k must be >= 1, got {top_k}")
 
@@ -210,7 +222,10 @@ class CandidateRetriever:
             ranked[key] = max(ranked.get(key, 0.0), 1.0)
 
         candidates = [self._candidate(key, score) for key, score in ranked.items()]
-        candidates.sort(key=lambda c: c.score, reverse=True)
+        candidates.sort(
+            key=lambda c: (c.score, (c.path, c.field) in placed_keys),
+            reverse=True,
+        )
         return candidates
 
     def _unpack(
@@ -247,4 +262,3 @@ class CandidateRetriever:
             enum_values=spec.enum_values,
             score=score,
         )
-
