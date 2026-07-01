@@ -64,7 +64,6 @@ def build_aggregation_query(
         for field in histogram_fields:
             _check_name(field, "histogram field")
             selection_parts.append(f"{field} {{ histogram {{ key count }} }}")
-
     selection = " ".join(selection_parts)
     # Build this in pieces because GraphQL braces get messy quickly
     inner = "{ " + selection + " }"
