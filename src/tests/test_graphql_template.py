@@ -16,6 +16,7 @@ if str(_SERVICES.parent) not in sys.path:
     sys.path.insert(0, str(_SERVICES.parent))
 
 import pytest
+from pydantic import ValidationError
 
 from models.filters import GraphQLFilter
 from services.graphql_template import build_aggregation_query
@@ -77,10 +78,14 @@ class TestGuards:
         with pytest.raises(ValueError):
             build_aggregation_query(_FILTER, histogram_fields=["tumor_assessments.tumor_site"])
 
+    def test_histogram_fields_string_rejected(self):
+        with pytest.raises(TypeError):
+            build_aggregation_query(_FILTER, histogram_fields="sex")
+
     def test_malformed_dict_rejected(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             build_aggregation_query({"BOGUS": [{"IN": {"x": ["y"]}}]})
 
     def test_empty_and_rejected(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             build_aggregation_query({"AND": []})

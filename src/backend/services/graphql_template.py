@@ -59,6 +59,8 @@ def build_aggregation_query(
     # Always include the count; add histograms when requested
     selection_parts: List[str] = ["_totalCount"]
     if histogram_fields is not None:
+        if isinstance(histogram_fields, (str, bytes)):
+            raise TypeError("histogram_fields must be an iterable of field names, not a string")
         for field in histogram_fields:
             _check_name(field, "histogram field")
             selection_parts.append(f"{field} {{ histogram {{ key count }} }}")
