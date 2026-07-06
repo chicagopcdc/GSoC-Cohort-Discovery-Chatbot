@@ -9,8 +9,9 @@ transport and token lookup are injectable so this stays testable offline.
 
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+import inspect
 from dataclasses import dataclass
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 
 
 TransportFn = Callable[[str, dict, dict, float], dict]
@@ -18,6 +19,30 @@ AsyncTransportFn = Callable[[str, dict, dict, float], Awaitable[dict]]
 TokenProvider = Callable[..., Optional[str]]
 
 MASKED_COUNT = -1
+
+
+def _accepts_positional_arg(provider: Callable) -> bool:
+    """
+    True if the token provider can take one positional argument (the
+    force_refresh flag). Detected once via introspection instead of probing
+    with try/except TypeError, which would mask TypeErrors raised inside the
+    provider and could invoke a side-effectful provider twice. Falls back to
+    zero-arg calling when the signature cannot be introspected.
+    """
+    try:
+        sig = inspect.signature(provider)
+    except (TypeError, ValueError):
+        return False
+
+    for param in sig.parameters.values():
+        if param.kind in (
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            inspect.Parameter.VAR_POSITIONAL,
+        ):
+            return True
+
+    return False
 
 
 class GuppyTransportError(Exception):
@@ -66,6 +91,9 @@ class GuppyClient:
         self.timeout = timeout
         self.max_auth_retries = max_auth_retries
         self._token_provider = token_provider
+        self._provider_accepts_refresh = (
+            token_provider is not None and _accepts_positional_arg(token_provider)
+        )
         self._transport = transport
         self._async_transport = async_transport
 
@@ -81,21 +109,19 @@ class GuppyClient:
         force_refresh = False
 
         while True:
-            try:
-                token = self._get_token(force_refresh=force_refresh)
-            except Exception as e:
-                return GuppyResult(None, {}, [f"token_error: {e}"], None)
+            headers, failure = self._headers_or_error(force_refresh)
+            if failure is not None:
+                return failure
 
             try:
-                payload = self._send(graphql, self._headers(token))
-            except GuppyTransportError as e:
-                if self._should_retry_auth(e, attempt):
+                payload = self._send(graphql, headers)
+            except Exception as e:
+                retry, failure = self._transport_failure(e, attempt)
+                if retry:
                     attempt += 1
                     force_refresh = True
                     continue
-                return GuppyResult(None, {}, [f"{e.kind}: {e}"], None)
-            except Exception as e:
-                return GuppyResult(None, {}, [f"request failed: {e}"], None)
+                return failure
 
             return self._parse(payload, data_type)
 
@@ -111,23 +137,55 @@ class GuppyClient:
         force_refresh = False
 
         while True:
-            try:
-                token = self._get_token(force_refresh=force_refresh)
-            except Exception as e:
-                return GuppyResult(None, {}, [f"token_error: {e}"], None)
+            headers, failure = self._headers_or_error(force_refresh)
+            if failure is not None:
+                return failure
 
             try:
-                payload = await self._asend(graphql, self._headers(token))
-            except GuppyTransportError as e:
-                if self._should_retry_auth(e, attempt):
+                payload = await self._asend(graphql, headers)
+            except Exception as e:
+                retry, failure = self._transport_failure(e, attempt)
+                if retry:
                     attempt += 1
                     force_refresh = True
                     continue
-                return GuppyResult(None, {}, [f"{e.kind}: {e}"], None)
-            except Exception as e:
-                return GuppyResult(None, {}, [f"request failed: {e}"], None)
+                return failure
 
             return self._parse(payload, data_type)
+
+    def _headers_or_error(
+        self,
+        force_refresh: bool,
+    ) -> Tuple[Optional[dict], Optional[GuppyResult]]:
+        """Fetch a token and build headers, or map the failure to a result."""
+        try:
+            token = self._get_token(force_refresh=force_refresh)
+        except Exception as e:
+            return None, self._error_result(f"token_error: {e}")
+
+        return self._headers(token), None
+
+    def _transport_failure(
+        self,
+        error: Exception,
+        attempt: int,
+    ) -> Tuple[bool, Optional[GuppyResult]]:
+        """
+        Map a transport exception to (retry, result).
+
+        Shared by execute and aexecute so the retry policy and error-to-result
+        mapping cannot drift between the sync and async paths.
+        """
+        if isinstance(error, GuppyTransportError):
+            if self._should_retry_auth(error, attempt):
+                return True, None
+            return False, self._error_result(f"{error.kind}: {error}")
+
+        return False, self._error_result(f"request failed: {error}")
+
+    @staticmethod
+    def _error_result(message: str) -> GuppyResult:
+        return GuppyResult(None, {}, [message], None)
 
     def _parse(self, payload: Any, data_type: Optional[str]) -> GuppyResult:
         if not isinstance(payload, dict):
@@ -320,10 +378,13 @@ class GuppyClient:
         if self._token_provider is None:
             return None
 
-        try:
+        # The calling convention was detected at construction time, so real
+        # TypeErrors from inside the provider propagate to the caller and the
+        # provider is never invoked twice for one token fetch.
+        if self._provider_accepts_refresh:
             return self._token_provider(force_refresh)
-        except TypeError:
-            return self._token_provider()
+
+        return self._token_provider()
 
     def _should_retry_auth(self, error: GuppyTransportError, attempt: int) -> bool:
         return (
