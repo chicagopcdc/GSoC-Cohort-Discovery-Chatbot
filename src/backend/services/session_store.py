@@ -118,9 +118,11 @@ class SessionStore:
 
     def touch(self, session_id: str) -> None:
         """Mark a session active without recording a turn, for callers that want
-        access-based keep-alive (get() alone does not refresh idle time)."""
+        access-based keep-alive (get() alone does not refresh idle time). A
+        session already past its idle TTL is evicted here, not revived."""
         _require_session_id(session_id)
         with self._lock:
+            self._evict_expired_locked()
             state = self._sessions.get(session_id)
             if state is not None:
                 state.last_active = time.monotonic()

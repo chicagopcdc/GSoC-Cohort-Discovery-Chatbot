@@ -1,9 +1,19 @@
 import sys
 from pathlib import Path
 
-_BACKEND = Path(__file__).resolve().parents[1] / "backend"
-if str(_BACKEND) not in sys.path:
-    sys.path.insert(0, str(_BACKEND))
+
+def _find_upwards(relative: str) -> Path:
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        candidate = parent / relative
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError(f"could not find {relative} above {here}")
+
+
+_SERVICES = _find_upwards("backend/services")
+if str(_SERVICES.parent) not in sys.path:
+    sys.path.insert(0, str(_SERVICES.parent))
 
 import threading
 
@@ -111,6 +121,16 @@ class TestEviction:
         store.touch("s2")          # refresh
         clock.advance(5)
         assert store.get("s2") is not None
+
+    def test_touch_does_not_revive_expired_session(self, monkeypatch):
+        clock = FakeClock()
+        monkeypatch.setattr(session_store.time, "monotonic", clock)
+        store = SessionStore(ttl_seconds=10)
+
+        store.record("s1", "q", {"IN": {"x": ["1"]}}, True)
+        clock.advance(15)          # past TTL but not yet lazily evicted
+        store.touch("s1")          # must evict, not refresh
+        assert store.get("s1") is None
 
     def test_max_sessions_evicts_least_recently_active(self, monkeypatch):
         clock = FakeClock()
