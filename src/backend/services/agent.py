@@ -232,7 +232,12 @@ class CohortAgent:
     def _dispatch(self, session_id: str, name: str, args: dict) -> dict:
         try:
             if name == "build_query":
-                return self._build(session_id, str(args.get("query", "")))
+                # The model can emit {"query": null} or a non-string; neither
+                # may leak through as the literal string "None".
+                query = args.get("query")
+                if not isinstance(query, str):
+                    return {"error": "empty query"}
+                return self._build(session_id, query)
             if name == "count_cohort":
                 return self._count(session_id)
             if name == "explore_schema":
@@ -267,13 +272,18 @@ class CohortAgent:
         res = self._guppy.execute(build.graphql, data_type=build.data_type)
         if not res.ok:
             return {"error": "; ".join(res.errors) or "execution failed"}
-        return {"total_count": res.total_count, "histograms": res.histograms}
+        # Count only: histograms stay out of the tool result (and the prompt),
+        # matching the module scope and the count_cohort tool description.
+        return {"total_count": res.total_count}
 
     def _explore(self, args: dict) -> dict:
         if self._explorer is None:
             return {"error": "schema exploration is not available"}
+        query_type = args.get("query_type")
+        if not isinstance(query_type, str) or not query_type.strip():
+            return {"error": "missing query_type"}
         result = self._explorer.answer(
-            str(args.get("query_type", "")),
+            query_type,
             field=args.get("field"),
             path=args.get("path"),
             value=args.get("value"),

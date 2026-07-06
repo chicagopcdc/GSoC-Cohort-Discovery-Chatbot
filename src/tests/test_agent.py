@@ -3,9 +3,19 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
-_BACKEND = Path(__file__).resolve().parents[1] / "backend"
-if str(_BACKEND) not in sys.path:
-    sys.path.insert(0, str(_BACKEND))
+
+def _find_upwards(relative: str) -> Path:
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        candidate = parent / relative
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError(f"could not find {relative} above {here}")
+
+
+_SERVICES = _find_upwards("backend/services")
+if str(_SERVICES.parent) not in sys.path:
+    sys.path.insert(0, str(_SERVICES.parent))
 
 from services.agent import CohortAgent
 
@@ -111,6 +121,19 @@ class TestHappyPath:
         assert guppy.execute_calls == [({"query": "Q"}, "subject")]
         assert sm.turn_calls == [("s1", "INRG males")]
 
+    def test_count_returns_count_only(self):
+        # Histograms stay out of the tool result (module scope says no histograms).
+        sm = FakeSessionManager(("new", build_obj(graphql={"query": "Q"})))
+        guppy = FakeGuppy(guppy_result(total=5, histograms={"sex": [{"key": "Male", "count": 5}]}))
+        chat = ScriptedChat(
+            tool_call("c1", "build_query", {"query": "x"}),
+            tool_call("c2", "count_cohort", {}),
+            text_reply("5"),
+        )
+        agent = CohortAgent(sm, guppy_client=guppy, chat_fn=chat)
+        res = agent.chat("s1", "x")
+        assert res.steps[1].result == {"total_count": 5}
+
 
 class TestFailedBuild:
     def test_failed_build_keeps_last_good_query(self):
@@ -146,6 +169,18 @@ class TestErrors:
                             guppy_client=FakeGuppy(guppy_result(total=1)), chat_fn=chat)
         res = agent.chat("s1", "how many?")
         assert "error" in res.steps[0].result
+
+    def test_null_query_arg_is_rejected(self):
+        # {"query": null} must not become the literal string "None".
+        sm = FakeSessionManager(("new", build_obj()))
+        chat = ScriptedChat(
+            tool_call("c1", "build_query", {"query": None}),
+            text_reply("What cohort would you like?"),
+        )
+        agent = CohortAgent(sm, chat_fn=chat)
+        res = agent.chat("s1", "?")
+        assert res.steps[0].result == {"error": "empty query"}
+        assert sm.turn_calls == []                        # build never attempted
 
     def test_unknown_tool_errors(self):
         chat = ScriptedChat(tool_call("c1", "frobnicate", {}), text_reply("ok"))
@@ -232,6 +267,19 @@ class TestSchemaExplore:
         assert explorer.calls[0] == {
             "query_type": "list_fields", "field": None, "path": "tumor_assessments", "value": None,
         }
+
+    def test_null_query_type_rejected(self):
+        # {"query_type": null} must not reach the explorer as the string "None".
+        explorer = FakeExplorer(SimpleNamespace(kind="fields", text="t", data={}))
+        chat = ScriptedChat(
+            tool_call("c1", "explore_schema", {"query_type": None}),
+            text_reply("What would you like to know about the schema?"),
+        )
+        agent = CohortAgent(FakeSessionManager(("new", build_obj())),
+                            schema_explorer=explorer, chat_fn=chat)
+        res = agent.chat("s1", "?")
+        assert "query_type" in res.steps[0].result["error"]
+        assert explorer.calls == []                       # explorer never reached
 
     def test_explore_unavailable_without_explorer(self):
         chat = ScriptedChat(
