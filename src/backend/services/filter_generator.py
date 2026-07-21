@@ -211,8 +211,9 @@ Rules:
    the INRG or the INSTRuCT cohort").
 3. A field under a nested path goes inside a nested clause with that path. Only
    one level of nesting exists; a nested body cannot contain another nested.
-4. Numeric ranges arrive with negation already resolved; apply them as given and
-   do no arithmetic of your own.
+4. Numeric ranges arrive with negation already resolved and units already
+   converted to the field's stored unit; apply the number as given and do no
+   arithmetic of your own.
 5. There is no NOT operator. A negated enum/category term ("not metastatic")
    cannot be expressed -- drop it rather than writing it as a positive IN.
 
@@ -272,7 +273,7 @@ def _partition_ranges(ranges) -> Tuple[list, list]:
     for r in ranges:
         # A range bound to a schema field is ready to use; only an unresolved
         # unit-bearing range is deferred until conversion lands.
-        if r.unit is None:
+        if r.field is not None or r.unit is None:
             usable.append(r)
         else:
             deferred.append(r)
@@ -339,6 +340,7 @@ class FilterGenerator:
         gitops_path: Union[str, Path],
         *,
         synonyms_path: Optional[Union[str, Path]] = None,
+        numeric_config_path: Optional[Union[str, Path]] = None,
         config: Optional[GeneratorConfig] = None,
         embed_fn=None,
         client=None,
@@ -347,7 +349,9 @@ class FilterGenerator:
         """Build a generator and its helper services from schema files."""
         config = config or GeneratorConfig.from_env()
         schema = SchemaIndex.from_files(pcdc_path, gitops_path)
-        normalizer = TermNormalizer.from_files(schema, synonyms_path)
+        normalizer = TermNormalizer.from_files(
+            schema, synonyms_path, numeric_config_path=numeric_config_path
+        )
         retriever = CandidateRetriever(
             schema,
             embed_fn=embed_fn,
