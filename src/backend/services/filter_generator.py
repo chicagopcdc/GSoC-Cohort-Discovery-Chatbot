@@ -124,6 +124,7 @@ FILTER_JSON_SCHEMA = {
         "clause": {
             "anyOf": [
                 {"$ref": "#/$defs/in_clause"},
+                {"$ref": "#/$defs/not_equals_clause"},
                 {"$ref": "#/$defs/range_clause"},
                 {"$ref": "#/$defs/and_clause"},
                 {"$ref": "#/$defs/or_clause"},
@@ -146,6 +147,22 @@ FILTER_JSON_SCHEMA = {
                 "values": {"type": "array", "items": {"type": "string"}},
             },
             "required": ["op", "field", "values"],
+        },
+        "not_equals_clause": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "op": {"type": "string", "enum": ["!="]},
+                "field": {"type": "string"},
+                "value": {
+                    "anyOf": [
+                        {"type": "string"},
+                        {"type": "number"},
+                        {"type": "boolean"},
+                    ]
+                },
+            },
+            "required": ["op", "field", "value"],
         },
         "range_clause": {
             "type": "object",
@@ -195,6 +212,7 @@ You translate a parsed clinical-cohort query into a single GraphQL filter.
 Return exactly one JSON object shaped as {"filter": <clause>}, nothing else.
 A clause is one of:
   {"op": "IN",     "field": "<field>", "values": ["<value>", ...]}
+  {"op": "!=",     "field": "<field>", "value": "<value>"}
   {"op": "GTE",    "field": "<field>", "value": <number>}   (also LTE, GT, LT)
   {"op": "AND",    "clauses": [<clause>, ...]}
   {"op": "OR",     "clauses": [<clause>, ...]}
@@ -214,8 +232,9 @@ Rules:
 4. Numeric ranges arrive with negation already resolved and units already
    converted to the field's stored unit; apply the number as given and do no
    arithmetic of your own.
-5. There is no NOT operator. A negated enum/category term ("not metastatic")
-   cannot be expressed -- drop it rather than writing it as a positive IN.
+5. There is no general NOT operator. For a negated enum/category term listed
+   under "Excluded terms", emit a field-level != clause. Drop unsupported
+   negation rather than writing it as a positive IN.
 
 The examples show clause structure only; for the real answer use only the
 candidate fields and values, never the example fields.
@@ -240,6 +259,12 @@ def _tagged_to_wire(node: dict) -> dict:
         if not isinstance(values, list):
             raise ValueError(f"IN values must be a list, got {type(values).__name__}")
         return {"IN": {node["field"]: list(values)}}
+
+    if op == "!=":
+        value = node["value"]
+        if isinstance(value, (dict, list)):
+            raise ValueError("!= value must be a scalar")
+        return {"!=": {node["field"]: value}}
 
     if op in ("GTE", "LTE", "GT", "LT"):
         return {op: {node["field"]: node["value"]}}

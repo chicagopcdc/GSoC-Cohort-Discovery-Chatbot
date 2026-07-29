@@ -9,7 +9,14 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Union, Any
 
-from pydantic import BaseModel, ConfigDict, RootModel, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    RootModel,
+    field_validator,
+    model_validator,
+)
 
 
 # Values that can appear in operator payloads.
@@ -49,6 +56,19 @@ class InClause(_SingleFieldClause):
             if not values:
                 raise ValueError(f"IN values for {field!r} must be non-empty")
 
+        return self
+
+
+class NotEqualsClause(_SingleFieldClause):
+    """{"!=": {field: value}}"""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    not_equal: Dict[str, Scalar] = Field(alias="!=")
+
+    @model_validator(mode="after")
+    def _check(self) -> "NotEqualsClause":
+        self._validate_field_dict("!=", self.not_equal)
         return self
 
 
@@ -99,6 +119,7 @@ class LTClause(_SingleFieldClause):
 # Recursive clause type. Forward references are rebuilt at the bottom.
 FilterClause = Union[
     "InClause",
+    "NotEqualsClause",
     "GTEClause",
     "LTEClause",
     "GTClause",
@@ -188,6 +209,7 @@ class NestedClause(BaseModel):
 class GraphQLFilter(RootModel[FilterClause]):
     """Top-level filter wrapper."""
     def model_dump(self, *args: Any, **kwargs: Any) -> Any:
+        kwargs.setdefault("by_alias", True)
         kwargs.setdefault("exclude_none", True)
         return super().model_dump(*args, **kwargs)
 
@@ -202,6 +224,7 @@ GraphQLFilter.model_rebuild()
 __all__ = [
     "Scalar",
     "InClause",
+    "NotEqualsClause",
     "GTEClause",
     "LTEClause",
     "GTClause",

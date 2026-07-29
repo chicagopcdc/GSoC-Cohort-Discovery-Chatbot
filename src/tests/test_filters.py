@@ -8,7 +8,7 @@ Run from repository root:
 import pytest
 from pydantic import ValidationError
 
-from models.filters import GraphQLFilter, InClause, NestedClause
+from models.filters import GraphQLFilter, InClause, NestedClause, NotEqualsClause
 
 class TestRoundTripBasic:
     """Baseline filter shapes that should round-trip unchanged."""
@@ -44,6 +44,10 @@ class TestRoundTripBasic:
 
     def test_b2_simple_gte(self):
         obj = {"AND": [{"GTE": {"age_at_censor_status": 5}}]}
+        assert self._rt(obj) == obj
+
+    def test_not_equal_clause(self):
+        obj = {"AND": [{"!=": {"sex": "Female"}}]}
         assert self._rt(obj) == obj
 
     def test_b3_and_with_gte_lte_and_in(self):
@@ -133,6 +137,21 @@ class TestRoundTripExtended:
         }
         assert self._rt(obj) == obj
 
+    def test_nested_not_equal_clause(self):
+        obj = {
+            "AND": [
+                {
+                    "nested": {
+                        "path": "histologies",
+                        "AND": [
+                            {"!=": {"histology": "Alveolar rhabdomyosarcoma (ARMS)"}},
+                        ],
+                    }
+                }
+            ]
+        }
+        assert self._rt(obj) == obj
+
     def test_deeply_nested_and_of_and(self):
         obj = {"AND": [{"AND": [{"AND": [{"IN": {"sex": ["Male"]}}]}]}]}
         assert self._rt(obj) == obj
@@ -190,6 +209,16 @@ class TestValidation:
             GraphQLFilter.model_validate(
                 {"AND": [{"IN": {"sex": ["Male"], "race": ["Asian"]}}]}
             )
+
+    def test_not_equal_with_two_fields_rejected(self):
+        with pytest.raises(ValidationError):
+            GraphQLFilter.model_validate(
+                {"AND": [{"!=": {"sex": "Male", "race": "Asian"}}]}
+            )
+
+    def test_not_equal_with_list_value_rejected(self):
+        with pytest.raises(ValidationError):
+            GraphQLFilter.model_validate({"AND": [{"!=": {"sex": ["Male"]}}]})
 
     def test_gte_with_two_fields_rejected(self):
         with pytest.raises(ValidationError):
@@ -284,6 +313,10 @@ class TestStructuralEdgeCases:
         with pytest.raises(ValidationError):
             GraphQLFilter.model_validate({"AND": [{"GTE": {"": 5}}]})
 
+    def test_empty_not_equal_field_name_rejected(self):
+        with pytest.raises(ValidationError):
+            GraphQLFilter.model_validate({"AND": [{"!=": {"": "Male"}}]})
+
     def test_empty_lte_field_name_rejected(self):
         with pytest.raises(ValidationError):
             GraphQLFilter.model_validate({"AND": [{"LTE": {"": 5}}]})
@@ -353,6 +386,11 @@ class TestPublicAPI:
         c = InClause(IN={"sex": ["Male"]})
 
         assert c.model_dump() == {"IN": {"sex": ["Male"]}}
+
+    def test_can_construct_not_equal_clause_directly(self):
+        c = NotEqualsClause(not_equal={"sex": "Female"})
+
+        assert c.model_dump(by_alias=True) == {"!=": {"sex": "Female"}}
 
     def test_can_construct_nested_clause_directly(self):
         n = NestedClause.model_validate(

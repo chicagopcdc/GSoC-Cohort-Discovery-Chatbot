@@ -42,8 +42,6 @@ _OverrideValue = Union[tuple[str, str], tuple[str, FieldSpec]]
 _OVERRIDES: dict[tuple[Optional[str], str], _OverrideValue] = {
     # Defined in timing.yaml, but exposed as top-level in gitops.
     (None, "year_at_disease_phase"): ("redirect", "timing"),
-    # Anchor field in gitops; same timing.yaml origin, flattened to top-level.
-    (None, "disease_phase"): ("redirect", "timing"),
 
     # Flattened Guppy field.
     (None, "subject_submitter_id"): (
@@ -269,6 +267,46 @@ def _apply_override(
     return None
 
 
+_NESTED_ONLY_TIMING_FIELDS = ("disease_phase",)
+_TIMING_YAML = "timing.yaml"
+
+
+def _links_to_timing(pcdc: dict, stem: str) -> bool:
+    body = pcdc.get(f"{stem}.yaml", {})
+    for link in body.get("links", []) or []:
+        if not isinstance(link, dict):
+            continue
+        if link.get("target_type") == "timing":
+            return True
+        for sub in link.get("subgroup", []) or []:
+            if isinstance(sub, dict) and sub.get("target_type") == "timing":
+                return True
+    return False
+
+
+def _register_nested_only_timing_fields(
+    fields_by_key: dict[tuple[Optional[str], str], FieldSpec],
+    pcdc: dict,
+    path_to_stem: dict[str, str],
+) -> None:
+    props = pcdc.get(_TIMING_YAML, {}).get("properties", {})
+    nested_paths = {p for (p, _n) in fields_by_key if p is not None}
+
+    for field_name in _NESTED_ONLY_TIMING_FIELDS:
+        fields_by_key.pop((None, field_name), None)
+
+        prop = props.get(field_name)
+        if prop is None:
+            continue
+
+        for path in nested_paths:
+            stem = path_to_stem.get(path)
+            if stem and _links_to_timing(pcdc, stem):
+                fields_by_key[(path, field_name)] = _build_field_spec(
+                    field_name, prop, path
+                )
+
+
 class SchemaIndex:
     """Read-only index built from PCDC schema and gitops."""
 
@@ -315,6 +353,9 @@ class SchemaIndex:
         for key in filterable:
             parent_path, field_name = key
 
+            if parent_path is None and field_name in _NESTED_ONLY_TIMING_FIELDS:
+                continue
+
             spec = _apply_override(key, pcdc)
 
             if spec is None:
@@ -344,6 +385,8 @@ class SchemaIndex:
                 )
 
             fields_by_key[key] = spec
+
+        _register_nested_only_timing_fields(fields_by_key, pcdc, path_to_stem)
 
         return cls(fields_by_key, unresolved=unresolved)
 
