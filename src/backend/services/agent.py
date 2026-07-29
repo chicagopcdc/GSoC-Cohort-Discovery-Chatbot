@@ -6,9 +6,9 @@ whether to run it for a count (via GuppyClient), looping until it produces a
 final reply. Direct OpenAI SDK, no framework: the loop and tools live here, so it
 mocks and traces like the rest of the pipeline.
 
-Scope: two tools (build_query, count_cohort) + per-session memory of the last
-build + a step cap + a trace. No clarify-tool (the model asks in plain text), no
-histograms, multi-cohort, export, or streaming.
+Scope: three tools (build_query, count_cohort, explore_schema) + per-session
+memory of the last build + a step cap + a trace. No clarify-tool (the model asks
+in plain text), no histograms, multi-cohort, export, or streaming.
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
+from services.schema_explorer import SchemaExplorer, QUERY_TYPES
 from services.session_manager import SessionManager
 
 
@@ -36,6 +37,9 @@ cancer data commons.
   males" — just pass the new wording.
 - To get the number of matching subjects for the current filter, call
   count_cohort. Only call it after a successful build_query.
+- To answer a question about the schema itself (which fields or nested tables
+  exist, what values a field allows, or which field a value belongs to), call
+  explore_schema instead of building a filter.
 
 After the tools run, answer briefly and plainly. If build_query reports errors or
 that part of the request could not be expressed, say so rather than guessing. If
@@ -75,6 +79,36 @@ _TOOLS: List[dict] = [
             "parameters": {"type": "object", "properties": {}},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "explore_schema",
+            "description": (
+                "Look up the filterable PCDC schema. Use for questions about which "
+                "fields or nested tables exist, what values a field allows, or which "
+                "field a value belongs to — not to build a filter."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query_type": {
+                        "type": "string",
+                        "enum": list(QUERY_TYPES),
+                        "description": (
+                            "list_fields (fields of a table, or top-level if no path), "
+                            "values (a field's allowed values), describe (a field's "
+                            "type/values/description), find_value (which fields have a "
+                            "value), list_tables (all nested tables)."
+                        ),
+                    },
+                    "field": {"type": "string", "description": "Field name, for 'values' and 'describe'."},
+                    "path": {"type": "string", "description": "Nested table name; for 'list_fields' or to disambiguate a field."},
+                    "value": {"type": "string", "description": "An enum value, for 'find_value'."},
+                },
+                "required": ["query_type"],
+            },
+        },
+    },
 ]
 
 
@@ -100,6 +134,7 @@ class CohortAgent:
         session_manager: SessionManager,
         *,
         guppy_client=None,
+        schema_explorer=None,
         chat_fn: Optional[ChatFn] = None,
         client=None,
         model: str = DEFAULT_AGENT_MODEL,
@@ -114,6 +149,7 @@ class CohortAgent:
         self.temperature = temperature
 
         self._guppy = guppy_client
+        self._explorer = schema_explorer
         self._chat_fn = chat_fn
         self._client = client
         self._last_build: Dict[str, Any] = {}   # session_id -> last good BuildResult
@@ -128,14 +164,18 @@ class CohortAgent:
         token_provider=None,
         session_store=None,
         model: str = DEFAULT_AGENT_MODEL,
+        schema_preview_limit: int = 40,
         **builder_kwargs,
     ) -> "CohortAgent":
         sm = SessionManager.from_files(pcdc_path, gitops_path, store=session_store, **builder_kwargs)
+        # Reuse the schema the pipeline already loaded; do not read it twice.
+        explorer = SchemaExplorer(sm.qb.schema, preview_limit=schema_preview_limit)
+
         guppy = None
         if guppy_endpoint:
             from services.guppy_client import GuppyClient
             guppy = GuppyClient(guppy_endpoint, token_provider=token_provider)
-        return cls(sm, guppy_client=guppy, model=model)
+        return cls(sm, guppy_client=guppy, schema_explorer=explorer, model=model)
 
     def chat(self, session_id: str, message: str) -> AgentResult:
         messages: List[dict] = [
@@ -192,9 +232,16 @@ class CohortAgent:
     def _dispatch(self, session_id: str, name: str, args: dict) -> dict:
         try:
             if name == "build_query":
-                return self._build(session_id, str(args.get("query", "")))
+                # The model can emit {"query": null} or a non-string; neither
+                # may leak through as the literal string "None".
+                query = args.get("query")
+                if not isinstance(query, str):
+                    return {"error": "empty query"}
+                return self._build(session_id, query)
             if name == "count_cohort":
                 return self._count(session_id)
+            if name == "explore_schema":
+                return self._explore(args)
             return {"error": f"unknown tool {name!r}"}
         except Exception as e:  # noqa: BLE001
             # Tool errors come back as a result, not an exception, so the loop survives.
@@ -225,7 +272,25 @@ class CohortAgent:
         res = self._guppy.execute(build.graphql, data_type=build.data_type)
         if not res.ok:
             return {"error": "; ".join(res.errors) or "execution failed"}
-        return {"total_count": res.total_count, "histograms": res.histograms}
+        # Count only: histograms stay out of the tool result (and the prompt),
+        # matching the module scope and the count_cohort tool description.
+        return {"total_count": res.total_count}
+
+    def _explore(self, args: dict) -> dict:
+        if self._explorer is None:
+            return {"error": "schema exploration is not available"}
+        query_type = args.get("query_type")
+        if not isinstance(query_type, str) or not query_type.strip():
+            return {"error": "missing query_type"}
+        result = self._explorer.answer(
+            query_type,
+            field=args.get("field"),
+            path=args.get("path"),
+            value=args.get("value"),
+        )
+        # Return the human-readable text only; the model relays it. The full
+        # structured data stays out of the prompt to keep context lean.
+        return {"kind": result.kind, "text": result.text}
 
     # --- model call -----------------------------------------------------------
 
