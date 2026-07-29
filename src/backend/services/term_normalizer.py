@@ -177,9 +177,13 @@ _LATEST_CUE = re.compile(r"\b(?:last|latest|most\s+recent|final)\b", re.I)
 
 # A missing-data phrasing: an explicit "un-" word, or a negation sitting close to
 # a reporting verb ("no race information reported", "sex not available").
+# "unknown"/"not known" are intentionally excluded so a field's own "Unknown" enum
+# wins ("unknown sex" -> sex = "Unknown", not "Not Reported").
+# Known limitation: the two-word "not known" phrasing ("sex not known") therefore
+# matches nothing; supporting it would need a dedicated rule, not a missing-cue.
 _MISSING_CUE = re.compile(
-    r"\b(?:un(?:reported|available|specified|known|documented|recorded))\b"
-    r"|\bnot\s+(?:reported|available|specified|known|recorded|documented|on\s+file)\b"
+    r"\b(?:un(?:reported|available|specified|documented|recorded))\b"
+    r"|\bnot\s+(?:reported|available|specified|recorded|documented|on\s+file)\b"
     r"|\b(?:no|not|non)\b[\w\s]{0,25}?\b(?:reported|available|specified|recorded|documented)\b",
     re.I,
 )
@@ -187,6 +191,11 @@ _MISSING_CUE = re.compile(
 _MISSING_VALUES = ("Not Reported", "Unknown", "Not Available", "Unavailable")
 
 _NUMERIC_RE = re.compile(r"^\d+(?:\.\d+)?$")
+
+# A value spanning at least this many distinct fields is a generic marker
+# (No/Yes/Present/Unknown/Not Reported/...) rather than a specific clinical value.
+# Such values are only usable once field context narrows them to one (field, path).
+_AMBIGUITY_MIN_FIELDS = 4
 
 
 def _parse_num(s: str) -> float:
@@ -233,6 +242,18 @@ def _norm_phrase(s: str) -> str:
 def _overlaps(span: tuple[int, int], spans: list[tuple[int, int]]) -> bool:
     s, e = span
     return any(s < b and a < e for a, b in spans)
+
+
+def _inside(span: tuple[int, int], spans: list[tuple[int, int]]) -> bool:
+    """True if span is fully contained in any of spans."""
+    s, e = span
+    return any(a <= s and e <= b for a, b in spans)
+
+
+def _distinct_field_paths(placements) -> int:
+    """Count distinct (field, path) locations. Same field under two nested paths
+    is two locations, since a GraphQL clause needs a single (field, path)."""
+    return len({(p.field, p.path) for p in placements})
 
 
 def _negation_before(text: str, span_start: int) -> Optional[int]:
@@ -285,6 +306,9 @@ class TermNormalizer:
         self._field_aliases: dict[str, tuple[FieldPlacement, ...]] = {}
         self._field_alias_max_words = 1
 
+        # Generic values (No/Yes/Unknown/...) that must be narrowed by context.
+        self._ambiguous_values: set[str] = set()
+
         self._build_index(synonyms or {})
 
     @classmethod
@@ -316,9 +340,11 @@ class TermNormalizer:
 
     def _build_index(self, synonyms: dict[str, str]) -> None:
         # Add canonical enum values from the schema.
+        value_fields: dict[str, set[str]] = {}
         for spec in self._schema.all_fields():
             for value in spec.enum_values:
                 self._add(value, value)
+                value_fields.setdefault(value, set()).add(spec.name)
 
             # Index the field's own (humanized) name for mention disambiguation.
             self._add_field_alias(spec.name.replace("_", " "), spec)
@@ -326,6 +352,13 @@ class TermNormalizer:
         # Add curated user-facing phrases that map to canonical schema values.
         for surface, canonical in synonyms.items():
             self._add(surface, canonical)
+
+        # A value on many distinct fields is a generic marker, not a specific term.
+        self._ambiguous_values = {
+            value
+            for value, fields in value_fields.items()
+            if len(fields) >= _AMBIGUITY_MIN_FIELDS
+        }
 
     def _add(self, surface: str, canonical: str) -> None:
         key = _norm_phrase(surface)
@@ -373,8 +406,22 @@ class TermNormalizer:
         missing_terms = self._match_missing(text)
         covered = [t.span for t in missing_terms] + range_spans
 
-        terms = self._match_terms(text, negations, block_spans=covered)
+        mention_spans = [span for _places, span in self._find_field_mentions(text)]
+
+        terms = self._match_terms(
+            text, negations, block_spans=covered, mention_spans=mention_spans
+        )
         terms = [self._disambiguate(t, text) for t in terms]
+
+        # A generic value (No/Yes/Unknown/...) is only usable once narrowed to a
+        # single (field, path); otherwise the model would guess among many fields.
+        # Specific clinical values (Metastatic, Abdomen, ...) are kept regardless.
+        terms = [
+            t
+            for t in terms
+            if t.value not in self._ambiguous_values
+            or _distinct_field_paths(t.placements) == 1
+        ]
 
         # A precise missing-data term and the generic "not reported" enum can both
         # resolve to the same (field, value); keep one.
@@ -396,10 +443,12 @@ class TermNormalizer:
         negations: list[str],
         *,
         block_spans: Optional[list[tuple[int, int]]] = None,
+        mention_spans: Optional[list[tuple[int, int]]] = None,
     ) -> list[RecognizedTerm]:
         tokens = _tokenize(text)
         out: list[RecognizedTerm] = []
         block_spans = block_spans or []
+        mention_spans = mention_spans or []
 
         i, n = 0, len(tokens)
 
@@ -422,9 +471,10 @@ class TermNormalizer:
 
             (value, placements), start, end, width = hit
 
-            # A bare "no"/"not" is a function word here, not the enum value "No".
-            # These are handled by negation and missing-data detection instead.
-            if _norm_phrase(value) in _NEGATION_CUES:
+            # A token that sits inside a field-name mention ("nodal" within "bulky
+            # nodal aggregate") is part of that field name, not the enum value it
+            # happens to spell (e.g. the NODAL consortium code).
+            if _inside((start, end), mention_spans):
                 i += 1
                 continue
 
@@ -474,10 +524,13 @@ class TermNormalizer:
         if len(term.placements) <= 1:
             return term
 
-        window = (max(0, term.span[0] - 45), term.span[1] + 20)
+        # Character-offset window (a heuristic, not a token/word window). Overlap
+        # rather than containment lets a multi-word field name that starts near the
+        # value but runs long ("bulky nodal aggregate") still count.
+        win_start, win_end = max(0, term.span[0] - 45), term.span[1] + 40
         mentioned: set = set()
         for places, span in self._find_field_mentions(text):
-            if span[0] >= window[0] and span[1] <= window[1]:
+            if span[0] < win_end and span[1] > win_start:
                 mentioned.update(places)
 
         if not mentioned:
