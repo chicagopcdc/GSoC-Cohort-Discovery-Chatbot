@@ -18,7 +18,13 @@ if str(_SERVICES.parent) not in sys.path:
 
 import pytest
 
-from services.term_normalizer import TermNormalizer, _parse_num
+from services.term_normalizer import (
+    FieldPlacement,
+    RecognizedTerm,
+    TermNormalizer,
+    _narrow_cross_path_placements,
+    _parse_num,
+)
 
 
 def _spec(name, field_type="enum", parent_path=None, description="", enum_values=()):
@@ -217,3 +223,134 @@ class TestAmbiguousCommonValues:
             ("tumor_site", "tumor_assessments"),
             ("smn_site", "secondary_malignant_neoplasm"),
         }
+
+
+# disease_phase-style value: one field name, many event-table paths.
+_DP_PATHS = ("tumor_assessments", "histologies", "stagings", "labs")
+
+
+def _dp(value, span):
+    return RecognizedTerm(
+        value,
+        tuple(FieldPlacement("disease_phase", p) for p in _DP_PATHS),
+        span,
+        False,
+    )
+
+
+def _anchor(value, span, field, path):
+    return RecognizedTerm(value, (FieldPlacement(field, path),), span, False)
+
+
+def _term_paths(terms, value):
+    t = next(t for t in terms if t.value == value)
+    return sorted({p.path for p in t.placements})
+
+
+class TestCrossPathNarrowing:
+    def test_single_local_anchor_collapses(self):
+        terms = [_dp("Relapse", (0, 7)),
+                 _anchor("Bone", (8, 12), "tumor_site", "tumor_assessments")]
+        out = _narrow_cross_path_placements(terms)
+        assert _term_paths(out, "Relapse") == ["tumor_assessments"]
+
+    def test_two_events_split_by_local_proximity(self):
+        # <Relapse><Bone> ...far... <Initial Diagnosis><ARMS>; each phase binds
+        # to its own event, not to the other block.
+        terms = [
+            _dp("Relapse", (0, 7)),
+            _anchor("Bone", (8, 12), "tumor_site", "tumor_assessments"),
+            _dp("Initial Diagnosis", (80, 97)),
+            _anchor("ARMS", (98, 102), "histology", "histologies"),
+        ]
+        out = _narrow_cross_path_placements(terms)
+        assert _term_paths(out, "Relapse") == ["tumor_assessments"]
+        assert _term_paths(out, "Initial Diagnosis") == ["histologies"]
+
+    def test_no_anchor_leaves_term_broad(self):
+        terms = [_dp("Relapse", (0, 7))]
+        assert len(_term_paths(_narrow_cross_path_placements(terms), "Relapse")) == len(_DP_PATHS)
+
+    def test_far_anchor_does_not_narrow(self):
+        # Guard against mis-narrowing: the only event anchor sits well beyond the
+        # window, so it must not capture the distant timing value.
+        terms = [_dp("Relapse", (0, 7)),
+                 _anchor("ARMS", (200, 204), "histology", "histologies")]
+        out = _narrow_cross_path_placements(terms)
+        assert len(_term_paths(out, "Relapse")) == len(_DP_PATHS)   # left broad
+        assert _term_paths(out, "ARMS") == ["histologies"]          # anchor untouched
+
+    def test_top_level_field_never_anchors(self):
+        # consortium (path None) is single-placement but must not anchor a nested narrow.
+        terms = [_dp("Relapse", (0, 7)),
+                 _anchor("INRG", (8, 12), "consortium", None)]
+        assert len(_term_paths(_narrow_cross_path_placements(terms), "Relapse")) == len(_DP_PATHS)
+
+
+def _timing():
+    # disease_phase under many event tables; tumor_classification under a few;
+    # tumor_site / histology each pin one event.
+    dp = ("Initial Diagnosis", "Relapse", "Progression")
+    return TermNormalizer(_FakeSchema([
+        _spec("consortium", enum_values=("INRG", "NODAL")),
+        *[_spec("disease_phase", parent_path=p, enum_values=dp) for p in (
+            "tumor_assessments", "histologies", "stagings", "labs",
+            "imagings", "disease_characteristics")],
+        _spec("tumor_site", parent_path="tumor_assessments", enum_values=("Bone", "Skin")),
+        _spec("tumor_classification", parent_path="tumor_assessments",
+              enum_values=("Metastatic", "Localized")),
+        _spec("tumor_classification", parent_path="biopsy_surgical_procedures",
+              enum_values=("Metastatic", "Localized")),
+        _spec("tumor_classification", parent_path="radiation_therapies",
+              enum_values=("Metastatic", "Localized")),
+        _spec("histology", parent_path="histologies", enum_values=("ARMS", "Embryonal")),
+    ]))
+
+
+class TestTimingEndToEnd:
+    """Real TermNormalizer.normalize() over mixed timing sentences (not hand-built
+    term lists)."""
+
+    def _paths(self, r, value):
+        t = next((t for t in r.terms if t.value == value), None)
+        return sorted({p.path for p in t.placements}) if t else None
+
+    def test_mixed_tumor_and_histology_timing(self):
+        # Relapse must bind to the tumor clause and Initial Diagnosis to the
+        # histology clause, even though "histology" sits closer to "Relapse" than
+        # tumor_site does -- resolved by chained narrowing through Metastatic.
+        r = _timing().normalize(
+            "tumors in Bone that are Metastatic at Relapse, "
+            "with ARMS histology at Initial Diagnosis"
+        )
+        assert self._paths(r, "Metastatic") == ["tumor_assessments"]
+        assert self._paths(r, "Relapse") == ["tumor_assessments"]
+        assert self._paths(r, "Initial Diagnosis") == ["histologies"]
+
+    def test_single_event_timing(self):
+        r = _timing().normalize("Metastatic tumors in Bone at Relapse")
+        assert self._paths(r, "Relapse") == ["tumor_assessments"]
+
+    def test_phase_without_event_stays_broad(self):
+        # No event field to anchor on -> disease_phase is left broad, not guessed.
+        r = _timing().normalize("subjects at Relapse")
+        assert len(self._paths(r, "Relapse")) > 1
+
+    def test_comma_boundary_keeps_phase_in_its_clause(self):
+        # Field-name mentions push the tumor value away from "relapse" and "ARMS"
+        # sits right after the comma; the clause boundary must keep relapse on
+        # the tumor side (not stolen by the textually-closer ARMS across a comma).
+        r = _timing().normalize(
+            "tumor site Bone and metastatic tumor classification at relapse, "
+            "with ARMS histology at initial diagnosis"
+        )
+        assert self._paths(r, "Relapse") == ["tumor_assessments"]
+        assert self._paths(r, "Initial Diagnosis") == ["histologies"]
+
+    def test_cross_comma_anchor_never_narrows(self):
+        # relapse has no same-clause event; the only nearby anchor (ARMS) is
+        # across the comma, so it must be excluded outright -> relapse stays broad
+        # rather than binding to histologies.
+        r = _timing().normalize("at relapse, with ARMS histology at initial diagnosis")
+        assert len(self._paths(r, "Relapse")) > 1
+        assert self._paths(r, "Initial Diagnosis") == ["histologies"]

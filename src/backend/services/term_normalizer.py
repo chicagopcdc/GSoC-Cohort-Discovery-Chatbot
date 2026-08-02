@@ -24,7 +24,7 @@ fuzzy matching is left to the retrieval layer.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Optional, Union
 
@@ -256,6 +256,124 @@ def _distinct_field_paths(placements) -> int:
     return len({(p.field, p.path) for p in placements})
 
 
+def _paths_of(term: RecognizedTerm) -> set:
+    """Distinct nested paths a term's placements span (None = top-level)."""
+    return {p.path for p in term.placements}
+
+
+def _gap(a: tuple[int, int], b: tuple[int, int]) -> int:
+    """Edge-to-edge character gap between two spans (0 if they overlap). Edges,
+    not midpoints, so a short word like 'ARMS' is not judged closer than an
+    adjacent longer field name."""
+    if a[1] <= b[0]:
+        return b[0] - a[1]
+    if b[1] <= a[0]:
+        return a[0] - b[1]
+    return 0
+
+
+def _crosses_boundary(a: tuple[int, int], b: tuple[int, int], text: str) -> bool:
+    """True if a clause boundary (comma or semicolon) sits between two spans, so
+    "at relapse, with ARMS histology" does not let ARMS steal 'relapse' just
+    because it is textually adjacent across the comma."""
+    if not text:
+        return False
+    lo, hi = (a[1], b[0]) if a[1] <= b[0] else (b[1], a[0])
+    segment = text[lo:hi]
+    return "," in segment or ";" in segment
+
+
+# An anchor must sit within this many characters of a term to narrow it, so a
+# far, unrelated event field cannot capture a distant timing value. Mirrors the
+# character window `_disambiguate` uses for field-name mentions.
+_ANCHOR_WINDOW = 45
+
+
+def _near(anchor_span: tuple[int, int], term_span: tuple[int, int], window: int) -> bool:
+    a0, a1 = anchor_span
+    t0, t1 = term_span
+    return a0 < t1 + window and a1 > t0 - window
+
+
+def _narrow_cross_path_placements(
+    terms: list[RecognizedTerm],
+    text: str = "",
+    *,
+    use_proximity: bool = True,
+    window: int = _ANCHOR_WINDOW,
+) -> list[RecognizedTerm]:
+    """Narrow a term that spans several nested paths (e.g. disease_phase, which
+    lives under ~14 event tables) to the path(s) a NEARBY, uniquely-placed term
+    establishes.
+
+    Two ambiguity classes are handled separately in this module:
+      - generic values (No / Yes / Unknown / Not Reported): span many *field
+        names*; handled by `_ambiguous_values` + `_disambiguate` (field mention).
+      - cross-path anchor values (disease_phase): one field name but many
+        *paths*; handled here, by co-locating with the event a nearby term names.
+
+    Narrowing is chained and resolved from least to most ambiguous, so a term
+    pinned to one path becomes an anchor for the more ambiguous ones: "Bone" pins
+    "Metastatic" to tumor_assessments, which then anchors a nearby "Relapse".
+    Only anchors within `window` characters count, so a far event field cannot
+    capture a distant timing value; with no local anchor the term is left broad.
+    Only anchors in the SAME clause count: one with a comma or semicolon between
+    it and the term is excluded outright (not just deprioritised), so a timing
+    value never binds across a clause boundary, and with no same-clause anchor
+    the term is left broad. Among same-clause anchors the nearest (smallest edge
+    gap) wins, so "... at relapse, with ARMS histology at initial diagnosis"
+    keeps relapse on the tumor side. Top-level fields (consortium, sex; path
+    None) never anchor. Returns a new list.
+    """
+    terms = list(terms)
+
+    def _local_anchors(idx: int) -> list[tuple[str, tuple[int, int]]]:
+        """Single-path nested terms (other than idx) in the SAME clause as
+        terms[idx]: within the window, on a path the target can take, and with no
+        comma/semicolon between them. A cross-boundary anchor is excluded
+        outright, so a timing value never binds across a clause boundary."""
+        target = terms[idx]
+        target_paths = _paths_of(target)
+        found: list[tuple[str, tuple[int, int]]] = []
+        for j, other in enumerate(terms):
+            if j == idx:
+                continue
+            other_paths = _paths_of(other)
+            if len(other_paths) != 1:
+                continue
+            (path,) = tuple(other_paths)
+            if path is None or path not in target_paths:
+                continue
+            if not _near(other.span, target.span, window):
+                continue
+            if _crosses_boundary(other.span, target.span, text):
+                continue
+            found.append((path, other.span))
+        return found
+
+    # Least-ambiguous first, so a term narrowed to one path can anchor the rest.
+    order = sorted(
+        (i for i, t in enumerate(terms) if len(_paths_of(t)) > 1),
+        key=lambda i: len(_paths_of(terms[i])),
+    )
+
+    for i in order:
+        anchors = _local_anchors(i)
+        if not anchors:
+            continue
+
+        paths = {path for path, _ in anchors}
+        if len(paths) > 1 and use_proximity:
+            # Anchors here are already same-clause; bind to the nearest by gap.
+            span = terms[i].span
+            paths = {min(anchors, key=lambda a: _gap(a[1], span))[0]}
+
+        kept = tuple(p for p in terms[i].placements if p.path in paths)
+        terms[i] = replace(terms[i], placements=kept)
+
+    return terms
+
+
 def _negation_before(text: str, span_start: int) -> Optional[int]:
     """Return the start offset of a nearby negation cue, if one exists."""
     befores = [
@@ -412,6 +530,10 @@ class TermNormalizer:
             text, negations, block_spans=covered, mention_spans=mention_spans
         )
         terms = [self._disambiguate(t, text) for t in terms]
+
+        # disease_phase and other cross-path values: co-locate with the event
+        # table a nearby uniquely-placed term names (the portal "timing" shape).
+        terms = _narrow_cross_path_placements(terms, text)
 
         # A generic value (No/Yes/Unknown/...) is only usable once narrowed to a
         # single (field, path); otherwise the model would guess among many fields.

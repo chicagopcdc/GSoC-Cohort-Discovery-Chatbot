@@ -26,6 +26,10 @@ _MAX_VALUES_SHOWN = 40
 _OP_DISPLAY = {"gt": "GT", "gte": "GTE", "lt": "LT", "lte": "LTE"}
 
 
+# NOTE: FilterGenerator.generate() currently overrides this system prompt with
+# services.filter_generator._TAGGED_SYSTEM_PROMPT (the tagged op/field/values
+# form). This wire-form prompt is kept for tests and other callers; keep its
+# rules aligned with _TAGGED_SYSTEM_PROMPT until prompt ownership is consolidated.
 SYSTEM_PROMPT = """\
 You translate a parsed clinical-cohort query into a single Guppy GraphQL filter.
 
@@ -107,7 +111,7 @@ def _format_candidates(
     lines: List[str] = []
 
     for c in candidates:
-        where = c.path or "subject"
+        where = c.path if c.path else "subject, TOP-LEVEL"
         head = f"- {c.field} ({c.field_type}, under {where})"
         if c.description:
             head += f": {c.description}"

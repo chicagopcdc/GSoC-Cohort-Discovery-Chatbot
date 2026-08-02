@@ -227,8 +227,11 @@ Rules:
    branch wrapped in its own AND, when the alternatives span different fields or
    nested paths, or when the request reads as a choice between cohorts ("either
    the INRG or the INSTRuCT cohort").
-3. A field under a nested path goes inside a nested clause with that path. Only
-   one level of nesting exists; a nested body cannot contain another nested.
+3. Fields shown as "under subject" are top-level: place them directly in the
+   top-level AND/OR and never inside a nested clause. A field under a named table
+   goes inside a nested clause for that table, together with any timing value
+   ("disease_phase") that qualifies that same event. Only one level of nesting
+   exists; a nested body cannot contain another nested.
 4. Numeric ranges arrive with negation already resolved and units already
    converted to the field's stored unit; apply the number as given and do no
    arithmetic of your own.
@@ -247,6 +250,12 @@ Query: subjects in either the INRG or INSTRuCT consortium
 
 Query: patients with metastatic tumors
 {"filter": {"op": "nested", "path": "tumor_assessments", "body": {"op": "AND", "clauses": [{"op": "IN", "field": "tumor_classification", "values": ["Metastatic"]}]}}}
+
+Query: INRG patients with metastatic tumors
+{"filter": {"op": "AND", "clauses": [{"op": "IN", "field": "consortium", "values": ["INRG"]}, {"op": "nested", "path": "tumor_assessments", "body": {"op": "AND", "clauses": [{"op": "IN", "field": "tumor_classification", "values": ["Metastatic"]}]}}]}}
+
+Query: ARMS histology at initial diagnosis
+{"filter": {"op": "nested", "path": "histologies", "body": {"op": "AND", "clauses": [{"op": "IN", "field": "disease_phase", "values": ["Initial Diagnosis"]}, {"op": "IN", "field": "histology", "values": ["Alveolar rhabdomyosarcoma (ARMS)"]}]}}}
 """
 
 
