@@ -410,6 +410,24 @@ class TestCohortAnalysisTools:
         assert analyzer.compare_calls == []
         assert agent._last_build["s1"].wire == current
 
+    def test_compare_non_ok_other_build_with_wire_returns_build_error(self):
+        current = {"IN": {"consortium": ["INRG"]}}
+        other = {"IN": {"consortium": ["NODAL"]}}
+        qb = FakeQueryBuilder(build_obj(ok=False, wire=other, errors=("render_error",)))
+        sm = FakeSessionManager(("new", build_obj(wire=current)), qb=qb)
+        analyzer = FakeAnalyzer()
+        chat = ScriptedChat(
+            tool_call("c1", "build_query", {"query": "INRG patients"}),
+            tool_call("c2", "compare_cohort", {"comparison_query": "NODAL patients"}),
+            text_reply("That comparison could not be built."),
+        )
+
+        agent = CohortAgent(sm, cohort_analyzer=analyzer, chat_fn=chat)
+        res = agent.chat("s1", "compare with NODAL")
+
+        assert "render_error" in res.steps[1].result["error"]
+        assert analyzer.compare_calls == []
+
     def test_compare_before_build_errors(self):
         chat = ScriptedChat(
             tool_call("c1", "compare_cohort", {"comparison_query": "NODAL"}),

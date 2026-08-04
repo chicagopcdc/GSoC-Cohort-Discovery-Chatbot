@@ -147,13 +147,18 @@ class TestCompare:
     def test_independent_masked_flags(self):
         g = FakeGuppy(
             gres(1234, {"sex": [{"key": "Male", "count": 691}]}),
-            gres(None, {"sex": [{"key": "Male", "count": 411}]}, total_masked=True),
+            gres(None, {"sex": [{"key": "Female", "count": 411}]}, total_masked=True),
         )
         c = CohortAnalyzer(g, fields=["sex"]).compare(
             {"IN": {"x": ["1"]}}, {"IN": {"x": ["2"]}}, label_a="INRG", label_b="NODAL")
 
         assert c.total_a_masked is False and c.total_b_masked is True
         assert c.total_delta is None                     # cannot diff a masked total
+        male = next(r for r in c.rows if r.key == "Male")
+        female = next(r for r in c.rows if r.key == "Female")
+        assert male.b_count is None and male.b_pct is None and male.delta_pct is None
+        assert female.a_count == 0 and female.a_pct == 0.0
+        assert female.b_count == 411 and female.b_pct is None and female.delta_pct is None
         assert "masked" in format_comparison(c)
 
     def test_long_keys_stay_aligned(self):

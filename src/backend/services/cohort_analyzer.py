@@ -270,6 +270,13 @@ def _comparison_rows(a: CohortSummary, b: CohortSummary) -> List[ComparisonRow]:
     a_dist = {d.field: d for d in a.distributions}
     b_dist = {d.field: d for d in b.distributions}
 
+    def missing_values(total: Optional[int], total_masked: bool) -> Tuple[Optional[int], Optional[float]]:
+        if total_masked or total is None:
+            return None, None
+        if total <= 0:
+            return 0, None
+        return 0, 0.0
+
     rows: List[ComparisonRow] = []
     for fname in [d.field for d in a.distributions]:
         da, db = a_dist.get(fname), b_dist.get(fname)
@@ -280,14 +287,18 @@ def _comparison_rows(a: CohortSummary, b: CohortSummary) -> List[ComparisonRow]:
         keys = list(a_by) + [k for k in b_by if k not in a_by]
         for k in keys:
             ba, bb = a_by.get(k), b_by.get(k)
-            a_pct = ba.pct if ba else 0.0
-            b_pct = bb.pct if bb else 0.0
+            a_missing_count, a_missing_pct = missing_values(a.total, a.total_masked)
+            b_missing_count, b_missing_pct = missing_values(b.total, b.total_masked)
+            a_count = ba.count if ba else a_missing_count
+            b_count = bb.count if bb else b_missing_count
+            a_pct = ba.pct if ba else a_missing_pct
+            b_pct = bb.pct if bb else b_missing_pct
             delta = (b_pct - a_pct) if (a_pct is not None and b_pct is not None) else None
             rows.append(ComparisonRow(
                 field=fname, key=k,
-                a_count=(ba.count if ba else 0),
+                a_count=a_count,
                 a_pct=a_pct,
-                b_count=(bb.count if bb else 0),
+                b_count=b_count,
                 b_pct=b_pct,
                 delta_pct=delta,
             ))

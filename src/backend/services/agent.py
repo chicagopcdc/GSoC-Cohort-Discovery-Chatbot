@@ -362,7 +362,7 @@ class CohortAgent:
         # session state: this filter is a throwaway used only for the comparison,
         # so it is never stored in _last_build or the session store.
         b = self.session_manager.qb.build(comparison_query, current_filter=build.wire)
-        if b.wire is None:
+        if not b.ok or b.wire is None:
             return {"error": "; ".join(b.errors) or "could not build the comparison cohort"}
 
         comparison = self._analyzer.compare(
