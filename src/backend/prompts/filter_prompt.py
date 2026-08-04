@@ -57,7 +57,9 @@ Rules:
    different fields or nested paths (a cross-field OR cannot be written as one IN),
    or when the request reads as a choice between cohorts ("either the INRG or the
    INSTRuCT cohort") -- that is recorded as an OR of AND blocks even on one field.
-   When unsure on a single field, prefer the OR-of-AND-blocks form; When unsure on an explicit either/or request, prefer the OR-of-AND-blocks form.
+   When the request is ambiguous but reads like an explicit either/or choice,
+   prefer the OR-of-AND-blocks form; otherwise keep same-field value lists as a
+   single IN.
 
 3. A field that lives under a nested path must be wrapped in a nested clause with
    that path. Only one level of nesting exists: a nested clause cannot contain
