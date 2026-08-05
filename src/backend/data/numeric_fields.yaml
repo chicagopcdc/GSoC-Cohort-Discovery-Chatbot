@@ -13,7 +13,7 @@ assumed_input_unit: years         # a bare "older than 5" is read as 5 years
 factors_to_base:                  # every unit converts through days
   days: 1.0
   weeks: 7.0
-  months: 30.4375
+  months: 30.0
   years: 365.25
 
 # Per-field unit overrides, only needed when a description lacks a unit and the
