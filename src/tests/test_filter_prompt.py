@@ -52,7 +52,7 @@ def test_unconverted_unit_range_is_dropped_and_warned():
     ]
 
 
-def test_negated_enum_term_is_dropped_and_warned():
+def test_negated_enum_term_is_rendered_as_excluded_term():
     term = RecognizedTerm(
         "Metastatic",
         (FieldPlacement("tumor_classification", "tumor_assessments"),),
@@ -64,13 +64,26 @@ def test_negated_enum_term_is_dropped_and_warned():
     content = _content(nq)
 
     assert "Recognized terms (already matched to the schema):\n(none)" in content
+    assert "Excluded terms (emit as !=):" in content
+    assert '"Metastatic" -> tumor_classification (under tumor_assessments)' in content
+    assert 'dropped negated enum/category term "Metastatic"' not in content
+    assert prompt_warnings(nq) == []
+
+
+def test_unresolved_negated_enum_term_is_dropped_and_warned():
+    term = RecognizedTerm("Metastatic", (), (4, 14), negated=True)
+    nq = NormalizedQuery("not metastatic", [term], [], ["not metastatic"])
+
+    content = _content(nq)
+
+    assert "Excluded terms (emit as !=):\n(none)" in content
     assert (
         'dropped negated enum/category term "Metastatic": '
-        "NOT is not supported for enum/category values"
+        "no schema field placement is available"
     ) in content
     assert prompt_warnings(nq) == [
         'dropped negated enum/category term "Metastatic": '
-        "NOT is not supported for enum/category values"
+        "no schema field placement is available"
     ]
 
 

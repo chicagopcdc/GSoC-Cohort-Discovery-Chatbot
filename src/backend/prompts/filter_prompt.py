@@ -26,11 +26,16 @@ _MAX_VALUES_SHOWN = 40
 _OP_DISPLAY = {"gt": "GT", "gte": "GTE", "lt": "LT", "lte": "LTE"}
 
 
+# NOTE: FilterGenerator.generate() currently overrides this system prompt with
+# services.filter_generator._TAGGED_SYSTEM_PROMPT (the tagged op/field/values
+# form). This wire-form prompt is kept for tests and other callers; keep its
+# rules aligned with _TAGGED_SYSTEM_PROMPT until prompt ownership is consolidated.
 SYSTEM_PROMPT = """\
 You translate a parsed clinical-cohort query into a single Guppy GraphQL filter.
 
 The filter is one JSON object built from these clauses:
   - {"IN":  {"<field>": ["<value>", ...]}}   membership in a set of values
+  - {"!=":  {"<field>": "<value>"}}           field value is not equal to scalar
   - {"GTE": {"<field>": <number>}}            >=   (also LTE, GT, LT)
   - {"AND": [<clause>, ...]}                   all of
   - {"OR":  [<clause>, ...]}                   any of
@@ -52,7 +57,9 @@ Rules:
    different fields or nested paths (a cross-field OR cannot be written as one IN),
    or when the request reads as a choice between cohorts ("either the INRG or the
    INSTRuCT cohort") -- that is recorded as an OR of AND blocks even on one field.
-   When unsure on a single field, prefer the OR-of-AND-blocks form; When unsure on an explicit either/or request, prefer the OR-of-AND-blocks form.
+   When the request is ambiguous but reads like an explicit either/or choice,
+   prefer the OR-of-AND-blocks form; otherwise keep same-field value lists as a
+   single IN.
 
 3. A field that lives under a nested path must be wrapped in a nested clause with
    that path. Only one level of nesting exists: a nested clause cannot contain
@@ -67,9 +74,9 @@ Rules:
    fences. A single condition is returned as its own clause; combine several
    independent conditions with a top-level AND.
 
-6. There is no NOT operator. Range negation is already folded into the bound
-   (Rule 4). A negated enum or category term ("not metastatic", "race is not
-   white") cannot be expressed -- drop that condition rather than writing it as a
+6. There is no general NOT operator. Range negation is already folded into the
+   bound (Rule 4). For negated enum/category terms listed under "Excluded terms",
+   emit field-level !=. Drop unsupported negation rather than writing it as a
    positive IN.
 
 The examples below show clause structure only. For the real answer, draw every
@@ -106,13 +113,14 @@ def _format_candidates(
     lines: List[str] = []
 
     for c in candidates:
-        where = c.path or "subject"
+        where = c.path if c.path else "subject, TOP-LEVEL"
         head = f"- {c.field} ({c.field_type}, under {where})"
         if c.description:
             head += f": {c.description}"
 
         if c.field_type == "enum" and c.enum_values:
-            must = [v for v in pinned.get((c.path, c.field), ()) if v in c.enum_values]
+            pinned_values = set(pinned.get((c.path, c.field), ()))
+            must = [v for v in c.enum_values if v in pinned_values]
             rest = [v for v in c.enum_values if v not in must]
             shown = must + rest[: max(0, _MAX_VALUES_SHOWN - len(must))]
             hidden = len(c.enum_values) - len(shown)
@@ -142,6 +150,21 @@ def _format_recognized(nq: "NormalizedQuery") -> str:
     return "\n".join(lines)
 
 
+def _format_excluded(nq: "NormalizedQuery") -> str:
+    terms = [term for term in nq.terms if term.negated and term.placements]
+    if not terms:
+        return "(none)"
+
+    lines: List[str] = []
+    for term in terms:
+        places = ", ".join(
+            f"{p.field} (under {p.path or 'subject'})" for p in term.placements
+        )
+        lines.append(f'- "{term.value}" -> {places}')
+
+    return "\n".join(lines)
+
+
 def _fmt_num(value: float):
     """Show whole numbers without a trailing .0, keep real decimals."""
     return int(value) if float(value).is_integer() else value
@@ -163,10 +186,10 @@ def prompt_warnings(nq: "NormalizedQuery") -> List[str]:
     warnings: List[str] = []
 
     for term in nq.terms:
-        if term.negated:
+        if term.negated and not term.placements:
             warnings.append(
                 f'dropped negated enum/category term "{term.value}": '
-                "NOT is not supported for enum/category values"
+                "no schema field placement is available"
             )
 
     for r in nq.ranges:
@@ -235,6 +258,8 @@ def build_filter_messages(
         f"User query:\n{nq.text}\n\n"
         f"Recognized terms (already matched to the schema):\n"
         f"{_format_recognized(nq)}\n\n"
+        f"Excluded terms (emit as !=):\n"
+        f"{_format_excluded(nq)}\n\n"
         f"Numeric ranges:\n{_format_ranges(nq)}\n\n"
         f"Unsupported constraints (already dropped; do not emit):\n"
         f"{_format_unsupported(nq)}\n\n"

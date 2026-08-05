@@ -143,6 +143,11 @@ class TestConversion:
         r = _resolver([_spec("age_at_x", description="Age in days at x.")])
         assert r.convert(1, "weeks", "days") == 7.0
 
+    def test_months_to_days_uses_flat_30(self):
+        r = _resolver([_spec("age_at_x", description="Age in days at x.")])
+        assert r.convert(1, "months", "days") == 30.0
+        assert r.convert(18, "months", "days") == 540.0
+
     def test_unknown_unit_returns_none(self):
         r = _resolver([_spec("age_at_x", description="Age in days at x.")])
         assert r.convert(5, "furlongs", "days") is None

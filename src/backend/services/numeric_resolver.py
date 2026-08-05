@@ -44,7 +44,7 @@ class NumericConfig:
         default_factory=lambda: {
             "days": 1.0,
             "weeks": 7.0,
-            "months": 30.4375,
+            "months": 30.0,
             "years": 365.25,
         }
     )

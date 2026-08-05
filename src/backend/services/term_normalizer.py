@@ -24,7 +24,7 @@ fuzzy matching is left to the retrieval layer.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Optional, Union
 
@@ -177,9 +177,13 @@ _LATEST_CUE = re.compile(r"\b(?:last|latest|most\s+recent|final)\b", re.I)
 
 # A missing-data phrasing: an explicit "un-" word, or a negation sitting close to
 # a reporting verb ("no race information reported", "sex not available").
+# "unknown"/"not known" are intentionally excluded so a field's own "Unknown" enum
+# wins ("unknown sex" -> sex = "Unknown", not "Not Reported").
+# Known limitation: the two-word "not known" phrasing ("sex not known") therefore
+# matches nothing; supporting it would need a dedicated rule, not a missing-cue.
 _MISSING_CUE = re.compile(
-    r"\b(?:un(?:reported|available|specified|known|documented|recorded))\b"
-    r"|\bnot\s+(?:reported|available|specified|known|recorded|documented|on\s+file)\b"
+    r"\b(?:un(?:reported|available|specified|documented|recorded))\b"
+    r"|\bnot\s+(?:reported|available|specified|recorded|documented|on\s+file)\b"
     r"|\b(?:no|not|non)\b[\w\s]{0,25}?\b(?:reported|available|specified|recorded|documented)\b",
     re.I,
 )
@@ -187,6 +191,11 @@ _MISSING_CUE = re.compile(
 _MISSING_VALUES = ("Not Reported", "Unknown", "Not Available", "Unavailable")
 
 _NUMERIC_RE = re.compile(r"^\d+(?:\.\d+)?$")
+
+# A value spanning at least this many distinct fields is a generic marker
+# (No/Yes/Present/Unknown/Not Reported/...) rather than a specific clinical value.
+# Such values are only usable once field context narrows them to one (field, path).
+_AMBIGUITY_MIN_FIELDS = 4
 
 
 def _parse_num(s: str) -> float:
@@ -233,6 +242,136 @@ def _norm_phrase(s: str) -> str:
 def _overlaps(span: tuple[int, int], spans: list[tuple[int, int]]) -> bool:
     s, e = span
     return any(s < b and a < e for a, b in spans)
+
+
+def _inside(span: tuple[int, int], spans: list[tuple[int, int]]) -> bool:
+    """True if span is fully contained in any of spans."""
+    s, e = span
+    return any(a <= s and e <= b for a, b in spans)
+
+
+def _distinct_field_paths(placements) -> int:
+    """Count distinct (field, path) locations. Same field under two nested paths
+    is two locations, since a GraphQL clause needs a single (field, path)."""
+    return len({(p.field, p.path) for p in placements})
+
+
+def _paths_of(term: RecognizedTerm) -> set:
+    """Distinct nested paths a term's placements span (None = top-level)."""
+    return {p.path for p in term.placements}
+
+
+def _gap(a: tuple[int, int], b: tuple[int, int]) -> int:
+    """Edge-to-edge character gap between two spans (0 if they overlap). Edges,
+    not midpoints, so a short word like 'ARMS' is not judged closer than an
+    adjacent longer field name."""
+    if a[1] <= b[0]:
+        return b[0] - a[1]
+    if b[1] <= a[0]:
+        return a[0] - b[1]
+    return 0
+
+
+def _crosses_boundary(a: tuple[int, int], b: tuple[int, int], text: str) -> bool:
+    """True if a clause boundary (comma or semicolon) sits between two spans, so
+    "at relapse, with ARMS histology" does not let ARMS steal 'relapse' just
+    because it is textually adjacent across the comma."""
+    if not text:
+        return False
+    lo, hi = (a[1], b[0]) if a[1] <= b[0] else (b[1], a[0])
+    segment = text[lo:hi]
+    return "," in segment or ";" in segment
+
+
+# An anchor must sit within this many characters of a term to narrow it, so a
+# far, unrelated event field cannot capture a distant timing value. Mirrors the
+# character window `_disambiguate` uses for field-name mentions.
+_ANCHOR_WINDOW = 45
+
+
+def _near(anchor_span: tuple[int, int], term_span: tuple[int, int], window: int) -> bool:
+    a0, a1 = anchor_span
+    t0, t1 = term_span
+    return a0 < t1 + window and a1 > t0 - window
+
+
+def _narrow_cross_path_placements(
+    terms: list[RecognizedTerm],
+    text: str = "",
+    *,
+    use_proximity: bool = True,
+    window: int = _ANCHOR_WINDOW,
+) -> list[RecognizedTerm]:
+    """Narrow a term that spans several nested paths (e.g. disease_phase, which
+    lives under ~14 event tables) to the path(s) a NEARBY, uniquely-placed term
+    establishes.
+
+    Two ambiguity classes are handled separately in this module:
+      - generic values (No / Yes / Unknown / Not Reported): span many *field
+        names*; handled by `_ambiguous_values` + `_disambiguate` (field mention).
+      - cross-path anchor values (disease_phase): one field name but many
+        *paths*; handled here, by co-locating with the event a nearby term names.
+
+    Narrowing is chained and resolved from least to most ambiguous, so a term
+    pinned to one path becomes an anchor for the more ambiguous ones: "Bone" pins
+    "Metastatic" to tumor_assessments, which then anchors a nearby "Relapse".
+    Only anchors within `window` characters count, so a far event field cannot
+    capture a distant timing value; with no local anchor the term is left broad.
+    Only anchors in the SAME clause count: one with a comma or semicolon between
+    it and the term is excluded outright (not just deprioritised), so a timing
+    value never binds across a clause boundary, and with no same-clause anchor
+    the term is left broad. Among same-clause anchors the nearest (smallest edge
+    gap) wins, so "... at relapse, with ARMS histology at initial diagnosis"
+    keeps relapse on the tumor side. Top-level fields (consortium, sex; path
+    None) never anchor. Returns a new list.
+    """
+    terms = list(terms)
+
+    def _local_anchors(idx: int) -> list[tuple[str, tuple[int, int]]]:
+        """Single-path nested terms (other than idx) in the SAME clause as
+        terms[idx]: within the window, on a path the target can take, and with no
+        comma/semicolon between them. A cross-boundary anchor is excluded
+        outright, so a timing value never binds across a clause boundary."""
+        target = terms[idx]
+        target_paths = _paths_of(target)
+        found: list[tuple[str, tuple[int, int]]] = []
+        for j, other in enumerate(terms):
+            if j == idx:
+                continue
+            other_paths = _paths_of(other)
+            if len(other_paths) != 1:
+                continue
+            (path,) = tuple(other_paths)
+            if path is None or path not in target_paths:
+                continue
+            if not _near(other.span, target.span, window):
+                continue
+            if _crosses_boundary(other.span, target.span, text):
+                continue
+            found.append((path, other.span))
+        return found
+
+    # Least-ambiguous first, so a term narrowed to one path can anchor the rest.
+    order = sorted(
+        (i for i, t in enumerate(terms) if len(_paths_of(t)) > 1),
+        key=lambda i: len(_paths_of(terms[i])),
+    )
+
+    for i in order:
+        anchors = _local_anchors(i)
+        if not anchors:
+            continue
+
+        paths = {path for path, _ in anchors}
+        if len(paths) > 1 and use_proximity:
+            # Anchors here are already same-clause; bind to the nearest by gap.
+            span = terms[i].span
+            paths = {min(anchors, key=lambda a: _gap(a[1], span))[0]}
+
+        kept = tuple(p for p in terms[i].placements if p.path in paths)
+        terms[i] = replace(terms[i], placements=kept)
+
+    return terms
 
 
 def _negation_before(text: str, span_start: int) -> Optional[int]:
@@ -285,6 +424,9 @@ class TermNormalizer:
         self._field_aliases: dict[str, tuple[FieldPlacement, ...]] = {}
         self._field_alias_max_words = 1
 
+        # Generic values (No/Yes/Unknown/...) that must be narrowed by context.
+        self._ambiguous_values: set[str] = set()
+
         self._build_index(synonyms or {})
 
     @classmethod
@@ -316,9 +458,11 @@ class TermNormalizer:
 
     def _build_index(self, synonyms: dict[str, str]) -> None:
         # Add canonical enum values from the schema.
+        value_fields: dict[str, set[str]] = {}
         for spec in self._schema.all_fields():
             for value in spec.enum_values:
                 self._add(value, value)
+                value_fields.setdefault(value, set()).add(spec.name)
 
             # Index the field's own (humanized) name for mention disambiguation.
             self._add_field_alias(spec.name.replace("_", " "), spec)
@@ -326,6 +470,13 @@ class TermNormalizer:
         # Add curated user-facing phrases that map to canonical schema values.
         for surface, canonical in synonyms.items():
             self._add(surface, canonical)
+
+        # A value on many distinct fields is a generic marker, not a specific term.
+        self._ambiguous_values = {
+            value
+            for value, fields in value_fields.items()
+            if len(fields) >= _AMBIGUITY_MIN_FIELDS
+        }
 
     def _add(self, surface: str, canonical: str) -> None:
         key = _norm_phrase(surface)
@@ -373,8 +524,26 @@ class TermNormalizer:
         missing_terms = self._match_missing(text)
         covered = [t.span for t in missing_terms] + range_spans
 
-        terms = self._match_terms(text, negations, block_spans=covered)
+        mention_spans = [span for _places, span in self._find_field_mentions(text)]
+
+        terms = self._match_terms(
+            text, negations, block_spans=covered, mention_spans=mention_spans
+        )
         terms = [self._disambiguate(t, text) for t in terms]
+
+        # disease_phase and other cross-path values: co-locate with the event
+        # table a nearby uniquely-placed term names (the portal "timing" shape).
+        terms = _narrow_cross_path_placements(terms, text)
+
+        # A generic value (No/Yes/Unknown/...) is only usable once narrowed to a
+        # single (field, path); otherwise the model would guess among many fields.
+        # Specific clinical values (Metastatic, Abdomen, ...) are kept regardless.
+        terms = [
+            t
+            for t in terms
+            if t.value not in self._ambiguous_values
+            or _distinct_field_paths(t.placements) == 1
+        ]
 
         # A precise missing-data term and the generic "not reported" enum can both
         # resolve to the same (field, value); keep one.
@@ -396,10 +565,12 @@ class TermNormalizer:
         negations: list[str],
         *,
         block_spans: Optional[list[tuple[int, int]]] = None,
+        mention_spans: Optional[list[tuple[int, int]]] = None,
     ) -> list[RecognizedTerm]:
         tokens = _tokenize(text)
         out: list[RecognizedTerm] = []
         block_spans = block_spans or []
+        mention_spans = mention_spans or []
 
         i, n = 0, len(tokens)
 
@@ -422,9 +593,10 @@ class TermNormalizer:
 
             (value, placements), start, end, width = hit
 
-            # A bare "no"/"not" is a function word here, not the enum value "No".
-            # These are handled by negation and missing-data detection instead.
-            if _norm_phrase(value) in _NEGATION_CUES:
+            # A token that sits inside a field-name mention ("nodal" within "bulky
+            # nodal aggregate") is part of that field name, not the enum value it
+            # happens to spell (e.g. the NODAL consortium code).
+            if _inside((start, end), mention_spans):
                 i += 1
                 continue
 
@@ -474,10 +646,13 @@ class TermNormalizer:
         if len(term.placements) <= 1:
             return term
 
-        window = (max(0, term.span[0] - 45), term.span[1] + 20)
+        # Character-offset window (a heuristic, not a token/word window). Overlap
+        # rather than containment lets a multi-word field name that starts near the
+        # value but runs long ("bulky nodal aggregate") still count.
+        win_start, win_end = max(0, term.span[0] - 45), term.span[1] + 40
         mentioned: set = set()
         for places, span in self._find_field_mentions(text):
-            if span[0] >= window[0] and span[1] <= window[1]:
+            if span[0] < win_end and span[1] > win_start:
                 mentioned.update(places)
 
         if not mentioned:

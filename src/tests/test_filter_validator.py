@@ -75,6 +75,16 @@ class TestValidFilters:
         ]}
         assert validate_dict(obj, schema).ok
 
+    def test_top_level_not_equal(self, schema):
+        obj = {"AND": [{"!=": {"sex": "Female"}}]}
+        assert validate_dict(obj, schema).ok
+
+    def test_nested_not_equal(self, schema):
+        obj = {"AND": [{"nested": {"path": "histologies", "AND": [
+            {"!=": {"histology": "Alveolar rhabdomyosarcoma (ARMS)"}},
+        ]}}]}
+        assert validate_dict(obj, schema).ok
+
 
 class TestUnknownField:
     def test_unknown_top_level_field(self, schema):
@@ -93,6 +103,12 @@ class TestWrongPath:
         # tumor_classification is not under histologies
         obj = {"AND": [{"nested": {"path": "histologies", "AND": [
             {"IN": {"tumor_classification": ["Metastatic"]}},
+        ]}}]}
+        assert CODE_WRONG_PATH in _codes(obj, schema)
+
+    def test_not_equal_field_under_wrong_nested_path(self, schema):
+        obj = {"AND": [{"nested": {"path": "histologies", "AND": [
+            {"!=": {"tumor_classification": "Metastatic"}},
         ]}}]}
         assert CODE_WRONG_PATH in _codes(obj, schema)
 
@@ -121,6 +137,10 @@ class TestInvalidEnum:
             {"IN": {"tumor_classification": ["Not reported"]}},
         ]}}]}
         assert CODE_INVALID_ENUM not in _codes(obj, schema)
+
+    def test_not_equal_hallucinated_value(self, schema):
+        obj = {"AND": [{"!=": {"sex": "Martian"}}]}
+        assert CODE_INVALID_ENUM in _codes(obj, schema)
 
 
 class TestTypeMismatch:
@@ -193,3 +213,23 @@ class TestResultApi:
                      if i.code == CODE_INVALID_ENUM)
         assert issue.field == "sex"
         assert issue.value == "Martian"
+
+
+class TestDiseasePhaseAnchor:
+    def test_disease_phase_nested_is_valid(self, schema):
+        obj = {"AND": [
+            {"nested": {"path": "histologies", "AND": [
+                {"IN": {"histology": ["Alveolar rhabdomyosarcoma (ARMS)"]}},
+            ]}},
+            {"nested": {"path": "tumor_assessments", "AND": [
+                {"IN": {"disease_phase": ["Initial Diagnosis"]}},
+                {"IN": {"tumor_site": ["Bone", "Bone Marrow"]}},
+                {"GTE": {"age_at_tumor_assessment": 6}},
+                {"LTE": {"age_at_tumor_assessment": 1826.25}},
+            ]}},
+        ]}
+        assert validate_dict(obj, schema).ok
+
+    def test_disease_phase_top_level_is_rejected(self, schema):
+        obj = {"IN": {"disease_phase": ["Initial Diagnosis"]}}
+        assert not validate_dict(obj, schema).ok

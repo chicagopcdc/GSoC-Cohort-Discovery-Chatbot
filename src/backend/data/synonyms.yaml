@@ -14,3 +14,6 @@
 "initial dx": Initial Diagnosis
 "diagnosis": Initial Diagnosis
 
+# histology shorthand (keeps prompt/normalizer/schema aligned on the full value)
+"arms": "Alveolar rhabdomyosarcoma (ARMS)"
+
