@@ -3,51 +3,64 @@ import time
 import uuid
 import re
 import httpx
+import json
 from typing import Dict, Any, Optional
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from langchain_openai import ChatOpenAI
-import json
 
-from utils.schema_parser import *
-from utils.query_builder import *
-from utils.context_manager import session_manager
-from utils.prompt_builder import *
-from utils.filter_utils import *
-from utils.credential_helper import *
-
-from utils.nested_graphql_helper import *
-from api_v2 import router as api_v2_router
-
-# Load environment variables
 load_dotenv()
 
 app = FastAPI()
-app.include_router(api_v2_router)
+
+# Keep /agent available even when the legacy stack is not installed.
+from api_agent import router as agent_router
+app.include_router(agent_router)
+
+# Legacy endpoints are optional.
+try:
+    from langchain_openai import ChatOpenAI
+    from utils.schema_parser import *
+    from utils.query_builder import *
+    from utils.context_manager import session_manager
+    from utils.prompt_builder import *
+    from utils.filter_utils import *
+    from utils.credential_helper import *
+    from utils.nested_graphql_helper import *
+    LEGACY_AVAILABLE = True
+    LEGACY_IMPORT_ERROR = None
+except Exception as _legacy_err:  # noqa: BLE001
+    LEGACY_AVAILABLE = False
+    LEGACY_IMPORT_ERROR = f"{type(_legacy_err).__name__}: {_legacy_err}"
+
+
+def _require_legacy() -> None:
+    """Return a clean 503 when the old pipeline cannot be loaded."""
+    if not LEGACY_AVAILABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="Legacy pipeline unavailable (missing optional dependency). "
+                   "Use the /agent endpoints instead.",
+        )
+
 
 BASE_URL = "https://portal-dev.pedscommons.org"
 GRAPHQL_ENDPOINT = f"{BASE_URL}/guppy/graphql"
-# Guppy access token is fetched on-demand via credential_helper.generate_access_token()
 
-# Define input model
 class Query(BaseModel):
     text: str
     session_id: Optional[str] = None
 
-# Define output model
 class GraphQLResponse(BaseModel):
     query: str
     variables: str = "{}"
 
 class GraphQLQuery(BaseModel):
-    """Model for GraphQL query request"""
     query: str
     variables: Optional[Dict[str, Any]] = None
     use_cached_token: Optional[bool] = True
 
 class GraphQLHttpResponse(BaseModel):
-    """Model for GraphQL query response"""
     data: Optional[Dict[str, Any]] = None
     errors: Optional[list] = None
     success: bool
@@ -55,7 +68,7 @@ class GraphQLHttpResponse(BaseModel):
 
 @app.post("/flat_graphql")
 async def convert_to_flat_graphql(query: Query):
-    # Load PCDC schema
+    _require_legacy()
     node_properties = {}
     term_mappings = {}
     schema_handler = None
@@ -103,49 +116,37 @@ async def convert_to_flat_graphql(query: Query):
         print(f"Failed to load PCDC schema: {str(e)}")
 
     try:
-        # session_id = query.session_id if query.session_id else str(uuid.uuid4())
-        # Standardize user input
         standardized_query = standardize_terms(query.text, term_mappings)
-        # Extract relevant schema information
         relevant_schema = extract_relevant_schema(standardized_query, node_properties)
 
         result = None
         aggregation_query_mode = True
         query_parts = decompose_query(standardized_query)
-        # Create a comprehensive schema that includes all related nodes
         comprehensive_schema = relevant_schema.copy()
-        # Add schema information for related nodes
         for node in query_parts["related_nodes"]:
             node_schema = extract_relevant_schema(node, node_properties)
             comprehensive_schema.update(node_schema)
-        # LLM has its own memory, don't need to feed conversation_history again.
         prompt_text = create_enhanced_prompt(standardized_query, comprehensive_schema)
-        # Call LLM
         response = llm.invoke(prompt_text)
         if aggregation_query_mode:
             print(f"convert line level query to aggregation query.")
             response = convert_line_level_query_to_aggregation_query(response)
-        # Parse results
         try:
             result = json.loads(response.content)
         except Exception as json_error:
-            # Use the utility function to parse the response
             result = parse_llm_response(response.content, "Simple query")
-        # Save results to file
         timestamp = time.strftime("%Y%m%d-%H%M%S")
         file_path = f"chat_history/{timestamp}.txt"
         print(f"Results saved to: {file_path}")
         
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         
-        # Save query and results
         with open(file_path, "w") as f:
             f.write(f"Query: {query.text}\n")
             f.write(f"Standardized Query: {standardized_query}\n")
             f.write(f"GraphQL Query: {result.get('query', '')}\n")
             f.write(f"Variables: {result.get('variables', '')}\n")
         
-        # Process and format variables
         variables = result.get("variables", "{}")
 
         if isinstance(variables, str):
@@ -174,6 +175,7 @@ async def convert_to_flat_graphql(query: Query):
     
 @app.post("/nested_graphql")
 async def convert_to_nested_graphql(user_query: Query):
+    _require_legacy()
     """
     Workflow:
         1. Extract context from user query. For example:
@@ -200,13 +202,10 @@ async def convert_to_nested_graphql(user_query: Query):
         temperature=0,
         api_key=os.getenv("OPENAI_API_KEY")
     )
-    # 1. Extract context from user query
     print(f"user_query: {user_query}")
     context = extract_context_from_user_query(user_query.text)
     print(f"keywords: {context}")
 
-    # 2. Map context to all schemas needed in nested graphql
-    # Use code to generate two query tables (processed_pcdc_schema_prod_file & processed_gitops_file)
     processed_pcdc_schema_prod_file = "../../schema/processed_pcdc_schema_prod.json"
     if not os.path.exists(processed_pcdc_schema_prod_file) or os.path.getsize(processed_pcdc_schema_prod_file) == 0:
         pcdc_schema_prod_file = "../../schema/pcdc-schema-prod-20250114.json"
@@ -217,7 +216,6 @@ async def convert_to_nested_graphql(user_query: Query):
         gitops_file = "../../schema/gitops.json"
         processed_gitops_result = parse_gitops(gitops_file)
     
-    # 2.1 Query pcdc-schema-prod.json, map schemas in pcdc_schema_prod: ['consortium', 'tumor_classification', 'tumor_state', 'tumor_site']
     with open(processed_pcdc_schema_prod_file, 'r', encoding='utf-8') as f:
         processed_pcdc_schema_prod_dict = json.load(f)
     lowercase_pcdc_dict = {key.lower(): value for key, value in processed_pcdc_schema_prod_dict.items()}
@@ -228,7 +226,6 @@ async def convert_to_nested_graphql(user_query: Query):
             pcdc_schema_prod_result.append(pcdc_schema_prod_schema_mapping_result)
     print(f"Mapping schemas in pcdc_schema_prod.json: {pcdc_schema_prod_result}")
 
-    # 2.2 Query gitops.json and map context to gitops_file: ["tumor_assessments"]
     with open(processed_gitops_file, 'r', encoding='utf-8') as f:
         processed_gitops_dict = json.load(f)
     lowercase_gitops_dict = {key.lower(): value for key, value in processed_gitops_dict.items()}
@@ -239,7 +236,6 @@ async def convert_to_nested_graphql(user_query: Query):
             gitops_result.append(gitops_schema_mapping_result)
     print(f"All schema terms: {pcdc_schema_prod_result} \n {gitops_result} \n for user query {user_query}. \n")
     
-    # 3. Feed GraphQL generation code file ("../../assets/queries.js"), let LLM identify the format to generate
     try:
         with open("../../assets/queries.js", 'r', encoding='utf-8') as f:
             queries_js_content = f.read()
@@ -248,13 +244,11 @@ async def convert_to_nested_graphql(user_query: Query):
         print(f"Error loading queries.js: {str(e)}")
         queries_js_content = ""
     
-    # 4. Provide two actual nested GraphQL examples, let LLM generate final nested GraphQL format based on results
     nested_graphql_examples = [
         {"AND": [{"IN": {"consortium": ["INRG"]}}, {"nested": {"AND": [{"IN": {"tumor_classification": ["Metastatic"]}}, {"IN": {"tumor_state": ["Absent"]}}, {"IN": {"tumor_site": ["Skin"]}}], "path": "tumor_assessments"}}]},
         {"AND": [{"IN": {"consortium": ["NODAL"]}}, {"nested": {"AND": [{"IN": {"bulky_nodal_aggregate": ["No"]}}], "path": "disease_characteristics"}}]}
     ]
     
-    # Build final LLM prompt
     final_prompt = f"""
     You are a professional GraphQL nested query generator specializing in creating nested GraphQL filters for pediatric cancer databases (PCDC).
 
@@ -283,13 +277,10 @@ async def convert_to_nested_graphql(user_query: Query):
     """
     
     try:
-        # Call LLM to generate nested GraphQL query
         response = llm.invoke(final_prompt)
         response_content = response.content if hasattr(response, 'content') else str(response)
         
-        # Try parsing LLM returned JSON
         try:
-            # Remove possible markdown format markers
             clean_response = response_content.strip()
             if clean_response.startswith('```json'):
                 clean_response = clean_response[7:-3]
@@ -302,7 +293,6 @@ async def convert_to_nested_graphql(user_query: Query):
         except json.JSONDecodeError as e:
             print(f"Error parsing LLM response as JSON: {str(e)}")
             print(f"Raw LLM response: {response_content}")
-            # Return default format
             nested_graphql_query = {
                 "error": "Failed to parse LLM response",
                 "raw_response": response_content,
@@ -310,7 +300,6 @@ async def convert_to_nested_graphql(user_query: Query):
                 "gitops_nodes": gitops_result
             }
         guppy_nested_graphql = convert_to_executable_nested_graphql(response_content, llm)
-        # Return complete result
         return {
             "user_query": user_query.text,
             "extracted_keywords": context,
@@ -338,17 +327,7 @@ async def execute_graphql_query(
     variables: Optional[Dict[str, Any]] = None,
     token: str = None
 ) -> Dict[str, Any]:
-    """
-    Execute GraphQL query via the guppy endpoint
-    
-    Args:
-        query: GraphQL query string
-        variables: Optional query variables
-        token: Access token (if not provided, will be fetched)
-        
-    Returns:
-        Query results
-    """
+    """Execute a GraphQL query through Guppy."""
     if not token:
         token =  generate_access_token()
     
@@ -386,17 +365,8 @@ async def execute_graphql_query(
 
 @app.post("/query", response_model=GraphQLHttpResponse)
 async def run_graphql_query(query_request: GraphQLQuery) -> GraphQLHttpResponse:
-    """
-    Run GraphQL query via guppy/graphql API
-    
-    Args:
-        query_request: GraphQL query request containing query and optional variables
-        
-    Returns:
-        GraphQLResponse with query results
-    """
+    _require_legacy()
     try:
-        # Execute the query
         token = generate_access_token()
         result = await execute_graphql_query(
             query=query_request.query,
@@ -404,7 +374,6 @@ async def run_graphql_query(query_request: GraphQLQuery) -> GraphQLHttpResponse:
             token=token
         )
         
-        # Check if there are errors in the response
         if "errors" in result and result["errors"]:
             return GraphQLHttpResponse(
                 data=result.get("data"),
@@ -428,22 +397,24 @@ async def run_graphql_query(query_request: GraphQLQuery) -> GraphQLHttpResponse:
             detail=f"Internal server error: {str(e)}"
         )
 
-# Add session management routes
 @app.post("/sessions/create")
 async def create_session():
+    _require_legacy()
     session_id = str(uuid.uuid4())
     session_manager.get_or_create_session(session_id)
     return {"session_id": session_id}
 
 @app.delete("/sessions/{session_id}")
 async def delete_session(session_id: str):
+    _require_legacy()
     session_manager.delete_session(session_id)
     return {"status": "success"}
 
 @app.get("/sessions")
 async def list_sessions():
+    _require_legacy()
     return {"sessions": session_manager.get_all_session_ids()}
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    uvicorn.run(app, host="0.0.0.0", port=8000)

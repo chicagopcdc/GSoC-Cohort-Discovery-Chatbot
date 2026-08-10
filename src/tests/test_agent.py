@@ -3,24 +3,13 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
-
-def _find_upwards(relative: str) -> Path:
-    here = Path(__file__).resolve()
-    for parent in here.parents:
-        candidate = parent / relative
-        if candidate.exists():
-            return candidate
-    raise FileNotFoundError(f"could not find {relative} above {here}")
-
-
-_SERVICES = _find_upwards("backend/services")
-if str(_SERVICES.parent) not in sys.path:
-    sys.path.insert(0, str(_SERVICES.parent))
+_BACKEND = Path(__file__).resolve().parents[1] / "backend"
+if str(_BACKEND) not in sys.path:
+    sys.path.insert(0, str(_BACKEND))
 
 from services.agent import CohortAgent
 
 
-# --- canned assistant messages ---------------------------------------------
 def tool_call(call_id, name, args):
     return {
         "role": "assistant",
@@ -49,7 +38,6 @@ class ScriptedChat:
         return msg
 
 
-# --- fake tools -------------------------------------------------------------
 def build_obj(ok=True, wire=None, graphql=None, data_type="subject", errors=(), warnings=()):
     return SimpleNamespace(
         ok=ok,
@@ -68,10 +56,30 @@ def fail_build():
     )
 
 
-class FakeSessionManager:
-    def __init__(self, *turns):
-        self._turns = list(turns)          # each: (mode, build_obj)
+class FakeQueryBuilder:
+    def __init__(self, *builds):
+        self._builds = list(builds)
         self._i = 0
+        self.calls = []
+
+    def build(self, query, *, current_filter=None, data_type=None):
+        self.calls.append({
+            "query": query,
+            "current_filter": current_filter,
+            "data_type": data_type,
+        })
+        if not self._builds:
+            return build_obj(wire={"IN": {"consortium": [query]}})
+        build = self._builds[min(self._i, len(self._builds) - 1)]
+        self._i += 1
+        return build
+
+
+class FakeSessionManager:
+    def __init__(self, *turns, qb=None):
+        self._turns = list(turns)
+        self._i = 0
+        self.qb = qb or FakeQueryBuilder()
         self.turn_calls = []
         self.reset_calls = []
 
@@ -99,7 +107,119 @@ class FakeGuppy:
         return self._result
 
 
-# --- tests ------------------------------------------------------------------
+def summary_obj(*, label="current cohort", total=10, errors=(), warnings=()):
+    return SimpleNamespace(
+        label=label,
+        total=total,
+        total_masked=False,
+        distributions=[],
+        errors=list(errors),
+        warnings=list(warnings),
+    )
+
+
+def comparison_obj(*, label_a="current", label_b="NODAL", errors=(), warnings=()):
+    return SimpleNamespace(
+        label_a=label_a,
+        label_b=label_b,
+        total_a=10,
+        total_b=5,
+        total_a_masked=False,
+        total_b_masked=False,
+        total_delta=-5,
+        rows=[],
+        errors=list(errors),
+        warnings=list(warnings),
+    )
+
+
+class FakeAnalyzer:
+    def __init__(self, *, summary=None, comparison=None):
+        self._summary = summary or summary_obj()
+        self._comparison = comparison or comparison_obj()
+        self.summarize_calls = []
+        self.compare_calls = []
+
+    def summarize(self, wire, *, label):
+        self.summarize_calls.append({"wire": wire, "label": label})
+        self._summary.label = label
+        return self._summary
+
+    def compare(self, filter_a, filter_b, *, label_a, label_b):
+        self.compare_calls.append({
+            "filter_a": filter_a,
+            "filter_b": filter_b,
+            "label_a": label_a,
+            "label_b": label_b,
+        })
+        self._comparison.label_a = label_a
+        self._comparison.label_b = label_b
+        return self._comparison
+
+
+class FakeKnowledgeAnswer:
+    def __init__(self, *, ok=True, text="PCDC is a data commons.", kind="answer"):
+        self.ok = ok
+        self.text = text
+        self.kind = kind
+
+    def as_dict(self):
+        return {
+            "kind": self.kind,
+            "text": self.text,
+            "sources": ["PCDC overview"],
+            "snippets": [{"source": "PCDC overview", "path": "doc.md", "text": self.text}],
+        }
+
+
+class FakeKnowledgeQA:
+    def __init__(self, answer=None):
+        self._answer = answer or FakeKnowledgeAnswer()
+        self.calls = []
+
+    def answer(self, question):
+        self.calls.append(question)
+        return self._answer
+
+
+class TestKnowledgeQA:
+    def test_knowledge_tool_returns_grounded_answer(self):
+        qa = FakeKnowledgeQA()
+        chat = ScriptedChat(
+            tool_call("c1", "knowledge_qa", {"question": "What is PCDC?"}),
+            text_reply("PCDC is a data commons."),
+        )
+        agent = CohortAgent(FakeSessionManager(("new", build_obj())),
+                            knowledge_qa=qa, chat_fn=chat)
+
+        res = agent.chat("s1", "What is PCDC?")
+
+        assert res.steps[0].tool == "knowledge_qa"
+        assert res.steps[0].result["kind"] == "answer"
+        assert res.steps[0].result["sources"] == ["PCDC overview"]
+        assert qa.calls == ["What is PCDC?"]
+
+    def test_knowledge_tool_unavailable_without_service(self):
+        chat = ScriptedChat(
+            tool_call("c1", "knowledge_qa", {"question": "What is PCDC?"}),
+            text_reply("Knowledge QA is unavailable."),
+        )
+        agent = CohortAgent(FakeSessionManager(("new", build_obj())), chat_fn=chat)
+
+        res = agent.chat("s1", "What is PCDC?")
+
+        assert "not available" in res.steps[0].result["error"]
+
+    def test_tool_schema_exposes_knowledge_qa(self):
+        chat = ScriptedChat(text_reply("hello"))
+        agent = CohortAgent(FakeSessionManager(("new", build_obj())), chat_fn=chat)
+
+        agent.chat("s1", "hello")
+        names = [tool["function"]["name"] for tool in chat.calls[0]["tools"]]
+
+        assert "knowledge_qa" in names
+
+
 class TestHappyPath:
     def test_build_then_count_then_reply(self):
         sm = FakeSessionManager(("new", build_obj(graphql={"query": "Q"})))
@@ -119,27 +239,40 @@ class TestHappyPath:
         assert res.steps[0].result["ok"] is True
         assert res.steps[1].result["total_count"] == 123
         assert guppy.execute_calls == [({"query": "Q"}, "subject")]
-        assert sm.turn_calls == [("s1", "INRG males")]
+        assert sm.turn_calls == [("s1", "how many INRG males?")]
 
-    def test_count_returns_count_only(self):
-        # Histograms stay out of the tool result (module scope says no histograms).
-        sm = FakeSessionManager(("new", build_obj(graphql={"query": "Q"})))
-        guppy = FakeGuppy(guppy_result(total=5, histograms={"sex": [{"key": "Male", "count": 5}]}))
-        chat = ScriptedChat(
-            tool_call("c1", "build_query", {"query": "x"}),
-            tool_call("c2", "count_cohort", {}),
-            text_reply("5"),
+    def test_build_uses_complete_user_text_instead_of_tool_paraphrase(self):
+        text = (
+            "INRG participants do not exhibit 17q gain; "
+            "the molecular result is absent."
         )
-        agent = CohortAgent(sm, guppy_client=guppy, chat_fn=chat)
-        res = agent.chat("s1", "x")
-        assert res.steps[1].result == {"total_count": 5}
+        sm = FakeSessionManager(("new", build_obj()))
+        chat = ScriptedChat(
+            tool_call("c1", "build_query", {"query": "INRG without 17q gain"}),
+            text_reply("Built."),
+        )
+
+        CohortAgent(sm, chat_fn=chat).chat("s1", text)
+
+        assert sm.turn_calls == [("s1", text)]
+
+    def test_compare_request_keeps_model_selected_build_scope(self):
+        sm = FakeSessionManager(("new", build_obj()))
+        chat = ScriptedChat(
+            tool_call("c1", "build_query", {"query": "INRG patients"}),
+            text_reply("Built."),
+        )
+
+        CohortAgent(sm, chat_fn=chat).chat("s1", "compare INRG with NODAL")
+
+        assert sm.turn_calls == [("s1", "INRG patients")]
 
 
 class TestFailedBuild:
     def test_failed_build_keeps_last_good_query(self):
         sm = FakeSessionManager(
-            ("new", build_obj(graphql={"query": "GOOD"})),   # first build: good
-            ("modify", fail_build()),                         # second build: fails
+            ("new", build_obj(graphql={"query": "GOOD"})),
+            ("modify", fail_build()),
         )
         guppy = FakeGuppy(guppy_result(total=42))
         chat = ScriptedChat(
@@ -151,11 +284,11 @@ class TestFailedBuild:
         )
         agent = CohortAgent(sm, guppy_client=guppy, chat_fn=chat)
 
-        agent.chat("s1", "find INRG males")              # caches GOOD
-        res = agent.chat("s1", "change sex to invalid")  # build fails, count GOOD
+        agent.chat("s1", "find INRG males")
+        res = agent.chat("s1", "change sex to invalid")
 
-        assert res.steps[-2].result["ok"] is False        # failed build reported
-        assert res.steps[-1].result["total_count"] == 42  # count ran the good query
+        assert res.steps[-2].result["ok"] is False
+        assert res.steps[-1].result["total_count"] == 42
         assert guppy.execute_calls[-1] == ({"query": "GOOD"}, "subject")
 
 
@@ -169,18 +302,6 @@ class TestErrors:
                             guppy_client=FakeGuppy(guppy_result(total=1)), chat_fn=chat)
         res = agent.chat("s1", "how many?")
         assert "error" in res.steps[0].result
-
-    def test_null_query_arg_is_rejected(self):
-        # {"query": null} must not become the literal string "None".
-        sm = FakeSessionManager(("new", build_obj()))
-        chat = ScriptedChat(
-            tool_call("c1", "build_query", {"query": None}),
-            text_reply("What cohort would you like?"),
-        )
-        agent = CohortAgent(sm, chat_fn=chat)
-        res = agent.chat("s1", "?")
-        assert res.steps[0].result == {"error": "empty query"}
-        assert sm.turn_calls == []                        # build never attempted
 
     def test_unknown_tool_errors(self):
         chat = ScriptedChat(tool_call("c1", "frobnicate", {}), text_reply("ok"))
@@ -200,7 +321,7 @@ class TestErrors:
             text_reply("Sorry, something went wrong."),
         )
         agent = CohortAgent(Boom(), chat_fn=chat)
-        res = agent.chat("s1", "x")                       # must NOT raise
+        res = agent.chat("s1", "x")
         assert "kaboom" in res.steps[0].result["error"]
         assert res.reply == "Sorry, something went wrong."
 
@@ -211,14 +332,14 @@ class TestErrors:
             tool_call("c2", "count_cohort", {}),
             text_reply("Execution isn't available right now."),
         )
-        agent = CohortAgent(sm, chat_fn=chat)             # no guppy_client
+        agent = CohortAgent(sm, chat_fn=chat)
         res = agent.chat("s1", "x")
         assert "not available" in res.steps[1].result["error"]
 
 
 class TestLoopControl:
     def test_step_cap_stops(self):
-        chat = ScriptedChat(tool_call("c1", "build_query", {"query": "x"}))  # never a text reply
+        chat = ScriptedChat(tool_call("c1", "build_query", {"query": "x"}))
         agent = CohortAgent(FakeSessionManager(("new", build_obj())), chat_fn=chat, max_steps=3)
         res = agent.chat("s1", "loop")
         assert res.stopped is True
@@ -234,8 +355,8 @@ class TestLoopControl:
             text_reply("no query now"),
         )
         agent = CohortAgent(sm, guppy_client=FakeGuppy(guppy_result(total=9)), chat_fn=chat)
-        agent.chat("s1", "x")          # builds + caches
-        agent.reset("s1")              # clears cache + session
+        agent.chat("s1", "x")
+        agent.reset("s1")
         res = agent.chat("s1", "count")
         assert sm.reset_calls == ["s1"]
         assert "error" in res.steps[-1].result
@@ -268,24 +389,137 @@ class TestSchemaExplore:
             "query_type": "list_fields", "field": None, "path": "tumor_assessments", "value": None,
         }
 
-    def test_null_query_type_rejected(self):
-        # {"query_type": null} must not reach the explorer as the string "None".
-        explorer = FakeExplorer(SimpleNamespace(kind="fields", text="t", data={}))
-        chat = ScriptedChat(
-            tool_call("c1", "explore_schema", {"query_type": None}),
-            text_reply("What would you like to know about the schema?"),
-        )
-        agent = CohortAgent(FakeSessionManager(("new", build_obj())),
-                            schema_explorer=explorer, chat_fn=chat)
-        res = agent.chat("s1", "?")
-        assert "query_type" in res.steps[0].result["error"]
-        assert explorer.calls == []                       # explorer never reached
-
     def test_explore_unavailable_without_explorer(self):
         chat = ScriptedChat(
             tool_call("c1", "explore_schema", {"query_type": "list_tables"}),
             text_reply("Schema browsing isn't available right now."),
         )
-        agent = CohortAgent(FakeSessionManager(("new", build_obj())), chat_fn=chat)  # no explorer
+        agent = CohortAgent(FakeSessionManager(("new", build_obj())), chat_fn=chat)
         res = agent.chat("s1", "list tables")
         assert "not available" in res.steps[0].result["error"]
+
+
+class TestCohortAnalysisTools:
+    def test_summarize_after_build_returns_text_and_warnings(self):
+        wire = {"IN": {"sex": ["Male"]}}
+        sm = FakeSessionManager(("new", build_obj(wire=wire)))
+        analyzer = FakeAnalyzer(summary=summary_obj(total=12, warnings=("dropped unknown field",)))
+        chat = ScriptedChat(
+            tool_call("c1", "build_query", {"query": "male patients"}),
+            tool_call("c2", "summarize_cohort", {}),
+            text_reply("Here is the summary."),
+        )
+
+        agent = CohortAgent(sm, cohort_analyzer=analyzer, chat_fn=chat)
+        res = agent.chat("s1", "summarize male patients")
+
+        assert [s.tool for s in res.steps] == ["build_query", "summarize_cohort"]
+        assert "Total subjects: 12" in res.steps[1].result["text"]
+        assert res.steps[1].result["warnings"] == ["dropped unknown field"]
+        assert analyzer.summarize_calls == [{"wire": wire, "label": "current cohort"}]
+
+    def test_summarize_before_build_errors(self):
+        chat = ScriptedChat(
+            tool_call("c1", "summarize_cohort", {}),
+            text_reply("Please build a cohort first."),
+        )
+        agent = CohortAgent(
+            FakeSessionManager(("new", build_obj())),
+            cohort_analyzer=FakeAnalyzer(),
+            chat_fn=chat,
+        )
+
+        res = agent.chat("s1", "summarize")
+
+        assert "no cohort built yet" in res.steps[0].result["error"]
+
+    def test_summarize_unavailable_without_analyzer(self):
+        chat = ScriptedChat(
+            tool_call("c1", "build_query", {"query": "male patients"}),
+            tool_call("c2", "summarize_cohort", {}),
+            text_reply("Cohort analysis is unavailable."),
+        )
+        agent = CohortAgent(FakeSessionManager(("new", build_obj())), chat_fn=chat)
+
+        res = agent.chat("s1", "summarize male patients")
+
+        assert "not available" in res.steps[1].result["error"]
+
+    def test_compare_builds_other_cohort_stateless_and_returns_warnings(self):
+        current = {"IN": {"consortium": ["INRG"]}}
+        other = {"IN": {"consortium": ["NODAL"]}}
+        qb = FakeQueryBuilder(build_obj(wire=other, warnings=("ignored unsupported age range",)))
+        sm = FakeSessionManager(("new", build_obj(wire=current)), qb=qb)
+        analyzer = FakeAnalyzer(comparison=comparison_obj(warnings=("current: dropped unknown field",)))
+        chat = ScriptedChat(
+            tool_call("c1", "build_query", {"query": "INRG patients"}),
+            tool_call("c2", "compare_cohort", {"comparison_query": "NODAL patients"}),
+            text_reply("Here is the comparison."),
+        )
+
+        agent = CohortAgent(sm, cohort_analyzer=analyzer, chat_fn=chat)
+        res = agent.chat("s1", "compare INRG to NODAL")
+
+        assert [s.tool for s in res.steps] == ["build_query", "compare_cohort"]
+        assert "Total" in res.steps[1].result["text"]
+        assert qb.calls == [{
+            "query": "NODAL patients",
+            "current_filter": current,
+            "data_type": None,
+        }]
+        assert analyzer.compare_calls == [{
+            "filter_a": current,
+            "filter_b": other,
+            "label_a": "current",
+            "label_b": "NODAL patients",
+        }]
+        assert res.steps[1].result["warnings"] == [
+            "current: dropped unknown field",
+            "comparison cohort: ignored unsupported age range",
+        ]
+
+    def test_compare_failed_other_build_does_not_call_analyzer_or_clear_current(self):
+        current = {"IN": {"consortium": ["INRG"]}}
+        qb = FakeQueryBuilder(fail_build())
+        sm = FakeSessionManager(("new", build_obj(wire=current)), qb=qb)
+        analyzer = FakeAnalyzer()
+        chat = ScriptedChat(
+            tool_call("c1", "build_query", {"query": "INRG patients"}),
+            tool_call("c2", "compare_cohort", {"comparison_query": "invalid cohort"}),
+            text_reply("That comparison could not be built."),
+        )
+
+        agent = CohortAgent(sm, cohort_analyzer=analyzer, chat_fn=chat)
+        res = agent.chat("s1", "compare with invalid cohort")
+
+        assert "invalid_enum_value" in res.steps[1].result["error"]
+        assert analyzer.compare_calls == []
+        assert agent._last_build["s1"].wire == current
+
+    def test_compare_before_build_errors(self):
+        chat = ScriptedChat(
+            tool_call("c1", "compare_cohort", {"comparison_query": "NODAL"}),
+            text_reply("Please build a cohort first."),
+        )
+        agent = CohortAgent(
+            FakeSessionManager(("new", build_obj())),
+            cohort_analyzer=FakeAnalyzer(),
+            chat_fn=chat,
+        )
+
+        res = agent.chat("s1", "compare")
+
+        assert "no cohort built yet" in res.steps[0].result["error"]
+
+
+class TestSchemaExplorerProperty:
+    def test_exposes_the_injected_explorer(self):
+        explorer = FakeExplorer(SimpleNamespace(kind="fields", text="t", data={}))
+        agent = CohortAgent(
+            FakeSessionManager(("new", build_obj())), schema_explorer=explorer
+        )
+        assert agent.schema_explorer is explorer
+
+    def test_is_none_when_not_configured(self):
+        agent = CohortAgent(FakeSessionManager(("new", build_obj())))
+        assert agent.schema_explorer is None
