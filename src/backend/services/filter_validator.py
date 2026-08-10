@@ -23,6 +23,7 @@ from models.filters import (
     LTClause,
     LTEClause,
     NestedClause,
+    NotEqualsClause,
     OrClause,
 )
 from services.schema_loader import FieldSpec, SchemaIndex
@@ -88,6 +89,8 @@ def validate_dict(obj: dict, schema: SchemaIndex) -> ValidationResult:
 def _walk(clause, path: Optional[str], schema: SchemaIndex, issues: list) -> None:
     if isinstance(clause, InClause):
         _check_in(clause, path, schema, issues)
+    elif isinstance(clause, NotEqualsClause):
+        _check_not_equal(clause, path, schema, issues)
     elif isinstance(clause, tuple(_RANGE_ATTR)):
         _check_range(clause, path, schema, issues)
     elif isinstance(clause, AndClause):
@@ -143,6 +146,18 @@ def _check_in(clause: InClause, path, schema, issues) -> None:
                     field=field, path=path, value=str(v)))
 
 
+def _check_not_equal(clause: NotEqualsClause, path, schema, issues) -> None:
+    for field, value in clause.not_equal.items():
+        spec = _resolve(field, path, schema, issues)
+        if spec is None:
+            continue
+        if spec.field_type == "enum" and str(value) not in spec.enum_values:
+            issues.append(ValidationIssue(
+                CODE_INVALID_ENUM,
+                f"{value!r} is not a valid value for {field!r}",
+                field=field, path=path, value=str(value)))
+
+
 def _check_range(clause, path, schema, issues) -> None:
     op = _RANGE_ATTR[type(clause)]
     for field, _value in getattr(clause, op).items():
@@ -152,7 +167,7 @@ def _check_range(clause, path, schema, issues) -> None:
         if spec.field_type not in ("number", "unknown"):
             issues.append(ValidationIssue(
                 CODE_TYPE_MISMATCH,
-                f"{op} can't be applied to to {spec.field_type} field {field!r}",
+                f"{op} can't be applied to non-numeric {spec.field_type} field {field!r}",
                 field=field, path=path))
 
 

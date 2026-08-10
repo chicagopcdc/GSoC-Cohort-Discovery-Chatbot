@@ -26,11 +26,16 @@ _MAX_VALUES_SHOWN = 40
 _OP_DISPLAY = {"gt": "GT", "gte": "GTE", "lt": "LT", "lte": "LTE"}
 
 
+# NOTE: FilterGenerator.generate() currently overrides this system prompt with
+# services.filter_generator._TAGGED_SYSTEM_PROMPT (the tagged op/field/values
+# form). This wire-form prompt is kept for tests and other callers; keep its
+# rules aligned with _TAGGED_SYSTEM_PROMPT until prompt ownership is consolidated.
 SYSTEM_PROMPT = """\
 You translate a parsed clinical-cohort query into a single Guppy GraphQL filter.
 
 The filter is one JSON object built from these clauses:
   - {"IN":  {"<field>": ["<value>", ...]}}   membership in a set of values
+  - {"!=":  {"<field>": "<value>"}}           field value is not equal to scalar
   - {"GTE": {"<field>": <number>}}            >=   (also LTE, GT, LT)
   - {"AND": [<clause>, ...]}                   all of
   - {"OR":  [<clause>, ...]}                   any of
@@ -52,27 +57,26 @@ Rules:
    different fields or nested paths (a cross-field OR cannot be written as one IN),
    or when the request reads as a choice between cohorts ("either the INRG or the
    INSTRuCT cohort") -- that is recorded as an OR of AND blocks even on one field.
-   When unsure, prefer the OR-of-AND-blocks form (especially for explicit
-   either/or requests).
+   When the request is ambiguous but reads like an explicit either/or choice,
+   prefer the OR-of-AND-blocks form; otherwise keep same-field value lists as a
+   single IN.
 
 3. A field that lives under a nested path must be wrapped in a nested clause with
    that path. Only one level of nesting exists: a nested clause cannot contain
    another nested clause.
 
-4. Numeric ranges are handed to you with negation already resolved. A range marked
-   "already flipped" has had its operator reversed for you ("not older than 5"
-   arrives as LTE 5) -- apply it as given and do no arithmetic of your own.
-   If a numeric range includes a unit but no schema-unit converted value is
-   provided, drop that numeric condition rather than guessing a conversion.
-
+4. Numeric ranges are handed to you with negation already resolved and any units
+   already converted to the field's stored unit. A range marked "already flipped"
+   has had its operator reversed for you ("not older than 5" arrives as LTE); the
+   number shown is ready to use as-is -- do no arithmetic of your own.
 
 5. Return one JSON object and nothing else: no prose, no explanation, no code
    fences. A single condition is returned as its own clause; combine several
    independent conditions with a top-level AND.
 
-6. There is no NOT operator. Range negation is already folded into the bound
-   (Rule 4). A negated enum or category term ("not metastatic", "race is not
-   white") cannot be expressed -- drop that condition rather than writing it as a
+6. There is no general NOT operator. Range negation is already folded into the
+   bound (Rule 4). For negated enum/category terms listed under "Excluded terms",
+   emit field-level !=. Drop unsupported negation rather than writing it as a
    positive IN.
 
 The examples below show clause structure only. For the real answer, draw every
@@ -109,15 +113,15 @@ def _format_candidates(
     lines: List[str] = []
 
     for c in candidates:
-        where = c.path or "subject"
+        where = c.path if c.path else "subject, TOP-LEVEL"
         head = f"- {c.field} ({c.field_type}, under {where})"
         if c.description:
             head += f": {c.description}"
 
         if c.field_type == "enum" and c.enum_values:
-            pinned_vals = set(pinned.get((c.path, c.field), ()))
-            must = [v for v in c.enum_values if v in pinned_vals]
-            rest = [v for v in c.enum_values if v not in pinned_vals]
+            pinned_values = set(pinned.get((c.path, c.field), ()))
+            must = [v for v in c.enum_values if v in pinned_values]
+            rest = [v for v in c.enum_values if v not in must]
             shown = must + rest[: max(0, _MAX_VALUES_SHOWN - len(must))]
             hidden = len(c.enum_values) - len(shown)
             more = f" (+{hidden} more)" if hidden > 0 else ""
@@ -126,65 +130,6 @@ def _format_candidates(
         lines.append(head)
 
     return "\n".join(lines) if lines else "(no candidate fields)"
-
-
-def _range_field(r) -> Optional[str]:
-    return getattr(r, "field", None)
-
-
-def _range_path(r) -> Optional[str]:
-    return getattr(r, "path", None)
-
-
-def _range_value(r):
-    # Future normalizer versions may attach a schema-unit value, e.g. days for
-    # age. Prefer that over the user's raw number when it exists.
-    return getattr(r, "value_in_days", r.value)
-
-
-def _format_number(value) -> object:
-    return int(value) if float(value).is_integer() else value
-
-
-def _has_schema_unit_value(r) -> bool:
-    return r.unit is None or _range_field(r) is not None or hasattr(r, "value_in_days")
-
-
-def _range_label(r, *, include_unit: bool = True) -> str:
-    op = _OP_DISPLAY.get(r.op, r.op.upper())
-    value = _format_number(_range_value(r))
-    unit = ""
-    if include_unit:
-        if hasattr(r, "value_in_days"):
-            unit = " days"
-        elif r.unit:
-            unit = f" {r.unit}"
-    return f"{r.quantity or 'value'} {op} {value}{unit}"
-
-
-def prompt_warnings(nq: "NormalizedQuery") -> List[str]:
-    """Return constraints the prompt must not turn into filter clauses.
-
-    The generator/query builder can surface these strings to the user. Keeping
-    them here avoids silently dropping unsupported user intent.
-    """
-    warnings: List[str] = []
-
-    for term in nq.terms:
-        if term.negated:
-            warnings.append(
-                f'dropped negated enum/category term "{term.value}": '
-                "NOT is not supported for enum/category values"
-            )
-
-    for r in nq.ranges:
-        if not _has_schema_unit_value(r):
-            warnings.append(
-                f"dropped numeric range {_range_label(r)}: "
-                "schema-unit converted value is not available"
-            )
-
-    return warnings
 
 
 def _format_recognized(nq: "NormalizedQuery") -> str:
@@ -205,37 +150,101 @@ def _format_recognized(nq: "NormalizedQuery") -> str:
     return "\n".join(lines)
 
 
+def _format_excluded(nq: "NormalizedQuery") -> str:
+    terms = [term for term in nq.terms if term.negated and term.placements]
+    if not terms:
+        return "(none)"
+
+    lines: List[str] = []
+    for term in terms:
+        places = ", ".join(
+            f"{p.field} (under {p.path or 'subject'})" for p in term.placements
+        )
+        lines.append(f'- "{term.value}" -> {places}')
+
+    return "\n".join(lines)
+
+
+def _fmt_num(value: float):
+    """Show whole numbers without a trailing .0, keep real decimals."""
+    return int(value) if float(value).is_integer() else value
+
+
+def _unconvertible(r) -> bool:
+    return r.field is None and r.unit is not None
+
+
+def _range_label(r) -> str:
+    op = _OP_DISPLAY.get(r.op, r.op.upper())
+    unit = f" {r.unit}" if r.unit else ""
+    return f"{r.quantity or 'value'} {op} {_fmt_num(r.value)}{unit}"
+
+
+def prompt_warnings(nq: "NormalizedQuery") -> List[str]:
+    """Constraints the prompt must not turn into filter clauses, so the caller
+    can surface them instead of silently dropping user intent."""
+    warnings: List[str] = []
+
+    for term in nq.terms:
+        if term.negated and not term.placements:
+            warnings.append(
+                f'dropped negated enum/category term "{term.value}": '
+                "no schema field placement is available"
+            )
+
+    for r in nq.ranges:
+        if _unconvertible(r):
+            warnings.append(
+                f"dropped numeric range {_range_label(r)}: "
+                "schema-unit converted value is not available"
+            )
+
+    return warnings
+
+
+def _format_unsupported(nq: "NormalizedQuery") -> str:
+    warnings = prompt_warnings(nq)
+    return "\n".join(f"- {w}" for w in warnings) if warnings else "(none)"
+
+
 def _format_ranges(nq: "NormalizedQuery") -> str:
     if not nq.ranges:
         return "(none)"
 
     lines: List[str] = []
     for r in nq.ranges:
-        if not _has_schema_unit_value(r):
+        if _unconvertible(r):
             continue
 
         op = _OP_DISPLAY.get(r.op, r.op.upper())
-        num = _format_number(_range_value(r))
+        num = _fmt_num(r.value)
         flipped = " (operator already flipped for negation)" if r.negated else ""
-        field = _range_field(r)
-        path = _range_path(r)
-        if field is not None:
-            # Already bound to a schema field; present it ready to use (value is
-            # in the field's stored unit, applied as-is).
-            where = f" (under {path})" if path else ""
-            lines.append(f"- {field}{where} {op} {num}{flipped}")
+        # "latest record" intent cannot be expressed by a membership filter; the
+        # filter matches any qualifying record. Surface it rather than hide it.
+        latest = " (note: 'latest' record intent is not expressible; matches any record)" \
+            if getattr(r, "latest", False) else ""
+        flipped += latest
+
+        if r.field is not None:
+            # Bound to a schema field. The value is already in the field's stored
+            # unit; show the conversion provenance so the number is auditable and
+            # the model knows not to touch it.
+            where = f" (under {r.path})" if r.path else ""
+            prov = ""
+            if r.converted and r.original_value is not None:
+                assumed = "assumed " if r.assumed_unit else ""
+                prov = (
+                    f"  [from {_fmt_num(r.original_value)} {assumed}{r.original_unit}, "
+                    f"converted to {r.unit}]"
+                )
+            lines.append(f"- {r.field}{where} {op} {num}{flipped}{prov}")
         else:
-            unit = " days" if hasattr(r, "value_in_days") else ""
+            # Unresolved: no target field, so the unit was not converted. Pass the
+            # user's unit through rather than pretend it matches a field's unit.
+            unit = f" {r.unit}" if r.unit else ""
             lines.append(f"- {r.quantity or 'value'} {op} {num}{unit}{flipped}")
 
     return "\n".join(lines) if lines else "(none)"
-
-
-def _format_unsupported(nq: "NormalizedQuery") -> str:
-    warnings = prompt_warnings(nq)
-    if not warnings:
-        return "(none)"
-    return "\n".join(f"- {w}" for w in warnings)
 
 
 def build_filter_messages(
@@ -249,6 +258,8 @@ def build_filter_messages(
         f"User query:\n{nq.text}\n\n"
         f"Recognized terms (already matched to the schema):\n"
         f"{_format_recognized(nq)}\n\n"
+        f"Excluded terms (emit as !=):\n"
+        f"{_format_excluded(nq)}\n\n"
         f"Numeric ranges:\n{_format_ranges(nq)}\n\n"
         f"Unsupported constraints (already dropped; do not emit):\n"
         f"{_format_unsupported(nq)}\n\n"

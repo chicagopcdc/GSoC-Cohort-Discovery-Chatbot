@@ -1,0 +1,34 @@
+# Policy for numeric ("age at ...") field resolution.
+#
+# Identity, unit, and routing cues are derived from the schema; this file only
+# tunes/overrides that. All keys are optional and fall back to the NumericConfig
+# defaults in services/numeric_resolver.py.
+
+name_pattern: "^age_at_"          # a field is an age field iff its name matches
+                                  # this AND the schema types it numeric
+default_field: age_at_censor_status   # used when no cue in the query matches
+default_unit: days                # used only when a description states no unit
+assumed_input_unit: years         # a bare "older than 5" is read as 5 years
+
+factors_to_base:                  # every unit converts through days
+  days: 1.0
+  weeks: 7.0
+  months: 30.0
+  years: 365.25
+
+# Per-field unit overrides, only needed when a description lacks a unit and the
+# default is wrong for that field. Empty today: all PCDC age fields are in days.
+unit_overrides: {}
+
+# Curated cues for fields whose description does not spell out a routable phrase
+# (e.g. blank descriptions, or common abbreviations users type).
+cue_aliases:
+  last known survival status: age_at_lkss
+  lkss: age_at_lkss
+
+# Fields to exclude from routing entirely.
+disabled_fields: []
+
+# Derived cues shorter than this many words are dropped, to avoid routing on a
+# single generic token like "assessment".
+min_cue_words: 2

@@ -124,6 +124,7 @@ FILTER_JSON_SCHEMA = {
         "clause": {
             "anyOf": [
                 {"$ref": "#/$defs/in_clause"},
+                {"$ref": "#/$defs/not_equals_clause"},
                 {"$ref": "#/$defs/range_clause"},
                 {"$ref": "#/$defs/and_clause"},
                 {"$ref": "#/$defs/or_clause"},
@@ -146,6 +147,22 @@ FILTER_JSON_SCHEMA = {
                 "values": {"type": "array", "items": {"type": "string"}},
             },
             "required": ["op", "field", "values"],
+        },
+        "not_equals_clause": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "op": {"type": "string", "enum": ["!="]},
+                "field": {"type": "string"},
+                "value": {
+                    "anyOf": [
+                        {"type": "string"},
+                        {"type": "number"},
+                        {"type": "boolean"},
+                    ]
+                },
+            },
+            "required": ["op", "field", "value"],
         },
         "range_clause": {
             "type": "object",
@@ -195,6 +212,7 @@ You translate a parsed clinical-cohort query into a single GraphQL filter.
 Return exactly one JSON object shaped as {"filter": <clause>}, nothing else.
 A clause is one of:
   {"op": "IN",     "field": "<field>", "values": ["<value>", ...]}
+  {"op": "!=",     "field": "<field>", "value": "<value>"}
   {"op": "GTE",    "field": "<field>", "value": <number>}   (also LTE, GT, LT)
   {"op": "AND",    "clauses": [<clause>, ...]}
   {"op": "OR",     "clauses": [<clause>, ...]}
@@ -209,12 +227,17 @@ Rules:
    branch wrapped in its own AND, when the alternatives span different fields or
    nested paths, or when the request reads as a choice between cohorts ("either
    the INRG or the INSTRuCT cohort").
-3. A field under a nested path goes inside a nested clause with that path. Only
-   one level of nesting exists; a nested body cannot contain another nested.
-4. Numeric ranges arrive with negation already resolved; apply them as given and
-   do no arithmetic of your own.
-5. There is no NOT operator. A negated enum/category term ("not metastatic")
-   cannot be expressed -- drop it rather than writing it as a positive IN.
+3. Fields shown as "under subject" are top-level: place them directly in the
+   top-level AND/OR and never inside a nested clause. A field under a named table
+   goes inside a nested clause for that table, together with any timing value
+   ("disease_phase") that qualifies that same event. Only one level of nesting
+   exists; a nested body cannot contain another nested.
+4. Numeric ranges arrive with negation already resolved and units already
+   converted to the field's stored unit; apply the number as given and do no
+   arithmetic of your own.
+5. There is no general NOT operator. For a negated enum/category term listed
+   under "Excluded terms", emit a field-level != clause. Drop unsupported
+   negation rather than writing it as a positive IN.
 
 The examples show clause structure only; for the real answer use only the
 candidate fields and values, never the example fields.
@@ -227,6 +250,12 @@ Query: subjects in either the INRG or INSTRuCT consortium
 
 Query: patients with metastatic tumors
 {"filter": {"op": "nested", "path": "tumor_assessments", "body": {"op": "AND", "clauses": [{"op": "IN", "field": "tumor_classification", "values": ["Metastatic"]}]}}}
+
+Query: INRG patients with metastatic tumors
+{"filter": {"op": "AND", "clauses": [{"op": "IN", "field": "consortium", "values": ["INRG"]}, {"op": "nested", "path": "tumor_assessments", "body": {"op": "AND", "clauses": [{"op": "IN", "field": "tumor_classification", "values": ["Metastatic"]}]}}]}}
+
+Query: ARMS histology at initial diagnosis
+{"filter": {"op": "nested", "path": "histologies", "body": {"op": "AND", "clauses": [{"op": "IN", "field": "disease_phase", "values": ["Initial Diagnosis"]}, {"op": "IN", "field": "histology", "values": ["Alveolar rhabdomyosarcoma (ARMS)"]}]}}}
 """
 
 
@@ -239,6 +268,12 @@ def _tagged_to_wire(node: dict) -> dict:
         if not isinstance(values, list):
             raise ValueError(f"IN values must be a list, got {type(values).__name__}")
         return {"IN": {node["field"]: list(values)}}
+
+    if op == "!=":
+        value = node["value"]
+        if isinstance(value, (dict, list)):
+            raise ValueError("!= value must be a scalar")
+        return {"!=": {node["field"]: value}}
 
     if op in ("GTE", "LTE", "GT", "LT"):
         return {op: {node["field"]: node["value"]}}
@@ -272,7 +307,7 @@ def _partition_ranges(ranges) -> Tuple[list, list]:
     for r in ranges:
         # A range bound to a schema field is ready to use; only an unresolved
         # unit-bearing range is deferred until conversion lands.
-        if r.unit is None:
+        if r.field is not None or r.unit is None:
             usable.append(r)
         else:
             deferred.append(r)
@@ -339,6 +374,7 @@ class FilterGenerator:
         gitops_path: Union[str, Path],
         *,
         synonyms_path: Optional[Union[str, Path]] = None,
+        numeric_config_path: Optional[Union[str, Path]] = None,
         config: Optional[GeneratorConfig] = None,
         embed_fn=None,
         client=None,
@@ -347,7 +383,9 @@ class FilterGenerator:
         """Build a generator and its helper services from schema files."""
         config = config or GeneratorConfig.from_env()
         schema = SchemaIndex.from_files(pcdc_path, gitops_path)
-        normalizer = TermNormalizer.from_files(schema, synonyms_path)
+        normalizer = TermNormalizer.from_files(
+            schema, synonyms_path, numeric_config_path=numeric_config_path
+        )
         retriever = CandidateRetriever(
             schema,
             embed_fn=embed_fn,
