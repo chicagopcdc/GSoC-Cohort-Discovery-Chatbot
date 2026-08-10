@@ -1,6 +1,8 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 
 def _find_upwards(relative: str) -> Path:
     here = Path(__file__).resolve()
@@ -15,7 +17,12 @@ _SERVICES = _find_upwards("backend/services")
 if str(_SERVICES.parent) not in sys.path:
     sys.path.insert(0, str(_SERVICES.parent))
 
-from services.guppy_client import GuppyClient, GuppyTransportError
+from services.guppy_client import (
+    DEFAULT_PCDC_GUPPY_ENDPOINT,
+    GuppyClient,
+    GuppyTransportError,
+    PCDCGuppyClient,
+)
 
 
 def make_response(total=None, histograms=None, data_type="subject", errors=None, data_present=True):
@@ -63,6 +70,41 @@ class TestSuccess:
         res = client.execute({"query": "Q"}, data_type="subject")
         assert res.ok
         assert res.total_count == 0
+
+    def test_count_subjects_builds_public_aggregation_payload(self):
+        t = RecordingTransport(make_response(total=26529))
+        client = PCDCGuppyClient(transport=t)
+        res = client.count_subjects({"AND": [{"IN": {"consortium": ["INRG"]}}]})
+
+        assert res.ok
+        assert res.total_count == 26529
+        call = t.calls[0]
+        assert call["url"] == DEFAULT_PCDC_GUPPY_ENDPOINT
+        assert call["body"] == {
+            "query": (
+                "query ($filter: JSON) { _aggregation { "
+                "subject(filter: $filter) { _totalCount } } }"
+            ),
+            "variables": {
+                "filter": {"AND": [{"IN": {"consortium": ["INRG"]}}]},
+            },
+        }
+        assert "Authorization" not in call["headers"]
+
+    @pytest.mark.asyncio
+    async def test_async_count_subjects_uses_async_transport(self):
+        calls = []
+
+        async def transport(url, body, headers, timeout):
+            calls.append({"url": url, "body": body, "headers": headers, "timeout": timeout})
+            return make_response(total=7)
+
+        client = PCDCGuppyClient(async_transport=transport)
+        res = await client.acount_subjects({"AND": [{"IN": {"sex": ["Male"]}}]})
+
+        assert res.ok
+        assert res.total_count == 7
+        assert calls[0]["body"]["variables"]["filter"] == {"AND": [{"IN": {"sex": ["Male"]}}]}
 
 
 class TestMaskedCounts:
@@ -199,6 +241,35 @@ class TestTransportErrors:
             raise RuntimeError("socket exploded")
         res = GuppyClient("http://x", transport=boom).execute({"query": "Q"})
         assert any("request failed" in e for e in res.errors)
+
+    def test_http_non_2xx_becomes_error_result(self, monkeypatch):
+        class Response:
+            status_code = 503
+            text = "service unavailable"
+
+            def json(self):
+                raise ValueError("not json")
+
+        import httpx
+        monkeypatch.setattr(httpx, "post", lambda *args, **kwargs: Response())
+
+        res = GuppyClient("http://x").execute({"query": "Q"})
+
+        assert not res.ok
+        assert res.errors[0].startswith("http_error: 503")
+
+    def test_http_timeout_becomes_error_result(self, monkeypatch):
+        import httpx
+
+        def boom(*args, **kwargs):
+            raise httpx.TimeoutException("slow")
+
+        monkeypatch.setattr(httpx, "post", boom)
+
+        res = GuppyClient("http://x").execute({"query": "Q"})
+
+        assert not res.ok
+        assert res.errors[0].startswith("timeout:")
 
 
 class TestAuth:
