@@ -18,6 +18,7 @@ if str(_SERVICES.parent) not in sys.path:
 
 import pytest
 
+from services.numeric_resolver import NumericConfig, NumericFieldResolver
 from services.term_normalizer import (
     FieldPlacement,
     RecognizedTerm,
@@ -55,6 +56,12 @@ class _FakeSchema:
     def get_fields(self, name):
         return list(self._by_name.get(name, []))
 
+    def get_field(self, name, path=None):
+        return next(
+            (spec for spec in self._by_name.get(name, []) if spec.parent_path == path),
+            None,
+        )
+
     def fields_containing_value(self, value):
         seen, out = set(), []
         for name in self._by_value.get(value, []):
@@ -71,12 +78,18 @@ def _norm():
         _spec("ethnicity", enum_values=("Hispanic or Latino", "Not Reported")),
         _spec("cytodifferentiation", enum_values=("1", "2", "3")),
         _spec("stage", parent_path="stagings", enum_values=("1", "2", "3")),
+        _spec("AB", parent_path="stagings", enum_values=("A", "B")),
         _spec("age_at_censor_status", field_type="number",
               description="Age (in days) of the subject at the event censor status."),
         _spec("age_at_tumor_assessment", field_type="number", parent_path="tumor_assessments",
               description="Age of subject (in days) at tumor assessment."),
+        _spec("year_at_disease_phase", field_type="number"),
     ])
-    return TermNormalizer(schema)
+    config = NumericConfig(calendar_year_field="year_at_disease_phase")
+    return TermNormalizer(
+        schema,
+        numeric_resolver=NumericFieldResolver.from_schema(schema, config),
+    )
 
 
 class TestWordNumbers:
@@ -85,19 +98,22 @@ class TestWordNumbers:
         assert _parse_num("five") == 5.0
         assert _parse_num("twenty-one") == 21.0
         assert _parse_num("thirteen") == 13.0
+        assert _parse_num("10,983") == 10983.0
 
     def test_word_number_in_range(self):
         nq = _norm().normalize("patients younger than five years")
         assert len(nq.ranges) == 1
         assert nq.ranges[0].op == "lt"
         assert nq.ranges[0].original_value == 5.0
-        assert nq.ranges[0].value == 1826.25
+        # 5 years is 1826.25 days; ages are stored as whole days, so LT rounds up
+        # to the integer bound that selects the same rows (max qualifying = 1826).
+        assert nq.ranges[0].value == 1827
 
 
 class TestRangePhrasings:
     def test_before_age(self):
         r = _norm().normalize("subjects before age 5").ranges
-        assert (r[0].op, r[0].field, r[0].value) == ("lt", "age_at_censor_status", 1826.25)
+        assert (r[0].op, r[0].field, r[0].value) == ("lt", "age_at_censor_status", 1827)
 
     def test_after_age(self):
         r = _norm().normalize("after age 2").ranges
@@ -106,6 +122,106 @@ class TestRangePhrasings:
     def test_up_to_age(self):
         r = _norm().normalize("up to age 10").ranges
         assert r[0].op == "lte"
+
+    def test_between_range_accepts_thousands_separator(self):
+        r = _norm().normalize(
+            "age at tumor assessment between 547 and 10,983 days"
+        ).ranges
+
+        assert [(x.op, x.field, x.value) for x in r] == [
+            ("gte", "age_at_tumor_assessment", 547.0),
+            ("lte", "age_at_tumor_assessment", 10983.0),
+        ]
+
+    def test_ranged_from_to_is_extracted(self):
+        r = _norm().normalize(
+            "age at tumor assessment ranged from 365 to 546 days"
+        ).ranges
+
+        assert [(x.op, x.field, x.value) for x in r] == [
+            ("gte", "age_at_tumor_assessment", 365.0),
+            ("lte", "age_at_tumor_assessment", 546.0),
+        ]
+
+    def test_calendar_year_range_is_bound_to_top_level_year(self):
+        r = _norm().normalize(
+            "the diagnosis occurred between the years 2000 and 2014"
+        ).ranges
+
+        assert [(x.op, x.field, x.path, x.value) for x in r] == [
+            ("gte", "year_at_disease_phase", None, 2000.0),
+            ("lte", "year_at_disease_phase", None, 2014.0),
+        ]
+
+    def test_bare_calendar_year_range_needs_no_year_keyword(self):
+        # The portal's own phrasing omits "years"; the numbers decide, not the
+        # wording. Without this the bounds reach the model unbound and it guesses
+        # a field (historically "stage", which then fails validation).
+        r = _norm().normalize("patients who were diagnosed between 1990 and 2002").ranges
+
+        assert [(x.op, x.field, x.value) for x in r] == [
+            ("gte", "year_at_disease_phase", 1990.0),
+            ("lte", "year_at_disease_phase", 2002.0),
+        ]
+
+    def test_from_to_calendar_year_range_is_bound(self):
+        r = _norm().normalize("patients diagnosed from 2003 to 2020").ranges
+
+        assert [(x.op, x.field, x.value) for x in r] == [
+            ("gte", "year_at_disease_phase", 2003.0),
+            ("lte", "year_at_disease_phase", 2020.0),
+        ]
+
+    def test_age_in_years_is_not_read_as_calendar_years(self):
+        r = _norm().normalize("patients between 1 and 5 years old at diagnosis").ranges
+
+        assert [(x.op, x.field) for x in r] == [
+            ("gte", "age_at_censor_status"),
+            ("lte", "age_at_censor_status"),
+        ]
+
+    def test_large_day_range_is_not_read_as_calendar_years(self):
+        # 3000-4000 sits outside the year window, and the unit is explicit.
+        r = _norm().normalize(
+            "age at censor status between 3000 and 4000 days"
+        ).ranges
+
+        assert all(x.field == "age_at_censor_status" for x in r)
+
+    def test_negated_calendar_year_range_flips_the_operators(self):
+        nq = _norm().normalize(
+            "patients NOT diagnosed between the years 1990 and 2002"
+        )
+
+        assert [(x.op, x.field) for x in nq.ranges] == [
+            ("lt", "year_at_disease_phase"),
+            ("gt", "year_at_disease_phase"),
+        ]
+        assert nq.negations
+
+
+class TestWholeDayBounds:
+    """Ages are stored as whole days, so converted bounds must land on integers."""
+
+    def test_year_conversion_snaps_to_whole_days(self):
+        r = _norm().normalize(
+            "age at tumor assessment between 1 and 1.5 years"
+        ).ranges
+
+        # 365.25 and 547.875 days; GTE floors so "at least 1 year" keeps the
+        # subjects recorded at exactly 365 days, LTE floors to the same rows.
+        assert [(x.op, x.value) for x in r] == [("gte", 365), ("lte", 547)]
+        assert all(isinstance(x.value, int) for x in r)
+
+    def test_lt_rounds_up_to_keep_the_same_rows(self):
+        r = _norm().normalize("subjects younger than 5 years").ranges
+
+        assert (r[0].op, r[0].value) == ("lt", 1827)
+
+    def test_whole_day_input_is_left_alone(self):
+        r = _norm().normalize("age at censor status of at least 400 days").ranges
+
+        assert (r[0].op, r[0].value) == ("gte", 400.0)
 
 
 class TestNumericFalsePositive:
@@ -117,6 +233,26 @@ class TestNumericFalsePositive:
     def test_stage_number_still_matched_without_range(self):
         nq = _norm().normalize("stage 3 patients")
         assert any(t.value == "3" and t.placements[0].field == "stage" for t in nq.terms)
+
+    def test_lowercase_article_is_not_enum_a(self):
+        nq = _norm().normalize("patients with a molecular analysis")
+        assert all(t.value != "A" for t in nq.terms)
+
+    def test_sentence_initial_article_is_not_enum_a(self):
+        # Capitalisation is not a signal: these queries are full sentences, so a
+        # leading "A" is still an article, not the stagings AB value.
+        nq = _norm().normalize("A patient with a tumor assessment")
+        assert all(t.value != "A" for t in nq.terms)
+
+    def test_single_letter_value_kept_when_its_field_is_named(self):
+        nq = _norm().normalize("patients whose AB stage is A")
+        assert any(
+            t.value == "A" and t.placements[0].field == "AB" for t in nq.terms
+        )
+
+    def test_explicit_uppercase_a_enum_is_retained(self):
+        nq = _norm().normalize("AB A")
+        assert any(t.value == "A" and t.placements[0].field == "AB" for t in nq.terms)
 
 
 class TestFieldDisambiguation:

@@ -35,7 +35,7 @@ class QueryBuilder:
         generator: FilterGenerator,
         *,
         default_data_type: str = "subject",
-        default_accessibility: str = "all",
+        default_accessibility: Optional[str] = "all",
     ):
         self.generator = generator
 
@@ -57,8 +57,9 @@ class QueryBuilder:
         embed_fn=None,
         client=None,
         cache_dir: Optional[Union[str, Path]] = None,
+        semantic_config_path: Optional[Union[str, Path]] = None,
         default_data_type: str = "subject",
-        default_accessibility: str = "all",
+        default_accessibility: Optional[str] = "all",
     ) -> "QueryBuilder":
         """Create a QueryBuilder and load its dependencies from schema files."""
         generator = FilterGenerator.from_files(
@@ -70,6 +71,7 @@ class QueryBuilder:
             embed_fn=embed_fn,
             client=client,
             cache_dir=cache_dir,
+            semantic_config_path=semantic_config_path,
         )
         return cls(
             generator,
@@ -198,5 +200,9 @@ class QueryBuilder:
                 f"dropped range {r.quantity or 'value'} {r.op} {r.value}{unit}: "
                 "unit not yet converted to schema units"
             )
+
+        # Clinical state the query left open. The cohort is still built, so the
+        # caller has to be told which reading it got.
+        out.extend(gen.semantic_warnings)
 
         return tuple(out)

@@ -22,12 +22,18 @@ schema and config without touching the real dictionary files.
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field as _dc_field
 from pathlib import Path
 from typing import Dict, Optional, Tuple, Union
 
 import yaml
+
+
+def default_numeric_config_path() -> Path:
+    """The numeric policy shipped with the backend."""
+    return Path(__file__).resolve().parents[1] / "data" / "numeric_fields.yaml"
 
 
 @dataclass
@@ -52,6 +58,11 @@ class NumericConfig:
     cue_aliases: Dict[str, str] = _dc_field(default_factory=dict)      # phrase -> field
     disabled_fields: Tuple[str, ...] = ()
     min_cue_words: int = 2
+    # Calendar-year recognition. A unitless two-sided range whose endpoints are
+    # whole numbers in [min, max] is a year range, not an age. None disables it.
+    calendar_year_field: Optional[str] = None
+    calendar_year_min: int = 1900
+    calendar_year_max: int = 2100
 
     @classmethod
     def from_yaml(cls, path: Union[str, Path]) -> "NumericConfig":
@@ -90,6 +101,10 @@ _WORD = re.compile(r"[a-z0-9]+")
 _UNIT_IN_DESC = re.compile(r"\bin\s+(days|weeks|months|years)\b", re.I)
 _AT_CONTEXT = re.compile(r"\bat\s+(?:the\s+)?(.+?)\.?\s*$", re.I)
 _STOP = {"the", "of", "a", "an", "time", "at"}
+
+# Units whose values are stored as whole numbers, so a fractional bound has to be
+# snapped back onto the integer grid before it reaches Guppy.
+_INTEGER_UNITS = ("days",)
 
 
 def _toks(s: str) -> list:
@@ -187,8 +202,42 @@ class NumericFieldResolver:
         return cls(index, cues, cfg)
 
     # --- runtime -----------------------------------------------------------
+    @property
+    def config(self) -> NumericConfig:
+        return self._cfg
+
     def unit_of(self, field: str, path: Optional[str]) -> Optional[str]:
         return self._index.get((field, path))
+
+    def looks_like_calendar_years(self, *values: float, unit: Optional[str]) -> bool:
+        """True if these range endpoints read as calendar years rather than an age.
+
+        Keyed on the numbers themselves, not on the query wording: "between the
+        years 1990 and 2002" and "diagnosed between 1990 and 2002" mean the same
+        thing. A stated time unit rules it out, so "between 1 and 5 years old"
+        stays an age.
+        """
+        if unit is not None or self._cfg.calendar_year_field is None:
+            return False
+        lo, hi = self._cfg.calendar_year_min, self._cfg.calendar_year_max
+        return all(float(v).is_integer() and lo <= v <= hi for v in values)
+
+    def snap_to_stored_unit(self, op: str, value: float, unit: Optional[str]):
+        """Snap a converted bound onto the whole-number grid the field is stored on.
+
+        Ages are stored as whole days, so a fractional bound shifts the boundary
+        silently: GTE 365.25 drops everyone recorded at exactly 365 days. Every
+        operator gets the integer bound selecting the same rows, except GTE,
+        which floors so "at least N years" includes the day the conversion lands
+        on -- the same convention the portal's own saved filters use.
+        """
+        if unit not in _INTEGER_UNITS or float(value).is_integer():
+            return value
+        if op in ("gte", "gt", "lte"):
+            return int(math.floor(value))
+        if op == "lt":
+            return int(math.ceil(value))
+        return value
 
     def route(self, text: str, span: Tuple[int, int]) -> Optional[Resolution]:
         """Pick the field whose cue sits closest to the range, else the default."""

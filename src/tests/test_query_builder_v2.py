@@ -140,6 +140,23 @@ class TestBuild:
         assert any("graphql_template" in e for e in res.errors)
         assert res.wire == gen.wire
 
+    def test_default_accessibility_can_be_omitted(self, monkeypatch):
+        seen = {}
+
+        def fake_template(filter_obj, *, data_type, accessibility, histogram_fields=None):
+            seen["accessibility"] = accessibility
+            return {"query": "AGG"}
+
+        monkeypatch.setattr(qb_module, "build_aggregation_query", fake_template)
+
+        res = QueryBuilder(
+            _FakeGenerator(_gen_ok(), _schema("sex")),
+            default_accessibility=None,
+        ).build("q")
+
+        assert res.ok
+        assert seen["accessibility"] is None
+
 
 class TestHistograms:
     def test_invalid_histogram_warns_but_still_builds(self, monkeypatch):
