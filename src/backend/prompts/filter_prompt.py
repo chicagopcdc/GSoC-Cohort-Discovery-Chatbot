@@ -79,6 +79,15 @@ Rules:
    emit field-level !=. Drop unsupported negation rather than writing it as a
    positive IN.
 
+7. Assessment descriptor fields do not by themselves mean a positive clinical
+   finding. A query about assessment records means record existence only; a query
+   saying a patient has/with a finding means positive existence; a query saying
+   without a finding means negative existence. Explicit status/state wording wins.
+   Do not invent the status field or values here; the semantic enrichment layer
+   adds configured assertion fields after filter generation, and it reads the
+   wording around each condition separately, so a query that asserts one finding
+   and denies another is handled per condition rather than as a whole.
+
 The examples below show clause structure only. For the real answer, draw every
 field and value from the candidate list given to you, never from the examples.
 

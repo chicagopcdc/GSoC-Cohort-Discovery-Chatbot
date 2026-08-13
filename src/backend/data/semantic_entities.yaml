@@ -1,0 +1,29 @@
+semantic_entities:
+  tumor_assessments:
+    entity: tumor_assessment
+    descriptor_fields:
+      - tumor_site
+      - tumor_classification
+    assertion:
+      field: tumor_state
+      positive_values:
+        - Present
+      negative_values:
+        - Absent
+      unknown_values:
+        - Unknown
+  molecular_analysis:
+    entity: molecular_analysis
+    descriptor_fields:
+      - molecular_abnormality
+    assertion:
+      field: molecular_abnormality_result
+      positive_values:
+        - Present
+      negative_values:
+        - Absent
+      unknown_values:
+        - Unknown
+      any_values:
+        - Present
+        - Absent

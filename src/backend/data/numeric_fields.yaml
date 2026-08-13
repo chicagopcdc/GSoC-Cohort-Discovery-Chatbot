@@ -32,3 +32,12 @@ disabled_fields: []
 # Derived cues shorter than this many words are dropped, to avoid routing on a
 # single generic token like "assessment".
 min_cue_words: 2
+
+# Calendar years are not ages: "diagnosed between 1990 and 2002" is a year range
+# on a top-level year field, not an age in years. A two-sided range whose
+# endpoints are whole numbers inside [calendar_year_min, calendar_year_max] and
+# that carries no time unit is read as calendar years and bound to this field.
+# Leave calendar_year_field empty to disable the rule.
+calendar_year_field: year_at_disease_phase
+calendar_year_min: 1900
+calendar_year_max: 2100

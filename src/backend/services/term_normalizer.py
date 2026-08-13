@@ -30,7 +30,11 @@ from typing import Optional, Union
 
 import yaml
 
-from services.numeric_resolver import NumericConfig, NumericFieldResolver
+from services.numeric_resolver import (
+    NumericConfig,
+    NumericFieldResolver,
+    default_numeric_config_path,
+)
 from services.schema_loader import SchemaIndex
 
 
@@ -138,8 +142,8 @@ _ones_re = "|".join(_ONES)
 _teens_re = "|".join(_TEENS)
 _wordnum = rf"(?:(?:{_tens_re})(?:[-\s](?:{_ones_re}))?|{_teens_re}|{_ones_re}|zero)"
 
-# A number is digits or an English number word.
-_NUM = rf"(\d+(?:\.\d+)?|{_wordnum}\b)"
+# A number is digits (optionally with thousands separators) or an English word.
+_NUM = rf"(\d+(?:,\d{{3}})*(?:\.\d+)?|{_wordnum}\b)"
 _UNIT = r"(?:\s+(years?|yrs?|months?|mos?|weeks?|days?))?"
 _AGE_UNITS = {"years", "months", "weeks", "days"}
 
@@ -161,7 +165,14 @@ _RANGE_PATTERNS = [
     (re.compile(rf"{_NUM}{_UNIT}\s+or older\b", re.I), "gte", "age"),
     (re.compile(rf"{_NUM}{_UNIT}\s+or younger\b", re.I), "lte", "age"),
 ]
-_BETWEEN = re.compile(rf"\bbetween\s+{_NUM}\s+and\s+{_NUM}{_UNIT}", re.I)
+_BETWEEN = re.compile(rf"\bbetween\s+(?:the\s+)?(?:years?\s+)?{_NUM}\s+and\s+{_NUM}{_UNIT}", re.I)
+_FROM_TO = re.compile(
+    rf"\b(?:ranged?\s+)?from\s+(?:the\s+)?(?:years?\s+)?{_NUM}\s+to\s+{_NUM}{_UNIT}",
+    re.I,
+)
+# Two-sided range patterns, each capturing (low, high, unit?). Whether a match is
+# an age or a calendar-year range is decided from the numbers, not the wording.
+_TWO_SIDED = (_BETWEEN, _FROM_TO)
 _SYMBOLIC = re.compile(rf"([<>]=?)\s*{_NUM}{_UNIT}")
 _SYMBOL_OP = {">": "gt", ">=": "gte", "<": "lt", "<=": "lte"}
 
@@ -200,7 +211,7 @@ _AMBIGUITY_MIN_FIELDS = 4
 
 def _parse_num(s: str) -> float:
     """Parse a number written as digits or English words ("twenty-one" -> 21)."""
-    s = s.strip().lower()
+    s = s.strip().lower().replace(",", "")
     try:
         return float(s)
     except ValueError:
@@ -242,6 +253,29 @@ def _norm_phrase(s: str) -> str:
 def _overlaps(span: tuple[int, int], spans: list[tuple[int, int]]) -> bool:
     s, e = span
     return any(s < b and a < e for a, b in spans)
+
+
+# Character-offset window (a heuristic, not a token/word window) for pairing a
+# value with a field name written near it. Overlap rather than containment lets a
+# multi-word field name that starts near the value but runs long still count.
+_MENTION_BACK, _MENTION_FWD = 45, 40
+
+
+def _field_named_near(
+    placements: tuple["FieldPlacement", ...],
+    span: tuple[int, int],
+    mentions: list[tuple[tuple["FieldPlacement", ...], tuple[int, int]]],
+) -> bool:
+    """True if the text names one of `placements`' fields near `span`."""
+    if not placements:
+        return False
+    win_start, win_end = max(0, span[0] - _MENTION_BACK), span[1] + _MENTION_FWD
+    wanted = set(placements)
+    return any(
+        mention_span[0] < win_end and mention_span[1] > win_start
+        and wanted.intersection(places)
+        for places, mention_span in mentions
+    )
 
 
 def _inside(span: tuple[int, int], spans: list[tuple[int, int]]) -> bool:
@@ -438,9 +472,10 @@ class TermNormalizer:
         numeric_config_path: Optional[Union[str, Path]] = None,
     ) -> "TermNormalizer":
         syn = load_synonyms(synonyms_path) if synonyms_path else {}
-        config = (
-            NumericConfig.from_yaml(numeric_config_path) if numeric_config_path else None
-        )
+        # The numeric policy ships with the backend, so it loads by default; only
+        # an explicit path or a missing file changes that.
+        numeric_path = Path(numeric_config_path or default_numeric_config_path())
+        config = NumericConfig.from_yaml(numeric_path) if numeric_path.exists() else None
         resolver = NumericFieldResolver.from_schema(schema, config)
         return cls(schema, syn, numeric_resolver=resolver)
 
@@ -524,10 +559,10 @@ class TermNormalizer:
         missing_terms = self._match_missing(text)
         covered = [t.span for t in missing_terms] + range_spans
 
-        mention_spans = [span for _places, span in self._find_field_mentions(text)]
+        mentions = self._find_field_mentions(text)
 
         terms = self._match_terms(
-            text, negations, block_spans=covered, mention_spans=mention_spans
+            text, negations, block_spans=covered, mentions=mentions
         )
         terms = [self._disambiguate(t, text) for t in terms]
 
@@ -565,12 +600,13 @@ class TermNormalizer:
         negations: list[str],
         *,
         block_spans: Optional[list[tuple[int, int]]] = None,
-        mention_spans: Optional[list[tuple[int, int]]] = None,
+        mentions: Optional[list[tuple[tuple[FieldPlacement, ...], tuple[int, int]]]] = None,
     ) -> list[RecognizedTerm]:
         tokens = _tokenize(text)
         out: list[RecognizedTerm] = []
         block_spans = block_spans or []
-        mention_spans = mention_spans or []
+        mentions = mentions or []
+        mention_spans = [span for _places, span in mentions]
 
         i, n = 0, len(tokens)
 
@@ -592,6 +628,16 @@ class TermNormalizer:
                 continue
 
             (value, placements), start, end, width = hit
+
+            # A one-letter enum value (stagings A/B, E and S Y/N) is spelled the
+            # same as ordinary English words, so it only counts when the text also
+            # names one of the fields it could belong to. Capitalisation is not a
+            # usable signal here: a sentence-initial "A" is still an article.
+            if len(value) == 1 and value.isalpha() and not _field_named_near(
+                placements, (start, end), mentions
+            ):
+                i += 1
+                continue
 
             # A token that sits inside a field-name mention ("nodal" within "bulky
             # nodal aggregate") is part of that field name, not the enum value it
@@ -646,10 +692,8 @@ class TermNormalizer:
         if len(term.placements) <= 1:
             return term
 
-        # Character-offset window (a heuristic, not a token/word window). Overlap
-        # rather than containment lets a multi-word field name that starts near the
-        # value but runs long ("bulky nodal aggregate") still count.
-        win_start, win_end = max(0, term.span[0] - 45), term.span[1] + 40
+        win_start = max(0, term.span[0] - _MENTION_BACK)
+        win_end = term.span[1] + _MENTION_FWD
         mentioned: set = set()
         for places, span in self._find_field_mentions(text):
             if span[0] < win_end and span[1] > win_start:
@@ -692,9 +736,16 @@ class TermNormalizer:
         span: tuple[int, int],
         negated: bool,
         text: str,
+        field: Optional[str] = None,
     ) -> NumericConstraint:
         """Build one constraint, delegating age routing/conversion to the resolver."""
         latest = bool(_LATEST_CUE.search(text[max(0, span[0] - 30):span[1] + 30]))
+
+        if field is not None:
+            # Already bound by the caller (calendar years); no routing to do.
+            return NumericConstraint(
+                op, value, unit, quantity, span, negated, field, latest=latest
+            )
 
         if quantity != "age":
             return NumericConstraint(op, value, unit, quantity, span, negated, latest=latest)
@@ -702,7 +753,7 @@ class TermNormalizer:
         b = self._numeric.bind(value, unit, text, span)
         return NumericConstraint(
             op,
-            b.value,
+            self._numeric.snap_to_stored_unit(op, b.value, b.unit),
             b.unit,
             quantity,
             span,
@@ -716,22 +767,44 @@ class TermNormalizer:
             latest,
         )
 
+    def _year_field(self) -> Optional[str]:
+        """The configured calendar-year field, if the schema types it numeric."""
+        name = self._numeric.config.calendar_year_field
+        if not name:
+            return None
+        spec = self._schema.get_field(name, path=None)
+        if spec is None or spec.field_type not in ("number", "unknown"):
+            return None
+        return name
+
     def _extract_ranges(self, text: str, negations: list[str]) -> list[NumericConstraint]:
-        raw: list[tuple[str, float, Optional[str], Optional[str], int, int]] = []
+        raw: list[tuple[str, float, Optional[str], Optional[str], int, int, Optional[str]]] = []
+        year_field = self._year_field()
 
-        # "between X and Y" becomes two constraints: >= X and <= Y.
-        for m in _BETWEEN.finditer(text):
-            unit = _canon_unit(m.group(3))
-            q = _quantity(unit, None)
+        # Two-sided ranges become two constraints: >= low and <= high. Endpoints
+        # that read as calendar years bind straight to the year field; everything
+        # else falls through to the age resolver.
+        for pattern in _TWO_SIDED:
+            for m in pattern.finditer(text):
+                unit = _canon_unit(m.group(3))
+                low, high = _parse_num(m.group(1)), _parse_num(m.group(2))
 
-            raw.append(("gte", _parse_num(m.group(1)), unit, q, m.start(), m.end()))
-            raw.append(("lte", _parse_num(m.group(2)), unit, q, m.start(), m.end()))
+                if year_field and self._numeric.looks_like_calendar_years(
+                    low, high, unit=unit
+                ):
+                    field, q = year_field, "year"
+                else:
+                    field, q = None, _quantity(unit, None)
+
+                raw.append(("gte", low, unit, q, m.start(), m.end(), field))
+                raw.append(("lte", high, unit, q, m.start(), m.end(), field))
 
         for pattern, op, hint in _RANGE_PATTERNS:
             for m in pattern.finditer(text):
                 unit = _canon_unit(m.group(2))
                 raw.append(
-                    (op, _parse_num(m.group(1)), unit, _quantity(unit, hint), m.start(), m.end())
+                    (op, _parse_num(m.group(1)), unit, _quantity(unit, hint),
+                     m.start(), m.end(), None)
                 )
 
         for m in _SYMBOLIC.finditer(text):
@@ -744,13 +817,14 @@ class TermNormalizer:
                     _quantity(unit, None),
                     m.start(),
                     m.end(),
+                    None,
                 )
             )
 
         out: list[NumericConstraint] = []
         seen: set = set()
 
-        for op, value, unit, quantity, start, end in raw:
+        for op, value, unit, quantity, start, end, field in raw:
             key = (op, value, start)
 
             if key in seen:
@@ -766,6 +840,11 @@ class TermNormalizer:
                 negations.append(text[cue:end].strip())
 
             final_op = _FLIP[op] if negated else op
-            out.append(self._make_range(final_op, value, unit, quantity, (start, end), negated, text))
+            out.append(
+                self._make_range(
+                    final_op, value, unit, quantity, (start, end), negated, text,
+                    field=field,
+                )
+            )
 
         return out

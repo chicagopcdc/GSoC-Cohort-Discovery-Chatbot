@@ -20,6 +20,7 @@ import pytest
 from models.filters import GraphQLFilter
 from services.schema_loader import DEFAULT_GITOPS, DEFAULT_PCDC_SCHEMA, SchemaIndex
 from services.filter_validator import (
+    CODE_CONFLICTING_IN,
     CODE_INVALID_ENUM,
     CODE_NESTED_IN_NESTED,
     CODE_STRUCTURAL,
@@ -185,6 +186,23 @@ class TestStructural:
     def test_empty_and_is_structural(self, schema):
         obj = {"AND": []}
         assert _codes(obj, schema) == [CODE_STRUCTURAL]
+
+    def test_disjoint_same_field_values_inside_and_are_rejected(self, schema):
+        obj = {"nested": {"path": "molecular_analysis", "AND": [
+            {"IN": {"molecular_abnormality": ["11q deletion"]}},
+            {"IN": {"molecular_abnormality": ["1p deletion"]}},
+        ]}}
+
+        assert CODE_CONFLICTING_IN in _codes(obj, schema)
+
+    def test_same_field_alternatives_inside_or_remain_valid(self, schema):
+        obj = {"nested": {"path": "molecular_analysis", "OR": [
+            {"IN": {"molecular_abnormality": ["11q deletion"]}},
+            {"IN": {"molecular_abnormality": ["1p deletion"]}},
+        ]}}
+
+        assert CODE_CONFLICTING_IN not in _codes(obj, schema)
+        assert validate_dict(obj, schema).ok
 
 
 class TestResultApi:

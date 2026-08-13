@@ -32,6 +32,12 @@ from services.filter_validator import (
     ValidationResult,
     validate_filter,
 )
+from services.filter_rewriter import FilterRewriter
+from services.semantic_enricher import (
+    SemanticEnricher,
+    default_semantic_metadata_path,
+)
+from services.semantic_intent import ClinicalIntent
 
 
 DEFAULT_CHAT_MODEL = "gpt-4o-mini"
@@ -205,11 +211,24 @@ FILTER_JSON_SCHEMA = {
     },
 }
 
+FILTER_JSON_SCHEMA["properties"].update(
+    {
+        "intent": {
+            "type": "string",
+            "enum": [intent.value for intent in ClinicalIntent],
+        },
+        "ambiguity": {"type": "array", "items": {"type": "string"}},
+    }
+)
+
 
 _TAGGED_SYSTEM_PROMPT = """\
 You translate a parsed clinical-cohort query into a single GraphQL filter.
 
-Return exactly one JSON object shaped as {"filter": <clause>}, nothing else.
+Return exactly one JSON object shaped as
+{"filter": <clause>, "intent": "<intent>", "ambiguity": []},
+nothing else. If you cannot choose the clinical state semantics safely, put a
+short reason in "ambiguity" and use intent "state_unspecified".
 A clause is one of:
   {"op": "IN",     "field": "<field>", "values": ["<value>", ...]}
   {"op": "!=",     "field": "<field>", "value": "<value>"}
@@ -238,24 +257,34 @@ Rules:
 5. There is no general NOT operator. For a negated enum/category term listed
    under "Excluded terms", emit a field-level != clause. Drop unsupported
    negation rather than writing it as a positive IN.
+6. Assessment descriptor fields are not the same thing as a positive clinical
+   finding. "with/has X" usually means positive_existence; "without X" usually
+   means negative_existence; "assessed for X" or "X assessment records" means
+   record_exists; "regardless of state/status" means any_state. Explicit state
+   words such as Present, Absent, Unknown, Positive, or Negative take priority.
+   Do not invent assertion fields or state values; a deterministic semantic
+   layer will add configured assertion fields after your output.
 
 The examples show clause structure only; for the real answer use only the
 candidate fields and values, never the example fields.
 
 Query: INRG males
-{"filter": {"op": "AND", "clauses": [{"op": "IN", "field": "consortium", "values": ["INRG"]}, {"op": "IN", "field": "sex", "values": ["Male"]}]}}
+{"filter": {"op": "AND", "clauses": [{"op": "IN", "field": "consortium", "values": ["INRG"]}, {"op": "IN", "field": "sex", "values": ["Male"]}]}, "intent": "state_unspecified", "ambiguity": []}
 
 Query: subjects in either the INRG or INSTRuCT consortium
-{"filter": {"op": "OR", "clauses": [{"op": "AND", "clauses": [{"op": "IN", "field": "consortium", "values": ["INRG"]}]}, {"op": "AND", "clauses": [{"op": "IN", "field": "consortium", "values": ["INSTRuCT"]}]}]}}
+{"filter": {"op": "OR", "clauses": [{"op": "AND", "clauses": [{"op": "IN", "field": "consortium", "values": ["INRG"]}]}, {"op": "AND", "clauses": [{"op": "IN", "field": "consortium", "values": ["INSTRuCT"]}]}]}, "intent": "state_unspecified", "ambiguity": []}
 
 Query: patients with metastatic tumors
-{"filter": {"op": "nested", "path": "tumor_assessments", "body": {"op": "AND", "clauses": [{"op": "IN", "field": "tumor_classification", "values": ["Metastatic"]}]}}}
+{"filter": {"op": "nested", "path": "tumor_assessments", "body": {"op": "AND", "clauses": [{"op": "IN", "field": "tumor_classification", "values": ["Metastatic"]}]}}, "intent": "positive_existence", "ambiguity": []}
 
 Query: INRG patients with metastatic tumors
-{"filter": {"op": "AND", "clauses": [{"op": "IN", "field": "consortium", "values": ["INRG"]}, {"op": "nested", "path": "tumor_assessments", "body": {"op": "AND", "clauses": [{"op": "IN", "field": "tumor_classification", "values": ["Metastatic"]}]}}]}}
+{"filter": {"op": "AND", "clauses": [{"op": "IN", "field": "consortium", "values": ["INRG"]}, {"op": "nested", "path": "tumor_assessments", "body": {"op": "AND", "clauses": [{"op": "IN", "field": "tumor_classification", "values": ["Metastatic"]}]}}]}, "intent": "positive_existence", "ambiguity": []}
+
+Query: patients assessed for metastatic tumors
+{"filter": {"op": "nested", "path": "tumor_assessments", "body": {"op": "AND", "clauses": [{"op": "IN", "field": "tumor_classification", "values": ["Metastatic"]}]}}, "intent": "record_exists", "ambiguity": []}
 
 Query: ARMS histology at initial diagnosis
-{"filter": {"op": "nested", "path": "histologies", "body": {"op": "AND", "clauses": [{"op": "IN", "field": "disease_phase", "values": ["Initial Diagnosis"]}, {"op": "IN", "field": "histology", "values": ["Alveolar rhabdomyosarcoma (ARMS)"]}]}}}
+{"filter": {"op": "nested", "path": "histologies", "body": {"op": "AND", "clauses": [{"op": "IN", "field": "disease_phase", "values": ["Initial Diagnosis"]}, {"op": "IN", "field": "histology", "values": ["Alveolar rhabdomyosarcoma (ARMS)"]}]}}, "intent": "record_exists", "ambiguity": []}
 """
 
 
@@ -314,6 +343,15 @@ def _partition_ranges(ranges) -> Tuple[list, list]:
     return usable, deferred
 
 
+@dataclass(frozen=True)
+class _ParsedOutput:
+    """Model output after JSON parsing and tagged-filter conversion."""
+
+    wire: dict
+    intent: Optional[str] = None
+    ambiguity: tuple[str, ...] = ()
+
+
 @dataclass
 class _Run:
     """Mutable state for one generate() call."""
@@ -336,6 +374,10 @@ class GenerationResult:
     strict_downgraded: bool = False
     usage: Optional[dict] = None
     dropped_ranges: tuple = ()
+    semantic_intent: Optional[str] = None
+    # Non-fatal notes about clinical state the query left open; surfaced to the
+    # caller so a cohort built without a state condition says so.
+    semantic_warnings: tuple = ()
 
     @property
     def ok(self) -> bool:
@@ -355,6 +397,7 @@ class FilterGenerator:
         config: Optional[GeneratorConfig] = None,
         chat_fn: Optional[ChatFn] = None,
         client=None,
+        semantic_enricher: Optional[SemanticEnricher] = None,
     ):
         self.config = config or GeneratorConfig.from_env()
         if self.config.max_attempts < 1:
@@ -366,6 +409,8 @@ class FilterGenerator:
 
         self._chat_fn = chat_fn
         self._client = client
+        self.semantic_enricher = semantic_enricher
+        self.rewriter = FilterRewriter(schema, semantic_enricher=semantic_enricher)
 
     @classmethod
     def from_files(
@@ -379,6 +424,7 @@ class FilterGenerator:
         embed_fn=None,
         client=None,
         cache_dir: Optional[Union[str, Path]] = None,
+        semantic_config_path: Optional[Union[str, Path]] = None,
     ) -> "FilterGenerator":
         """Build a generator and its helper services from schema files."""
         config = config or GeneratorConfig.from_env()
@@ -393,7 +439,24 @@ class FilterGenerator:
             model=config.embedding_model,
             cache_dir=cache_dir,
         )
-        return cls(schema, normalizer, retriever, config=config, client=client)
+        semantic_path = (
+            Path(semantic_config_path)
+            if semantic_config_path is not None
+            else default_semantic_metadata_path()
+        )
+        semantic_enricher = (
+            SemanticEnricher.from_yaml(semantic_path, schema)
+            if semantic_path.exists()
+            else None
+        )
+        return cls(
+            schema,
+            normalizer,
+            retriever,
+            config=config,
+            client=client,
+            semantic_enricher=semantic_enricher,
+        )
 
     def generate(self, query: str, *, current_filter: Optional[dict] = None) -> GenerationResult:
         """Run normalization, retrieval, model generation, and validation."""
@@ -449,17 +512,49 @@ class FilterGenerator:
             text = self._complete(messages, run)
             raw_outputs.append(text)
 
-            wire, parse_issue = self._parse(text)
+            parsed, parse_issue = self._parse(text)
             if parse_issue is not None:
                 last_result = ValidationResult([parse_issue])
                 messages += self._repair_turn(text, last_result)
                 continue
 
+            # The model flagging ambiguity is a reason to say so, not a reason to
+            # hand back nothing: a filter without a state condition is the
+            # record-existence reading, which is still a usable cohort.
+            rewritten = self.rewriter.apply(
+                parsed.wire, nq, model_intent=parsed.intent
+            )
+            wire = rewritten.wire
+            semantic_intent = rewritten.intent
+            semantic_warnings = list(parsed.ambiguity) + list(rewritten.warnings)
+
+            if rewritten.issues:
+                last_result = ValidationResult(list(rewritten.issues))
+                return self._result(
+                    None,
+                    last_result,
+                    attempt,
+                    raw_outputs,
+                    run,
+                    dropped,
+                    semantic_intent=semantic_intent,
+                    semantic_warnings=semantic_warnings,
+                )
+
             gf, result = self._validate(wire)
             last_result = result
 
             if result.ok and gf is not None:
-                return self._result(gf, result, attempt, raw_outputs, run, dropped)
+                return self._result(
+                    gf,
+                    result,
+                    attempt,
+                    raw_outputs,
+                    run,
+                    dropped,
+                    semantic_intent=semantic_intent,
+                    semantic_warnings=semantic_warnings,
+                )
 
             messages += self._repair_turn(text, result)
 
@@ -472,7 +567,18 @@ class FilterGenerator:
             dropped,
         )
 
-    def _result(self, gf, result, attempts, raw_outputs, run, dropped) -> GenerationResult:
+    def _result(
+        self,
+        gf,
+        result,
+        attempts,
+        raw_outputs,
+        run,
+        dropped,
+        *,
+        semantic_intent: Optional[str] = None,
+        semantic_warnings: Optional[List[str]] = None,
+    ) -> GenerationResult:
         """Create a GenerationResult from the current run state."""
         return GenerationResult(
             filter=gf,
@@ -484,6 +590,8 @@ class FilterGenerator:
             strict_downgraded=run.downgraded,
             usage=run.usage,
             dropped_ranges=tuple(dropped),
+            semantic_intent=semantic_intent,
+            semantic_warnings=tuple(semantic_warnings or ()),
         )
 
     def _parse(self, text: str):
@@ -504,7 +612,29 @@ class FilterGenerator:
         except (KeyError, TypeError, ValueError) as e:
             return None, ValidationIssue("bad_tagged_shape", f"could not read filter: {e}")
 
-        return wire, None
+        ambiguity = data.get("ambiguity", []) if isinstance(data, dict) else []
+        if ambiguity is None:
+            ambiguity = []
+        if not isinstance(ambiguity, list) or not all(
+            isinstance(item, str) for item in ambiguity
+        ):
+            return None, ValidationIssue(
+                "bad_tagged_shape",
+                "ambiguity must be a list of strings when provided",
+            )
+
+        intent = data.get("intent") if isinstance(data, dict) else None
+        if intent is not None and not isinstance(intent, str):
+            return None, ValidationIssue(
+                "bad_tagged_shape",
+                "intent must be a string when provided",
+            )
+
+        return _ParsedOutput(
+            wire=wire,
+            intent=intent,
+            ambiguity=tuple(ambiguity),
+        ), None
 
     def _validate(self, wire: dict):
         """Validate both the filter shape and its schema references."""

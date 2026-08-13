@@ -58,6 +58,7 @@ CODE_TYPE_MISMATCH = "type_mismatch"
 CODE_UNKNOWN_PATH = "unknown_path"
 CODE_NESTED_IN_NESTED = "nested_in_nested"
 CODE_STRUCTURAL = "structural"
+CODE_CONFLICTING_IN = "conflicting_in_values"
 
 
 _RANGE_ATTR = {
@@ -94,6 +95,7 @@ def _walk(clause, path: Optional[str], schema: SchemaIndex, issues: list) -> Non
     elif isinstance(clause, tuple(_RANGE_ATTR)):
         _check_range(clause, path, schema, issues)
     elif isinstance(clause, AndClause):
+        _check_conflicting_in(clause.AND, path, issues)
         for child in clause.AND:
             _walk(child, path, schema, issues)
     elif isinstance(clause, OrClause):
@@ -101,6 +103,27 @@ def _walk(clause, path: Optional[str], schema: SchemaIndex, issues: list) -> Non
             _walk(child, path, schema, issues)
     elif isinstance(clause, NestedClause):
         _check_nested(clause, path, schema, issues)
+
+
+def _check_conflicting_in(children, path, issues) -> None:
+    seen: dict[str, set[str]] = {}
+    for child in children:
+        if not isinstance(child, InClause):
+            continue
+        field, values = next(iter(child.IN.items()))
+        current = {str(value) for value in values}
+        previous = seen.get(field)
+        if previous is not None and previous.isdisjoint(current):
+            issues.append(ValidationIssue(
+                CODE_CONFLICTING_IN,
+                (
+                    f"AND contains disjoint IN clauses for {field!r}: "
+                    f"{sorted(previous)} and {sorted(current)}"
+                ),
+                field=field,
+                path=path,
+            ))
+        seen[field] = current if previous is None else previous & current
 
 
 def _resolve(field: str, path: Optional[str], schema: SchemaIndex,
@@ -188,6 +211,8 @@ def _check_nested(clause: NestedClause, path, schema, issues) -> None:
         return
 
     children = body.AND if body.AND is not None else (body.OR or [])
+    if body.AND is not None:
+        _check_conflicting_in(children, body.path, issues)
     for child in children:
         _walk(child, body.path, schema, issues)
 
