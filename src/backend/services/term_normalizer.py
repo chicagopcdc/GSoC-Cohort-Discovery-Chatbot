@@ -472,10 +472,18 @@ class TermNormalizer:
         numeric_config_path: Optional[Union[str, Path]] = None,
     ) -> "TermNormalizer":
         syn = load_synonyms(synonyms_path) if synonyms_path else {}
-        # The numeric policy ships with the backend, so it loads by default; only
-        # an explicit path or a missing file changes that.
-        numeric_path = Path(numeric_config_path or default_numeric_config_path())
-        config = NumericConfig.from_yaml(numeric_path) if numeric_path.exists() else None
+        # A bundled policy may be absent in a minimal installation, but an
+        # explicitly supplied override is configuration and must not be ignored.
+        if numeric_config_path is not None:
+            numeric_path = Path(numeric_config_path)
+            if not numeric_path.is_file():
+                raise FileNotFoundError(
+                    f"numeric config file not found: {numeric_path}"
+                )
+            config = NumericConfig.from_yaml(numeric_path)
+        else:
+            numeric_path = default_numeric_config_path()
+            config = NumericConfig.from_yaml(numeric_path) if numeric_path.is_file() else None
         resolver = NumericFieldResolver.from_schema(schema, config)
         return cls(schema, syn, numeric_resolver=resolver)
 
