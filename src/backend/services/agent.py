@@ -40,11 +40,16 @@ cancer data commons.
 - To answer a question about the schema itself (which fields or nested tables
   exist, what values a field allows, or which field a value belongs to), call
   explore_schema instead of building a filter.
+- To answer a question about PCDC itself, the portal, data access, the
+  consortia, or what this assistant can and cannot do, call answer_from_docs.
+  Use it for background questions, not for anything that needs the schema or a
+  count.
 
 After the tools run, answer briefly and plainly. If build_query reports errors or
 that part of the request could not be expressed, say so rather than guessing. If
-the request is ambiguous, ask one short clarifying question instead of calling a
-tool. Never invent counts or field names.
+answer_from_docs finds nothing, say the documentation does not cover it instead
+of answering from memory. If the request is ambiguous, ask one short clarifying
+question instead of calling a tool. Never invent counts or field names.
 """
 
 _TOOLS: List[dict] = [
@@ -109,6 +114,28 @@ _TOOLS: List[dict] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "answer_from_docs",
+            "description": (
+                "Answer from the curated PCDC documentation: what PCDC and the "
+                "data portal are, the consortia, data access and Guppy, and this "
+                "assistant's own capabilities and limits. Not for schema lookups "
+                "and not for counts."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "question": {
+                        "type": "string",
+                        "description": "The user's question, in their own words.",
+                    }
+                },
+                "required": ["question"],
+            },
+        },
+    },
 ]
 
 
@@ -135,6 +162,7 @@ class CohortAgent:
         *,
         guppy_client=None,
         schema_explorer=None,
+        knowledge_qa=None,
         chat_fn: Optional[ChatFn] = None,
         client=None,
         model: str = DEFAULT_AGENT_MODEL,
@@ -150,6 +178,7 @@ class CohortAgent:
 
         self._guppy = guppy_client
         self._explorer = schema_explorer
+        self._knowledge = knowledge_qa
         self._chat_fn = chat_fn
         self._client = client
         self._last_build: Dict[str, Any] = {}   # session_id -> last good BuildResult
@@ -165,6 +194,7 @@ class CohortAgent:
         session_store=None,
         model: str = DEFAULT_AGENT_MODEL,
         schema_preview_limit: int = 40,
+        knowledge_dir: Optional[Union[str, Path]] = None,
         **builder_kwargs,
     ) -> "CohortAgent":
         sm = SessionManager.from_files(pcdc_path, gitops_path, store=session_store, **builder_kwargs)
@@ -175,7 +205,20 @@ class CohortAgent:
         if guppy_endpoint:
             from services.guppy_client import GuppyClient
             guppy = GuppyClient(guppy_endpoint, token_provider=token_provider)
-        return cls(sm, guppy_client=guppy, schema_explorer=explorer, model=model)
+
+        # The curated docs ship with the backend, so they load by default.
+        from services.knowledge_qa import KnowledgeQA, default_knowledge_dir
+
+        docs = Path(knowledge_dir or default_knowledge_dir())
+        knowledge = KnowledgeQA.from_dir(docs) if docs.exists() else None
+
+        return cls(
+            sm,
+            guppy_client=guppy,
+            schema_explorer=explorer,
+            knowledge_qa=knowledge,
+            model=model,
+        )
 
     def chat(self, session_id: str, message: str) -> AgentResult:
         messages: List[dict] = [
@@ -242,6 +285,8 @@ class CohortAgent:
                 return self._count(session_id)
             if name == "explore_schema":
                 return self._explore(args)
+            if name == "answer_from_docs":
+                return self._answer_from_docs(args)
             return {"error": f"unknown tool {name!r}"}
         except Exception as e:  # noqa: BLE001
             # Tool errors come back as a result, not an exception, so the loop survives.
@@ -291,6 +336,17 @@ class CohortAgent:
         # Return the human-readable text only; the model relays it. The full
         # structured data stays out of the prompt to keep context lean.
         return {"kind": result.kind, "text": result.text}
+
+    def _answer_from_docs(self, args: dict) -> dict:
+        if self._knowledge is None:
+            return {"error": "curated documentation is not available"}
+        question = args.get("question")
+        if not isinstance(question, str) or not question.strip():
+            return {"error": "missing question"}
+        result = self._knowledge.answer(question)
+        # kind is "answer" or "no_match"; the model is told to relay a no_match
+        # rather than fill the gap from memory.
+        return {"kind": result.kind, "text": result.text, "sources": list(result.sources)}
 
     # --- model call -----------------------------------------------------------
 
