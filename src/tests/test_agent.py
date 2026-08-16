@@ -508,3 +508,70 @@ class TestCohortAnalysisTools:
         res = agent.chat("s1", "compare")
 
         assert "no cohort built yet" in res.steps[0].result["error"]
+class FakeKnowledge:
+    def __init__(self, answer):
+        self.answer_obj = answer
+        self.calls = []
+
+    def answer(self, question):
+        self.calls.append(question)
+        return self.answer_obj
+
+
+class TestAnswerFromDocs:
+    def test_question_reaches_the_knowledge_base(self):
+        knowledge = FakeKnowledge(SimpleNamespace(
+            kind="answer", text="PCDC stands for Pediatric Cancer Data Commons.",
+            sources=["PCDC overview > What PCDC is"],
+        ))
+        chat = ScriptedChat(
+            tool_call("c1", "answer_from_docs", {"question": "what is PCDC?"}),
+            text_reply("PCDC is the Pediatric Cancer Data Commons."),
+        )
+        agent = CohortAgent(FakeSessionManager(("new", build_obj())),
+                            knowledge_qa=knowledge, chat_fn=chat)
+        res = agent.chat("s1", "what is PCDC?")
+
+        assert knowledge.calls == ["what is PCDC?"]
+        assert res.steps[0].tool == "answer_from_docs"
+        assert res.steps[0].result["kind"] == "answer"
+        assert res.steps[0].result["sources"] == ["PCDC overview > What PCDC is"]
+
+    def test_no_match_is_reported_not_hidden(self):
+        """A miss has to reach the model so it can say the docs do not cover it."""
+        knowledge = FakeKnowledge(SimpleNamespace(
+            kind="no_match", text="I do not have enough curated documentation.",
+            sources=[],
+        ))
+        chat = ScriptedChat(
+            tool_call("c1", "answer_from_docs", {"question": "who funds PCDC?"}),
+            text_reply("The curated documentation does not cover that."),
+        )
+        agent = CohortAgent(FakeSessionManager(("new", build_obj())),
+                            knowledge_qa=knowledge, chat_fn=chat)
+        res = agent.chat("s1", "who funds PCDC?")
+
+        assert res.steps[0].result["kind"] == "no_match"
+
+    def test_missing_question_rejected(self):
+        knowledge = FakeKnowledge(SimpleNamespace(kind="answer", text="t", sources=[]))
+        chat = ScriptedChat(
+            tool_call("c1", "answer_from_docs", {"question": None}),
+            text_reply("What would you like to know?"),
+        )
+        agent = CohortAgent(FakeSessionManager(("new", build_obj())),
+                            knowledge_qa=knowledge, chat_fn=chat)
+        res = agent.chat("s1", "?")
+
+        assert "question" in res.steps[0].result["error"]
+        assert knowledge.calls == []
+
+    def test_unavailable_without_knowledge_base(self):
+        chat = ScriptedChat(
+            tool_call("c1", "answer_from_docs", {"question": "what is PCDC?"}),
+            text_reply("I can't reach the documentation right now."),
+        )
+        agent = CohortAgent(FakeSessionManager(("new", build_obj())), chat_fn=chat)
+        res = agent.chat("s1", "what is PCDC?")
+
+        assert "not available" in res.steps[0].result["error"]
