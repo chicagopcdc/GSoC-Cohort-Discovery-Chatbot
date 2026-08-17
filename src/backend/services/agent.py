@@ -19,11 +19,17 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
 from services.cohort_analyzer import CohortAnalyzer, format_comparison, format_summary
+from services.guppy_client import DEFAULT_PCDC_GUPPY_ENDPOINT
 from services.schema_explorer import SchemaExplorer, QUERY_TYPES
 from services.session_manager import SessionManager
 
 
 DEFAULT_AGENT_MODEL = "gpt-4o-mini"
+
+# Counting is the point of the tool and the PCDC aggregation endpoint is public,
+# so it is wired by default. Pass guppy_endpoint=None to build an agent that
+# cannot run queries at all.
+_DEFAULT_GUPPY_ENDPOINT = DEFAULT_PCDC_GUPPY_ENDPOINT
 
 # (messages, tools) -> the assistant message as a dict (role/content/tool_calls).
 ChatFn = Callable[[List[dict], List[dict]], dict]
@@ -202,7 +208,7 @@ class CohortAgent:
         pcdc_path: Union[str, Path],
         gitops_path: Union[str, Path],
         *,
-        guppy_endpoint: Optional[str] = None,
+        guppy_endpoint: Optional[str] = _DEFAULT_GUPPY_ENDPOINT,
         token_provider=None,
         session_store=None,
         model: str = DEFAULT_AGENT_MODEL,
