@@ -9,8 +9,12 @@ import httpx
 
 load_dotenv()
 
-# Backend API URL
-BACKEND_URL = "http://localhost:8000"
+# Backend API URL. The agent pipeline is served at POST /v2/chat.
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
+
+# The agent may run several tool calls plus an LLM round trip per turn, so this
+# is well above the old single-shot timeout.
+REQUEST_TIMEOUT = float(os.getenv("BACKEND_TIMEOUT", "120"))
 
 # Authentication using Chainlit's built-in password auth
 @cl.password_auth_callback
@@ -40,28 +44,39 @@ async def start():
     user = cl.user_session.get("user")
     if not user:
         await cl.Message(
-            content=" Authentication required. Please login first."
+            content="Authentication required. Please log in first."
         ).send()
         return
-    
+
     # Create session
     session_id = str(uuid.uuid4())[:8]
     cl.user_session.set("session_id", session_id)
     cl.user_session.set("message_count", 0)
-    
+
     # Welcome message
-    welcome_msg = f""" **Welcome to PCDC GraphQL Generator!**
+    welcome_msg = f"""**Welcome to the PCDC Cohort Assistant**
 
- **Logged in as**: {user.identifier}
- **Session ID**: {session_id}
- **Chat History**: Enabled (check left sidebar)
+Signed in as **{user.identifier}**. Past conversations are in the left sidebar.
 
-Enter your natural language query to generate nested GraphQL filters for PCDC data.
+Describe the cohort you want in plain language. Follow-ups edit the cohort you
+already have, so you can refine it turn by turn.
 
-**Example queries:**
-- The cohort consists of participants from the INRG consortium who have metastatic tumors
-- Find patients with absent tumor state and skin tumor site
-- Show NODAL consortium participants with bulky nodal aggregate"""
+**Build and count a cohort:**
+- How many subjects are in the INRG consortium?
+- INRG subjects with metastatic tumors in the skin where the tumor is absent
+- ...then: change the consortium to INSTRuCT
+
+**Ask about the schema:**
+- What values does tumor_state allow?
+- Which fields can I filter on under tumor_assessments?
+
+**Ask about PCDC itself:**
+- Why does my cohort count come back as -1?
+- Do I need an account to get line-level patient data?
+
+**Analyze a cohort** (after building one):
+- Describe the make-up of this cohort
+- How does that compare with NODAL?"""
     
     await cl.Message(content=welcome_msg, author="System").send()
 
@@ -71,181 +86,113 @@ async def main(message: cl.Message):
     # Get user session
     user = cl.user_session.get("user")
     if not user:
-        await cl.Message(content="❌ Please login first.").send()
+        await cl.Message(content="Please log in first.").send()
         return
-    
+
     # Update message count
     count = cl.user_session.get("message_count", 0) + 1
     cl.user_session.set("message_count", count)
-    
+
     # Send thinking message
-    msg = cl.Message(content="🤔 Processing your query...")
+    msg = cl.Message(content="Working on it...")
     await msg.send()
     
     try:
-        # Get session ID
         session_id = cl.user_session.get("session_id")
-        
-        # Step 1: Call /nested_graphql API to generate nested GraphQL query
+
+        # One call per turn: the agent picks its own tools and keeps the cohort
+        # across turns, keyed by session_id.
         async with httpx.AsyncClient() as client:
-            nested_response = await client.post(
-                f"{BACKEND_URL}/nested_graphql",
-                json={
-                    "text": message.content,
-                    "session_id": session_id
-                },
+            response = await client.post(
+                f"{BACKEND_URL}/v2/chat",
+                json={"message": message.content, "session_id": session_id},
                 headers={"Content-Type": "application/json"},
-                timeout=30.0
+                timeout=REQUEST_TIMEOUT,
             )
-            nested_response.raise_for_status()
-            nested_result = nested_response.json()
-        
-        # Extract results from nested_graphql response
-        user_query = nested_result.get("user_query", "")
-        extracted_keywords = nested_result.get("extracted_keywords", [])
-        pcdc_schemas = nested_result.get("pcdc_schemas", [])
-        gitops_nodes = nested_result.get("gitops_nodes", [])
-        nested_graphql_filter = nested_result.get("nested_graphql_filter", {})
-        executable_nested_graphql = nested_result.get("executable_nested_graphql", None)
-        success = nested_result.get("success", False)
-        
-        # Format the nested GraphQL filter for display
-        try:
-            formatted_filter = json.dumps(nested_graphql_filter, indent=2, ensure_ascii=False)
-        except:
-            formatted_filter = str(nested_graphql_filter)
-        
-        # Format the executable nested GraphQL for display
-        try:
-            formatted_executable = json.dumps(executable_nested_graphql, indent=2, ensure_ascii=False) if executable_nested_graphql else "None"
-        except:
-            formatted_executable = str(executable_nested_graphql) if executable_nested_graphql else "None"
-        
-        # Step 2: Call /query API to execute the GraphQL query
-        query_result = None
-        query_error = None
-        
-        # graph query execution
-        if executable_nested_graphql and isinstance(executable_nested_graphql, dict):  # Only execute if we have a valid executable GraphQL
-            query_str = executable_nested_graphql.get("query", "")
-            variables_obj = executable_nested_graphql.get("variables", {})
-            
-            if query_str.strip():  # Only execute if we have a valid query string
-                try:
-                    async with httpx.AsyncClient() as client:
-                        query_response = await client.post(
-                            f"{BACKEND_URL}/query",
-                            json={
-                                "query": query_str,
-                                "variables": variables_obj,
-                                "use_cached_token": True
-                            },
-                            headers={"Content-Type": "application/json"},
-                            timeout=5.0
-                        )
-                        query_response.raise_for_status()
-                        query_result = query_response.json()
-                except Exception as e:
-                    query_error = str(e)
+            response.raise_for_status()
+            result = response.json()
 
-        # Format the complete response
-        status_icon = "✅" if success else "❌"
-        response_content = f"""{status_icon} **Nested GraphQL Filter Generated**
+        # The backend mints a session id when it gets none; keep whatever it
+        # returns so later turns land in the same cohort.
+        returned_session = result.get("session_id")
+        if returned_session:
+            cl.user_session.set("session_id", returned_session)
 
-**Input**: {message.content}
+        response_content = _format_reply(result)
 
-**Extracted Keywords**: {', '.join(extracted_keywords)}
-
-**PCDC Schemas**: {', '.join(pcdc_schemas)}
-
-**GitOps Nodes**: {', '.join(gitops_nodes)}
-
-**Generated Nested GraphQL Filter**:
-```json
-{formatted_filter}
-```
-
-**Executable Nested GraphQL**:
-```json
-{formatted_executable}
-```"""
-
-        # Add query execution results
-        if query_result:
-            if query_result.get("success", False):
-                query_data = query_result.get("data", {})
-                formatted_data = json.dumps(query_data, indent=2)
-                response_content += f"""
-
-**Query Execution**: ✅ **Success**
-```json
-{formatted_data}
-```"""
-            else:
-                errors = query_result.get("errors", [])
-                formatted_errors = json.dumps(errors, indent=2)
-                response_content += f"""
-
-**Query Execution**: ❌ **Failed**
-**Errors**:
-```json
-{formatted_errors}
-```"""
-        elif query_error:
-            response_content += f"""
-
-**Query Execution**: ❌ **Error**
-**Error**: {query_error}"""
-        elif not executable_nested_graphql:
-            response_content += f"""
-
-**Query Execution**: ⚠️ **Skipped** (No executable GraphQL generated)"""
-        else:
-            response_content += f"""
-
-**Query Execution**: ⚠️ **Skipped** (Executable GraphQL available but not executed)"""
-
-        # Add error information if processing failed
-        if not success and nested_result.get("error"):
-            response_content += f"""
-
-**Error Details**:
-```
-{nested_result.get("error")}
-```"""
-        
-        response_content += f"""
-
-**Session Info**: Message #{count} from {user.identifier}
-
- **Tip**: If you need to query multiple fields, please provide more specific context to help generate accurate GraphQL."""
-        
     except httpx.TimeoutException:
-        response_content = f""" **Request Timeout**
+        response_content = f"""**Request timed out**
 
-The query took too long to process. Please try again with a simpler query.
+The assistant took longer than {REQUEST_TIMEOUT:.0f}s. Complex cohorts need
+several tool calls; try again, or narrow the request.
 
 **Input**: {message.content}"""
-        
+
     except httpx.HTTPStatusError as e:
-        response_content = f""" **API Error**
-
-Failed to process your query. Status: {e.response.status_code}
+        detail = ""
+        try:
+            detail = e.response.json().get("detail", "")
+        except Exception:
+            detail = getattr(e.response, "text", "")
+        hint = ""
+        if e.response.status_code == 503:
+            hint = ("\n\n**Hint**: the backend could not build the agent. Check the "
+                    "uvicorn log — usually a missing `OPENAI_API_KEY` or an unreadable schema.")
+        response_content = f"""**Request failed** (status {e.response.status_code})
 
 **Input**: {message.content}
-**Error**: {e.response.text if hasattr(e.response, 'text') else 'Unknown error'}"""
-        
+**Error**: {detail or 'Unknown error'}{hint}"""
+
+    except httpx.ConnectError:
+        response_content = f"""**Cannot reach the backend** at {BACKEND_URL}
+
+Start it first, then resend:
+`cd src/backend && python -m uvicorn app:app --reload --port 8000`
+
+**Input**: {message.content}"""
+
     except Exception as e:
-        response_content = f""" **Processing Error**
-
-An error occurred while processing your query.
+        response_content = f"""**Something went wrong**
 
 **Input**: {message.content}
-**Error**: {str(e)}"""
-    
+**Error**: {type(e).__name__}: {e}"""
+
     # Update the message with the result
     msg.content = response_content
     await msg.update()
+
+
+def _format_reply(result: dict) -> str:
+    """Render a /v2/chat response: the answer first, then the evidence behind it."""
+    parts = [result.get("reply") or "_(the assistant returned an empty reply)_"]
+
+    # The filter is what the wording was actually interpreted as, and it is the
+    # thing to compare against the portal when a count looks surprising.
+    filter_obj = result.get("filter")
+    if filter_obj:
+        parts.append("**Generated filter**:\n```json\n"
+                     + json.dumps(filter_obj, indent=2, ensure_ascii=False)
+                     + "\n```")
+
+    total = result.get("count")
+    if total is not None:
+        if total == -1:
+            parts.append("**Matching subjects**: `-1` — fewer than 5 subjects, "
+                         "withheld by the privacy rule (not zero, not an error).")
+        else:
+            parts.append(f"**Matching subjects**: {total:,}")
+
+    warnings = result.get("warnings") or []
+    if warnings:
+        parts.append("**Note**:\n" + "\n".join(f"- {w}" for w in warnings))
+
+    if result.get("stopped"):
+        parts.append("**Note**: the assistant hit its step limit before finishing this turn.")
+
+    # Which tools ran, the message counter and the session id are diagnostics,
+    # not something a researcher reading an answer needs. They stay in the
+    # /v2/chat response (`trace`, `session_id`) for anyone debugging the pipeline.
+    return "\n\n".join(parts)
 
 @cl.on_chat_resume
 async def on_chat_resume(thread):
@@ -262,7 +209,8 @@ async def on_chat_resume(thread):
     cl.user_session.set("message_count", message_count)
     
     await cl.Message(
-        content=f" **Conversation Resumed**\n\nWelcome back, {user.identifier}! You have {message_count} previous messages.",
+        content=f"**Welcome back, {user.identifier}.** Picking up where you left off "
+                f"({message_count} earlier messages).",
         author="System"
     ).send()
 
@@ -270,8 +218,8 @@ async def on_chat_resume(thread):
 def rename(orig_author: str):
     """Rename authors for display"""
     rename_dict = {
-        "System": " Assistant",
-        "User": " You"
+        "System": "Assistant",
+        "User": "You"
     }
     return rename_dict.get(orig_author, orig_author)
 
