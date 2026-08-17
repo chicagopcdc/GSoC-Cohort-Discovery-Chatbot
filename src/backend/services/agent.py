@@ -6,9 +6,9 @@ whether to run it for a count (via GuppyClient), looping until it produces a
 final reply. Direct OpenAI SDK, no framework: the loop and tools live here, so it
 mocks and traces like the rest of the pipeline.
 
-Scope: three tools (build_query, count_cohort, explore_schema) + per-session
-memory of the last build + a step cap + a trace. No clarify-tool (the model asks
-in plain text), no histograms, multi-cohort, export, or streaming.
+Scope: five tools (build_query, count_cohort, explore_schema, summarize_cohort,
+compare_cohort) + per-session memory of the last build + a step cap + a trace.
+No clarify-tool (the model asks in plain text), no export or streaming.
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
+from services.cohort_analyzer import CohortAnalyzer, format_comparison, format_summary
 from services.schema_explorer import SchemaExplorer, QUERY_TYPES
 from services.session_manager import SessionManager
 
@@ -40,6 +41,12 @@ cancer data commons.
 - To answer a question about the schema itself (which fields or nested tables
   exist, what values a field allows, or which field a value belongs to), call
   explore_schema instead of building a filter.
+- To describe the make-up of the current cohort (its size and how it breaks down
+  by sex, race, ethnicity, and consortium), call summarize_cohort. Only after a
+  successful build_query.
+- To compare the current cohort with another one, call compare_cohort with a
+  short description of the other cohort (e.g. "NODAL" or "females"); it is read
+  as an edit of the current cohort. Only after a successful build_query.
 
 After the tools run, answer briefly and plainly. If build_query reports errors or
 that part of the request could not be expressed, say so rather than guessing. If
@@ -109,6 +116,39 @@ _TOOLS: List[dict] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "summarize_cohort",
+            "description": (
+                "Summarize the current cohort: total subjects and the breakdown by "
+                "sex, race, ethnicity, and consortium. Call after a successful build_query."
+            ),
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "compare_cohort",
+            "description": (
+                "Compare the current cohort with another one, side by side. Pass a short "
+                "natural-language description of the other cohort (e.g. 'NODAL' or "
+                "'females'); it is read as an edit of the current cohort. Call after a "
+                "successful build_query."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "comparison_query": {
+                        "type": "string",
+                        "description": "The other cohort to compare against, in natural language.",
+                    }
+                },
+                "required": ["comparison_query"],
+            },
+        },
+    },
 ]
 
 
@@ -135,6 +175,7 @@ class CohortAgent:
         *,
         guppy_client=None,
         schema_explorer=None,
+        cohort_analyzer=None,
         chat_fn: Optional[ChatFn] = None,
         client=None,
         model: str = DEFAULT_AGENT_MODEL,
@@ -150,6 +191,7 @@ class CohortAgent:
 
         self._guppy = guppy_client
         self._explorer = schema_explorer
+        self._analyzer = cohort_analyzer
         self._chat_fn = chat_fn
         self._client = client
         self._last_build: Dict[str, Any] = {}   # session_id -> last good BuildResult
@@ -172,10 +214,16 @@ class CohortAgent:
         explorer = SchemaExplorer(sm.qb.schema, preview_limit=schema_preview_limit)
 
         guppy = None
+        analyzer = None
         if guppy_endpoint:
             from services.guppy_client import GuppyClient
             guppy = GuppyClient(guppy_endpoint, token_provider=token_provider)
-        return cls(sm, guppy_client=guppy, schema_explorer=explorer, model=model)
+            # Restrict the analyzer to fields this commons actually exposes at the
+            # top level, so a default summary field it lacks is dropped, not errored.
+            known = [s.name for s in sm.qb.schema.top_level_fields()]
+            analyzer = CohortAnalyzer(guppy, known_fields=known)
+        return cls(sm, guppy_client=guppy, schema_explorer=explorer,
+                   cohort_analyzer=analyzer, model=model)
 
     def chat(self, session_id: str, message: str) -> AgentResult:
         messages: List[dict] = [
@@ -242,6 +290,13 @@ class CohortAgent:
                 return self._count(session_id)
             if name == "explore_schema":
                 return self._explore(args)
+            if name == "summarize_cohort":
+                return self._summarize(session_id)
+            if name == "compare_cohort":
+                comparison_query = args.get("comparison_query")
+                if not isinstance(comparison_query, str):
+                    return {"error": "empty comparison query"}
+                return self._compare(session_id, comparison_query)
             return {"error": f"unknown tool {name!r}"}
         except Exception as e:  # noqa: BLE001
             # Tool errors come back as a result, not an exception, so the loop survives.
@@ -291,6 +346,51 @@ class CohortAgent:
         # Return the human-readable text only; the model relays it. The full
         # structured data stays out of the prompt to keep context lean.
         return {"kind": result.kind, "text": result.text}
+
+    def _summarize(self, session_id: str) -> dict:
+        build = self._last_build.get(session_id)
+        if build is None or not build.ok or build.wire is None:
+            return {"error": "no cohort built yet; call build_query first"}
+        if self._analyzer is None:
+            return {"error": "cohort analysis is not available (no Guppy client configured)"}
+
+        summary = self._analyzer.summarize(build.wire, label="current cohort")
+        if summary.errors:
+            return {"error": "; ".join(summary.errors)}
+        out: Dict[str, Any] = {"text": format_summary(summary)}
+        if summary.warnings:
+            out["warnings"] = list(summary.warnings)
+        return out
+
+    def _compare(self, session_id: str, comparison_query: str) -> dict:
+        if not comparison_query.strip():
+            return {"error": "empty comparison query"}
+        build = self._last_build.get(session_id)
+        if build is None or not build.ok or build.wire is None:
+            return {"error": "no cohort built yet; call build_query first"}
+        if self._analyzer is None:
+            return {"error": "cohort analysis is not available (no Guppy client configured)"}
+
+        # Build cohort B as an edit of the current cohort A, without touching
+        # session state: this filter is a throwaway used only for the comparison,
+        # so it is never stored in _last_build or the session store.
+        b = self.session_manager.qb.build(comparison_query, current_filter=build.wire)
+        if not b.ok or b.wire is None:
+            return {"error": "; ".join(b.errors) or "could not build the comparison cohort"}
+
+        comparison = self._analyzer.compare(
+            build.wire, b.wire, label_a="current", label_b=comparison_query.strip(),
+        )
+        if comparison.errors:
+            return {"error": "; ".join(comparison.errors)}
+
+        out: Dict[str, Any] = {"text": format_comparison(comparison)}
+        # Surface warnings from building B (e.g. dropped ranges) next to the
+        # analyzer's own, so the model can caveat the comparison cohort.
+        warnings = list(comparison.warnings) + [f"comparison cohort: {w}" for w in b.warnings]
+        if warnings:
+            out["warnings"] = warnings
+        return out
 
     # --- model call -----------------------------------------------------------
 

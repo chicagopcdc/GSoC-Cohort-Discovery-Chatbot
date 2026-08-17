@@ -1,4 +1,23 @@
-"""Tool 4: deterministic cohort summaries and comparisons."""
+"""
+Tool 4: Cohort Analyzer -- VERSION 1.
+
+Summarize a cohort's distributions, or compare two cohorts side by side. No LLM:
+it runs Guppy aggregation queries (reusing graphql_template + guppy_client) and
+formats the counts deterministically, so the numbers can never be hallucinated.
+
+Version 1 scope: top-level categorical fields (sex, race, ethnicity, consortium)
+plus the total count. Deliberately NOT in v1, because they would require changing
+graphql_template and guppy_client:
+  - nested-field histograms (e.g. tumor_assessments.tumor_site)
+  - numeric summaries (e.g. age mean / range)
+Compare mode runs the two cohorts sequentially; parallel execution is a later
+optimization. Agent wiring lives in services.agent; this module keeps the
+deterministic analysis logic standalone and testable.
+
+Compare deltas are second-minus-first (B - A), matching the proposal's compare
+view. Access-limited counts come back masked (count is None); those are
+surfaced as "masked"/"n/a", never guessed.
+"""
 
 from __future__ import annotations
 
@@ -9,17 +28,20 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from services.graphql_template import build_aggregation_query
 
 
-# v1 keeps this to top-level categorical fields.
+# Categorical, top-level fields worth summarizing by default. Nested and numeric
+# fields are out of v1 (see the module docstring).
 DEFAULT_SUMMARY_FIELDS: Tuple[str, ...] = ("sex", "race", "ethnicity", "consortium")
 
+# Field names must be plain GraphQL identifiers; anything else (blank, dotted
+# nested paths, odd characters) is dropped before it can break the whole query.
 _VALID_FIELD = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 @dataclass
 class Bucket:
     key: str
-    count: Optional[int]
-    pct: Optional[float]
+    count: Optional[int]              # None when access-masked
+    pct: Optional[float]             # count / cohort total; None if either is missing
     masked: bool = False
 
 
@@ -72,7 +94,7 @@ class ComparisonRow:
     a_pct: Optional[float]
     b_count: Optional[int]
     b_pct: Optional[float]
-    delta_pct: Optional[float]
+    delta_pct: Optional[float]        # b_pct - a_pct (B - A); None if either side is missing
 
 
 @dataclass
@@ -83,7 +105,7 @@ class CohortComparison:
     total_b: Optional[int]
     total_a_masked: bool
     total_b_masked: bool
-    total_delta: Optional[int]
+    total_delta: Optional[int]        # total_b - total_a (B - A)
     rows: List[ComparisonRow]
     errors: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
@@ -123,16 +145,24 @@ class CohortAnalyzer:
         fields: Sequence[str] = DEFAULT_SUMMARY_FIELDS,
         known_fields: Optional[Sequence[str]] = None,
         data_type: str = "subject",
-        accessibility: Optional[str] = "all",
+        accessibility: str = "all",
     ):
         self._guppy = guppy_client
         self._data_type = data_type
         self._accessibility = accessibility
         self._default_fields = list(fields)
+        # Allowlist of fields the schema actually has; applied to every request
+        # (default and caller-supplied) so one stray name can't make Guppy reject
+        # the whole aggregation query. None means "trust the caller's list".
         self._allowed = set(known_fields) if known_fields is not None else None
 
     def _select_fields(self, fields: Optional[Sequence[str]]) -> Tuple[List[str], List[str]]:
-        """Pick safe histogram fields and report anything dropped."""
+        """Resolve the fields to aggregate: dedup, drop invalid names and anything
+        outside the schema allowlist, and report what was dropped as warnings.
+
+        Invalid names (blank, non-string, dotted nested paths, odd characters) are
+        filtered here so one bad entry cannot make build_aggregation_query reject
+        the whole query."""
         requested = list(fields) if fields is not None else list(self._default_fields)
         seen: set = set()
         selected: List[str] = []
@@ -156,6 +186,7 @@ class CohortAnalyzer:
             warnings.append(f"dropped unknown field(s): {', '.join(unknown)}")
         return selected, warnings
 
+    # --- summarize ----------------------------------------------------------
     def summarize(
         self,
         filter_obj: Dict[str, Any],
@@ -170,7 +201,7 @@ class CohortAnalyzer:
                 filter_obj,
                 data_type=self._data_type,
                 accessibility=self._accessibility,
-                histogram_fields=use_fields or None,
+                histogram_fields=use_fields or None,   # empty -> total-only query
             )
         except (ValueError, TypeError) as e:
             return CohortSummary(label, None, False, [], errors=[f"invalid filter: {e}"], warnings=warnings)
@@ -191,6 +222,7 @@ class CohortAnalyzer:
         ]
         return CohortSummary(label, total, masked, distributions, warnings=warnings)
 
+    # --- compare ------------------------------------------------------------
     def compare(
         self,
         filter_a: Dict[str, Any],
@@ -200,11 +232,13 @@ class CohortAnalyzer:
         label_b: str = "B",
         fields: Optional[Sequence[str]] = None,
     ) -> CohortComparison:
+        # Same fields for both sides so the rows line up; run sequentially (v1).
         a = self.summarize(filter_a, label=label_a, fields=fields)
         b = self.summarize(filter_b, label=label_b, fields=fields)
 
         errors = [f"{label_a}: {e}" for e in a.errors] + [f"{label_b}: {e}" for e in b.errors]
         warnings = [f"{label_a}: {w}" for w in a.warnings] + [f"{label_b}: {w}" for w in b.warnings]
+        # Delta is second-minus-first (B - A), matching the proposal's compare view.
         total_delta = (
             b.total - a.total if a.total is not None and b.total is not None else None
         )
@@ -215,13 +249,19 @@ class CohortAnalyzer:
         )
 
 
+# --- distribution / alignment helpers ---------------------------------------
 def _distribution(field_name: str, total: Optional[int], raw_buckets: List[dict]) -> Distribution:
     buckets: List[Bucket] = []
     for raw in raw_buckets:
         count = raw.get("count")
+        # masked = access-limited (explicit flag only). A None count without the
+        # flag just means the bucket carried no count -- kept distinct from masked.
         masked = bool(raw.get("masked"))
+        # Guard total: None/0 (empty cohort) and the masked sentinel (-1) all
+        # mean "no denominator", so the percentage is left as None.
         pct = (count / total) if (count is not None and isinstance(total, int) and total > 0) else None
         buckets.append(Bucket(key=str(raw.get("key")), count=count, pct=pct, masked=masked))
+    # Biggest first; masked/unknown counts sink to the bottom.
     buckets.sort(key=lambda b: (b.count is None, -(b.count or 0)))
     return Distribution(field_name, total, buckets)
 
@@ -230,29 +270,42 @@ def _comparison_rows(a: CohortSummary, b: CohortSummary) -> List[ComparisonRow]:
     a_dist = {d.field: d for d in a.distributions}
     b_dist = {d.field: d for d in b.distributions}
 
+    def missing_values(total: Optional[int], total_masked: bool) -> Tuple[Optional[int], Optional[float]]:
+        if total_masked or total is None:
+            return None, None
+        if total <= 0:
+            return 0, None
+        return 0, 0.0
+
     rows: List[ComparisonRow] = []
     for fname in [d.field for d in a.distributions]:
         da, db = a_dist.get(fname), b_dist.get(fname)
         a_by = {bk.key: bk for bk in (da.buckets if da else [])}
         b_by = {bk.key: bk for bk in (db.buckets if db else [])}
 
+        # Union of keys, A's order first, then B-only keys.
         keys = list(a_by) + [k for k in b_by if k not in a_by]
         for k in keys:
             ba, bb = a_by.get(k), b_by.get(k)
-            a_pct = ba.pct if ba else 0.0
-            b_pct = bb.pct if bb else 0.0
+            a_missing_count, a_missing_pct = missing_values(a.total, a.total_masked)
+            b_missing_count, b_missing_pct = missing_values(b.total, b.total_masked)
+            a_count = ba.count if ba else a_missing_count
+            b_count = bb.count if bb else b_missing_count
+            a_pct = ba.pct if ba else a_missing_pct
+            b_pct = bb.pct if bb else b_missing_pct
             delta = (b_pct - a_pct) if (a_pct is not None and b_pct is not None) else None
             rows.append(ComparisonRow(
                 field=fname, key=k,
-                a_count=(ba.count if ba else 0),
+                a_count=a_count,
                 a_pct=a_pct,
-                b_count=(bb.count if bb else 0),
+                b_count=b_count,
                 b_pct=b_pct,
                 delta_pct=delta,
             ))
     return rows
 
 
+# --- formatting (deterministic text) ----------------------------------------
 def _pct(x: Optional[float]) -> str:
     return "n/a" if x is None else f"{round(x * 100)}%"
 
@@ -289,6 +342,7 @@ def format_summary(summary: CohortSummary) -> str:
 
 def format_comparison(comparison: CohortComparison) -> str:
     a, b = comparison.label_a, comparison.label_b
+    # Column widths adapt to the longest key so long enum values do not misalign.
     key_width = max([len("Total")] + [len(r.key) for r in comparison.rows]) + 2
     num_width = max(len(a), len(b), len("Δ(B-A)"), 8) + 1
 

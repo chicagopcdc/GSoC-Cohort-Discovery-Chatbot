@@ -14,6 +14,7 @@ from services.cohort_analyzer import (
 )
 
 
+# --- fake Guppy (mirrors GuppyResult's attributes) --------------------------
 def gres(total, histograms=None, *, total_masked=False, errors=()):
     return SimpleNamespace(
         total_count=total,
@@ -37,6 +38,7 @@ class FakeGuppy:
         return r
 
 
+# --- summarize --------------------------------------------------------------
 class TestSummarize:
     def test_counts_and_percentages(self):
         g = FakeGuppy(gres(1000, {"sex": [{"key": "Male", "count": 560},
@@ -61,8 +63,8 @@ class TestSummarize:
     def test_masked_and_none_count_are_distinct(self):
         g = FakeGuppy(gres(1000, {"sex": [
             {"key": "Male", "count": 560},
-            {"key": "Blocked", "count": None, "masked": True},
-            {"key": "NoCount", "count": None},
+            {"key": "Blocked", "count": None, "masked": True},   # access-limited
+            {"key": "NoCount", "count": None},                    # just absent
         ]}))
         s = CohortAnalyzer(g, fields=["sex"]).summarize({"IN": {"x": ["1"]}})
 
@@ -79,7 +81,7 @@ class TestSummarize:
         s = CohortAnalyzer(g, fields=[]).summarize({"IN": {"sex": ["Male"]}})
         assert s.ok and s.total == 42
         assert s.distributions == []
-        assert "histogram" not in g.calls[0][0]["query"]
+        assert "histogram" not in g.calls[0][0]["query"]   # total-only query
 
     def test_default_fields_requested_as_histograms(self):
         g = FakeGuppy(gres(10, {}))
@@ -89,6 +91,7 @@ class TestSummarize:
             assert f"{f} {{ histogram" in query
 
 
+# --- field selection --------------------------------------------------------
 class TestSelectFields:
     def test_dedup_and_allowlist(self):
         a = CohortAnalyzer(FakeGuppy(gres(1)),
@@ -124,6 +127,7 @@ class TestInvalidFilterKeepsWarnings:
         assert s.warnings == ["dropped unknown field(s): bogus"]
 
 
+# --- compare ----------------------------------------------------------------
 class TestCompare:
     def test_delta_is_b_minus_a(self):
         g = FakeGuppy(
@@ -135,7 +139,7 @@ class TestCompare:
         c = CohortAnalyzer(g, fields=["sex"]).compare(
             {"IN": {"x": ["1"]}}, {"IN": {"x": ["2"]}}, label_a="A", label_b="B")
 
-        assert (c.total_a, c.total_b, c.total_delta) == (1000, 800, -200)
+        assert (c.total_a, c.total_b, c.total_delta) == (1000, 800, -200)   # B - A
         male = next(r for r in c.rows if r.key == "Male")
         assert round(male.a_pct, 2) == 0.56 and round(male.b_pct, 2) == 0.45
         assert round(male.delta_pct, 4) == round(0.45 - 0.56, 4)
@@ -143,13 +147,18 @@ class TestCompare:
     def test_independent_masked_flags(self):
         g = FakeGuppy(
             gres(1234, {"sex": [{"key": "Male", "count": 691}]}),
-            gres(None, {"sex": [{"key": "Male", "count": 411}]}, total_masked=True),
+            gres(None, {"sex": [{"key": "Female", "count": 411}]}, total_masked=True),
         )
         c = CohortAnalyzer(g, fields=["sex"]).compare(
             {"IN": {"x": ["1"]}}, {"IN": {"x": ["2"]}}, label_a="INRG", label_b="NODAL")
 
         assert c.total_a_masked is False and c.total_b_masked is True
-        assert c.total_delta is None
+        assert c.total_delta is None                     # cannot diff a masked total
+        male = next(r for r in c.rows if r.key == "Male")
+        female = next(r for r in c.rows if r.key == "Female")
+        assert male.b_count is None and male.b_pct is None and male.delta_pct is None
+        assert female.a_count == 0 and female.a_pct == 0.0
+        assert female.b_count == 411 and female.b_pct is None and female.delta_pct is None
         assert "masked" in format_comparison(c)
 
     def test_long_keys_stay_aligned(self):
@@ -162,12 +171,13 @@ class TestCompare:
         c = CohortAnalyzer(g, fields=["race"]).compare(
             {"IN": {"x": ["1"]}}, {"IN": {"x": ["2"]}})
         text = format_comparison(c)
-        # Keep the text table aligned even with a long bucket label.
+        # header, Total, and both data rows keep one shared width despite the long key
         rows = [ln for ln in text.splitlines()
                 if ln and not ln.startswith("[") and not ln.startswith("-")]
         assert len({len(ln) for ln in rows}) == 1
 
 
+# --- error path -------------------------------------------------------------
 class TestErrorPath:
     def test_guppy_failure_surfaced(self):
         s = CohortAnalyzer(FakeGuppy(gres(None, {}, errors=["boom"]))).summarize(
