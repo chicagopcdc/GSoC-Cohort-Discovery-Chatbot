@@ -34,6 +34,14 @@ class TestRendering:
         )
         assert out["variables"] == {"filter": _FILTER}
 
+    def test_accessibility_can_be_omitted_for_public_endpoint(self):
+        out = build_aggregation_query(_FILTER, accessibility=None)
+        assert out["query"] == (
+            "query ($filter: JSON) { _aggregation { "
+            "subject(filter: $filter) { _totalCount } } }"
+        )
+        assert "accessibility" not in out["query"]
+
     def test_braces_balanced(self):
         q = build_aggregation_query(_FILTER)["query"]
         assert q.count("{") == q.count("}")
