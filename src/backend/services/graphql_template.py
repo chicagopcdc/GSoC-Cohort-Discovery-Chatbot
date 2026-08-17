@@ -41,7 +41,7 @@ def build_aggregation_query(
     filter_obj: Union[GraphQLFilter, Dict[str, Any]],
     *,
     data_type: str = "subject",
-    accessibility: str = "all",
+    accessibility: Optional[str] = "all",
     histogram_fields: Optional[Iterable[str]] = None,
 ) -> Dict[str, Any]:
     
@@ -49,7 +49,7 @@ def build_aggregation_query(
 
     _check_name(data_type, "data_type")
 
-    if accessibility not in _ACCESSIBILITY:
+    if accessibility is not None and accessibility not in _ACCESSIBILITY:
         raise ValueError(
             f"accessibility must be one of {_ACCESSIBILITY}, got {accessibility!r}"
         )
@@ -67,7 +67,10 @@ def build_aggregation_query(
     selection = " ".join(selection_parts)
     # Build this in pieces because GraphQL braces get messy quickly
     inner = "{ " + selection + " }"
-    node = f"{data_type}(accessibility: {accessibility}, filter: $filter) " + inner
+    args = ["filter: $filter"]
+    if accessibility is not None:
+        args.insert(0, f"accessibility: {accessibility}")
+    node = f"{data_type}({', '.join(args)}) " + inner
     aggregation = "_aggregation { " + node + " }"
     query = "query ($filter: JSON) { " + aggregation + " }"
 

@@ -1,11 +1,4 @@
-"""
-Execute a Guppy aggregation query against a Gen3 GraphQL endpoint.
-
-Takes the payload from graphql_template / QueryBuilder, posts it with an auth
-token, and parses the cohort count and histograms out of the response. The
-transport and token lookup are injectable so this stays testable offline.
-
-"""
+"""Execute Guppy aggregation queries against a Gen3 GraphQL endpoint."""
 
 from __future__ import annotations
 
@@ -13,12 +6,16 @@ import inspect
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 
+from models.filters import GraphQLFilter
+from services.graphql_template import build_aggregation_query
+
 
 TransportFn = Callable[[str, dict, dict, float], dict]
 AsyncTransportFn = Callable[[str, dict, dict, float], Awaitable[dict]]
 TokenProvider = Callable[..., Optional[str]]
 
 MASKED_COUNT = -1
+DEFAULT_PCDC_GUPPY_ENDPOINT = "https://portal.pedscommons.org/guppy/graphql/"
 
 
 def _accepts_positional_arg(provider: Callable) -> bool:
@@ -125,6 +122,19 @@ class GuppyClient:
 
             return self._parse(payload, data_type)
 
+    def count_subjects(
+        self,
+        filter_obj: GraphQLFilter | Dict[str, Any],
+        *,
+        accessibility: Optional[str] = None,
+    ) -> GuppyResult:
+        graphql = build_aggregation_query(
+            filter_obj,
+            data_type="subject",
+            accessibility=accessibility,
+        )
+        return self.execute(graphql, data_type="subject")
+
     async def aexecute(
         self,
         graphql: dict,
@@ -152,6 +162,19 @@ class GuppyClient:
                 return failure
 
             return self._parse(payload, data_type)
+
+    async def acount_subjects(
+        self,
+        filter_obj: GraphQLFilter | Dict[str, Any],
+        *,
+        accessibility: Optional[str] = None,
+    ) -> GuppyResult:
+        graphql = build_aggregation_query(
+            filter_obj,
+            data_type="subject",
+            accessibility=accessibility,
+        )
+        return await self.aexecute(graphql, data_type="subject")
 
     def _headers_or_error(
         self,
@@ -371,7 +394,7 @@ class GuppyClient:
     def _safe_json(response: Any) -> Any:
         try:
             return response.json()
-        except Exception:
+        except (TypeError, ValueError):
             return None
 
     def _get_token(self, *, force_refresh: bool = False) -> Optional[str]:
@@ -413,10 +436,33 @@ class GuppyClient:
         return merged
 
 
+class PCDCGuppyClient(GuppyClient):
+    def __init__(
+        self,
+        endpoint: str = DEFAULT_PCDC_GUPPY_ENDPOINT,
+        *,
+        token_provider: Optional[TokenProvider] = None,
+        transport: Optional[TransportFn] = None,
+        async_transport: Optional[AsyncTransportFn] = None,
+        timeout: float = 30.0,
+        max_auth_retries: int = 1,
+    ):
+        super().__init__(
+            endpoint,
+            token_provider=token_provider,
+            transport=transport,
+            async_transport=async_transport,
+            timeout=timeout,
+            max_auth_retries=max_auth_retries,
+        )
+
+
 __all__ = [
     "GuppyClient",
+    "PCDCGuppyClient",
     "GuppyResult",
     "GuppyTransportError",
+    "DEFAULT_PCDC_GUPPY_ENDPOINT",
     "TransportFn",
     "AsyncTransportFn",
     "TokenProvider",
