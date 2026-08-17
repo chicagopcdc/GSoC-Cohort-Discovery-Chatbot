@@ -92,6 +92,15 @@ def _norm():
     )
 
 
+class TestFromFiles:
+    def test_missing_explicit_numeric_config_fails_fast(self, tmp_path):
+        with pytest.raises(FileNotFoundError, match="numeric config file not found"):
+            TermNormalizer.from_files(
+                _FakeSchema([]),
+                numeric_config_path=tmp_path / "missing-numeric-fields.yaml",
+            )
+
+
 class TestWordNumbers:
     def test_digits_and_words(self):
         assert _parse_num("5") == 5.0
