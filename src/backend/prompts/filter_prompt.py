@@ -10,6 +10,7 @@ model calls, so it stays cheap to import and easy to diff when we tune wording.
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, List, Optional, Sequence
 
 if TYPE_CHECKING:
@@ -114,9 +115,47 @@ def _pinned_values(nq: "NormalizedQuery") -> dict:
     return pinned
 
 
+_WORD_RE = re.compile(r"[A-Za-z0-9]+")
+
+# A word shared by more than this share of a field's values describes the field
+# rather than any one value ("stage" across the stage enum), so it pins nothing.
+_PIN_WORD_MAX_SHARE = 0.2
+
+
+def _words(text: str) -> set:
+    return {w.lower() for w in _WORD_RE.findall(text) if len(w) >= 3}
+
+
+def _values_named_by_query(query: str, values: "Sequence[str]") -> set:
+    """Values the query names outright, matched on words distinctive to the field.
+
+    The normalizer only pins values it could resolve, and it resolves by literal
+    match: "MYCN non-amplified" never matches the schema's "MYCN Amplification".
+    Nothing gets pinned, truncation then keeps the alphabetical head, and a
+    decoy ("ALK Amplification") is the only amplification value left in view.
+    Anchoring on the query's own words keeps the named value visible.
+    """
+    query_words = _words(query)
+    if not query_words:
+        return set()
+
+    per_value = [(v, _words(v)) for v in values]
+    doc_freq: dict = {}
+    for _, ws in per_value:
+        for w in ws:
+            doc_freq[w] = doc_freq.get(w, 0) + 1
+
+    cap = max(1, int(len(values) * _PIN_WORD_MAX_SHARE))
+    return {
+        v for v, ws in per_value
+        if any(w in query_words and doc_freq[w] <= cap for w in ws)
+    }
+
+
 def _format_candidates(
     candidates: "Sequence[FieldCandidate]",
     pinned: Optional[dict] = None,
+    query: str = "",
 ) -> str:
     pinned = pinned or {}
     lines: List[str] = []
@@ -129,6 +168,8 @@ def _format_candidates(
 
         if c.field_type == "enum" and c.enum_values:
             pinned_values = set(pinned.get((c.path, c.field), ()))
+            if query:
+                pinned_values |= _values_named_by_query(query, c.enum_values)
             must = [v for v in c.enum_values if v in pinned_values]
             rest = [v for v in c.enum_values if v not in must]
             shown = must + rest[: max(0, _MAX_VALUES_SHOWN - len(must))]
@@ -272,7 +313,7 @@ def build_filter_messages(
         f"Numeric ranges:\n{_format_ranges(nq)}\n\n"
         f"Unsupported constraints (already dropped; do not emit):\n"
         f"{_format_unsupported(nq)}\n\n"
-        f"Candidate fields:\n{_format_candidates(candidates, pinned)}\n\n"
+        f"Candidate fields:\n{_format_candidates(candidates, pinned, nq.text)}\n\n"
         "Return the filter as a single JSON object."
     )
 

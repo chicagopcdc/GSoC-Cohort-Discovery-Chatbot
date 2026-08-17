@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import json
 import os
+import re
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, List, Optional, Tuple, Union
@@ -53,6 +55,105 @@ _SCHEMA_REJECTION_MARKERS = (
     "additionalproperties",
     "schema",
 )
+
+
+_REMOVAL_EDIT_RE = re.compile(
+    r"\b(?:remove|drop|without|exclude|delete|take\s+out)\b", re.IGNORECASE
+)
+
+
+def _and_clauses(wire: dict) -> List[dict]:
+    """Return top-level AND children without changing non-AND clauses."""
+    if set(wire) == {"AND"} and isinstance(wire["AND"], list):
+        return deepcopy(wire["AND"])
+    return [deepcopy(wire)]
+
+
+def _direct_fields(clause: dict) -> set[str]:
+    """Return fields addressed directly by one non-nested clause."""
+    fields: set[str] = set()
+    for operator in ("IN", "!=", "GTE", "LTE", "GT", "LT"):
+        payload = clause.get(operator)
+        if isinstance(payload, dict):
+            fields.update(field for field in payload if isinstance(field, str))
+    return fields
+
+
+def _nested_parts(clause: dict):
+    """(path, body operator, children) for a nested clause, else None.
+
+    A nested body carries exactly one of AND or OR. Recognising only AND made an
+    OR-bodied clause look like a plain clause to the merge below, which then kept
+    the old copy and appended the re-emitted one.
+    """
+    nested = clause.get("nested")
+    if not isinstance(nested, dict):
+        return None
+    path = nested.get("path")
+    if not isinstance(path, str):
+        return None
+    for operator in ("AND", "OR"):
+        children = nested.get(operator)
+        if isinstance(children, list):
+            return path, operator, children
+    return None
+
+
+def _merge_updated_filter(current_filter: dict, addition: dict) -> dict:
+    """Keep prior constraints while applying a non-removal edit.
+
+    A new condition for the same field replaces its prior condition. Nested
+    conditions on the same path are combined so their fields apply to one event.
+    """
+    base = _and_clauses(current_filter)
+    added = _and_clauses(addition)
+    added_top_fields = set().union(
+        *(_direct_fields(clause) for clause in added if _nested_parts(clause) is None)
+    ) if added else set()
+
+    merged: List[dict] = []
+    consumed_nested: set[int] = set()
+    for old in base:
+        old_nested = _nested_parts(old)
+        if old_nested is None:
+            if not (_direct_fields(old) & added_top_fields):
+                merged.append(old)
+            continue
+
+        path, old_operator, old_children = old_nested
+        matching = [
+            (index, parts)
+            for index, new in enumerate(added)
+            if (parts := _nested_parts(new)) is not None and parts[0] == path
+        ]
+        if not matching:
+            merged.append(old)
+            continue
+
+        # Pooling children is only sound for AND bodies, where AND(a,b) plus
+        # AND(c) really is AND(a,b,c). Concatenating OR branches would widen the
+        # condition instead of narrowing it, and re-emitting an unchanged clause
+        # would double its branches. For anything involving OR the newer clause
+        # replaces the old one.
+        if old_operator != "AND" or any(op != "AND" for _, (_, op, _) in matching):
+            for index, _ in matching:
+                merged.append(added[index])
+                consumed_nested.add(index)
+            continue
+
+        new_children = [child for _, (_, _, children) in matching for child in children]
+        new_fields = set().union(*(_direct_fields(child) for child in new_children)) if new_children else set()
+        kept_old = [child for child in old_children if not (_direct_fields(child) & new_fields)]
+        merged.append({"nested": {"path": path, old_operator: kept_old + new_children}})
+        consumed_nested.update(index for index, _ in matching)
+
+    for index, new in enumerate(added):
+        if index not in consumed_nested:
+            merged.append(new)
+
+    if len(merged) == 1:
+        return merged[0]
+    return {"AND": merged}
 
 
 def _env_int(env, key, default):
@@ -264,6 +365,13 @@ Rules:
    words such as Present, Absent, Unknown, Positive, or Negative take priority.
    Do not invent assertion fields or state values; a deterministic semantic
    layer will add configured assertion fields after your output.
+7. A finding paired with its own result field is stated positively and the
+   presence or absence goes in the result field, never in a != on the finding.
+   molecular_abnormality works this way: "MYCN amplified" is
+   IN molecular_abnormality ["MYCN Amplification"] together with
+   IN molecular_abnormality_result ["Present"], and "MYCN non-amplified" is the
+   same IN with result ["Absent"]. Negating the finding itself asks for subjects
+   tested for something else entirely, and Guppy rejects it.
 
 The examples show clause structure only; for the real answer use only the
 candidate fields and values, never the example fields.
@@ -527,6 +635,11 @@ class FilterGenerator:
             wire = rewritten.wire
             semantic_intent = rewritten.intent
             semantic_warnings = list(parsed.ambiguity) + list(rewritten.warnings)
+
+            # A modification updates only the conditions it mentions. Removal
+            # requests are left to the model because omission is their intent.
+            if current_filter is not None and not _REMOVAL_EDIT_RE.search(query):
+                wire = _merge_updated_filter(current_filter, wire)
 
             if rewritten.issues:
                 last_result = ValidationResult(list(rewritten.issues))
