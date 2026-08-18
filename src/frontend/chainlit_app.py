@@ -2,7 +2,6 @@ import chainlit as cl
 from typing import Optional
 import os
 from datetime import datetime
-import uuid
 from dotenv import load_dotenv
 import json
 import httpx
@@ -14,7 +13,15 @@ BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
 # The agent may run several tool calls plus an LLM round trip per turn, so this
 # is well above the old single-shot timeout.
-REQUEST_TIMEOUT = float(os.getenv("BACKEND_TIMEOUT", "120"))
+def _request_timeout() -> float:
+    try:
+        timeout = float(os.getenv("BACKEND_TIMEOUT", "120"))
+    except (TypeError, ValueError):
+        return 120.0
+    return timeout if timeout > 0 else 120.0
+
+
+REQUEST_TIMEOUT = _request_timeout()
 
 # Authentication using Chainlit's built-in password auth
 @cl.password_auth_callback
@@ -49,7 +56,7 @@ async def start():
         return
 
     # Create session
-    session_id = str(uuid.uuid4())[:8]
+    session_id = cl.context.session.thread_id
     cl.user_session.set("session_id", session_id)
     cl.user_session.set("message_count", 0)
 
@@ -207,7 +214,10 @@ async def on_chat_resume(thread):
         message_count = len([s for s in thread["steps"] if s.get("type") == "user_message"])
     
     cl.user_session.set("message_count", message_count)
-    
+
+    session_id = thread["id"]
+    cl.user_session.set("session_id", session_id)
+
     await cl.Message(
         content=f"**Welcome back, {user.identifier}.** Picking up where you left off "
                 f"({message_count} earlier messages).",
