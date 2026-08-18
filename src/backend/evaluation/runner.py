@@ -165,7 +165,7 @@ class EvalReport:
         return {"avg": sum(vals) / len(vals), "p50": _percentile(vals, 0.5), "p95": _percentile(vals, 0.95)}
 
     def avg_tokens(self) -> Optional[float]:
-        vals = [r.tokens for r in self.results if r.tokens]
+        vals = [r.tokens for r in self.results if r.tokens is not None]
         return sum(vals) / len(vals) if vals else None
 
     def by_difficulty(self):

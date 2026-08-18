@@ -25,7 +25,12 @@ from services.query_builder_v2 import QueryBuilder
 
 def _find_schema() -> tuple[str, str]:
     d = _REPO / "schema"
-    pcdc = os.getenv("PCDC_SCHEMA_PATH") or sorted(glob.glob(str(d / "pcdc-schema-prod-*.json")))[-1]
+    pcdc = os.getenv("PCDC_SCHEMA_PATH")
+    if not pcdc:
+        hits = sorted(glob.glob(str(d / "pcdc-schema-prod-*.json")))
+        if not hits:
+            raise SystemExit(f"no pcdc-schema-prod-*.json under {d}")
+        pcdc = hits[-1]
     gitops = os.getenv("GITOPS_PATH", str(d / "gitops.json"))
     return pcdc, gitops
 

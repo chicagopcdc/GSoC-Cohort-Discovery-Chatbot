@@ -2,6 +2,7 @@ import csv
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -11,6 +12,8 @@ if str(_BACKEND) not in sys.path:
 
 from evaluation.cases import load_cases, load_csv_cases, validate_references
 from evaluation.comparator import compare, equivalent
+from evaluation import diagnose_case
+from evaluation.runner import EvalReport
 from services.schema_loader import DEFAULT_GITOPS, DEFAULT_PCDC_SCHEMA, SchemaIndex
 
 _SMOKE_YAML = _BACKEND / "evaluation" / "data" / "smoke_cases.yaml"
@@ -107,6 +110,23 @@ class TestExistingLoadersStillWork:
         c = load_cases(p)[0]
         assert c.name == "A1"
         assert c.expected_filter == {"AND": [{"IN": {"consortium": ["INRG"]}}]}
+
+
+class TestEvaluationUtilities:
+    def test_diagnose_case_reports_a_missing_schema_clearly(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(diagnose_case, "_REPO", tmp_path)
+        monkeypatch.delenv("PCDC_SCHEMA_PATH", raising=False)
+
+        with pytest.raises(SystemExit, match="no pcdc-schema-prod-.* under"):
+            diagnose_case._find_schema()
+
+    def test_average_tokens_includes_zero(self):
+        report = EvalReport([
+            SimpleNamespace(tokens=0),
+            SimpleNamespace(tokens=10),
+        ])
+
+        assert report.avg_tokens() == 5.0
 
 
 class TestSmokeBenchmark:
