@@ -1,20 +1,4 @@
-"""
-Tool 2 is a Schema Explorer for filterable PCDC fields.
-It answers structured questions about which fields users can actually use to filter cohorts, such as available fields, valid enum values, field types, descriptions, and nested paths.
-
-It does not generate GraphQL or interpret free-text questions by itself. The agent router is expected to identify the user’s intent and pass in the relevant field, path, or value.
-
-All answers come directly from SchemaIndex, which combines the GitOps filter configuration with metadata from the PCDC schema. This means Tool 2 only exposes fields that are explicitly filterable, not the entire PCDC data dictionary.
-
-For example, it can answer questions like:
-Which filterable fields are available under tumor_assessments?
-What values are allowed for tumor_classification?
-Is subject.diagnoses a valid filterable path?
-Is age_at_diagnosis numeric, categorical, or text-based?
-What is the description of a specific field?
-
-Field names, paths, and enum values must match the schema exactly, including capitalization. Empty inputs are rejected.
-"""
+"""Tool 2: lookup for filterable schema fields, paths, and enum values."""
 
 from __future__ import annotations
 
@@ -37,17 +21,6 @@ QUERY_TYPES = (LIST_FIELDS, VALUES, DESCRIBE, FIND_VALUE, LIST_TABLES)
 
 @dataclass
 class ExploreResult:
-    """One answer from the explorer.
-
-    kind and the data keys it carries:
-      "fields"       -> path, field_count, fields[]
-      "values"       -> field, path, field_type, enum_preview/enum_total/enum_more_count
-                        (or ambiguous=True + placements[] when the field spans paths)
-      "describe"     -> field, placements[]
-      "value_fields" -> value, fields[] (each: field + path)
-      "paths"        -> path_count, paths[], top_level_field_count
-      "error"        -> code, message, available_paths(+_total), available_fields(+_total)
-    """
     kind: str
     text: str
     data: dict
@@ -70,7 +43,6 @@ class SchemaExplorer:
     ) -> "SchemaExplorer":
         return cls(SchemaIndex.from_files(pcdc_path, gitops_path), preview_limit=preview_limit)
 
-    # --- dispatch -------------------------------------------------------------
     def answer(self, query_type: str, *, field: Optional[str] = None,
                path: Optional[str] = None, value: Optional[str] = None) -> ExploreResult:
         query_type = (query_type or "").strip()
@@ -87,10 +59,8 @@ class SchemaExplorer:
         return self._error("unknown_query_type",
                            f"unknown query_type {query_type!r}; expected one of {QUERY_TYPES}")
 
-    # --- query types ----------------------------------------------------------
     def list_fields(self, path: Optional[str] = None) -> ExploreResult:
-        """Fields under one nested table, or the top-level subject fields when
-        path is None."""
+        """List fields under a path, or top-level subject fields."""
         if path is not None:
             path = path.strip()
             if not path:
@@ -120,7 +90,6 @@ class SchemaExplorer:
         field = field.strip()
 
         if len(specs) > 1:
-            # Ambiguous: same field under several tables. Do NOT merge enums.
             specs = sorted(specs, key=lambda s: (s.parent_path or ""))
             where = ", ".join(s.parent_path or "subject" for s in specs)
             return ExploreResult(
@@ -212,9 +181,7 @@ class SchemaExplorer:
                   "top_level_field_count": top_count},
         )
 
-    # --- helpers --------------------------------------------------------------
     def _resolve(self, field: Optional[str], path: Optional[str]):
-        """Return (specs, None) or ([], error_result). Trims inputs; rejects empty."""
         if not field or not field.strip():
             return [], self._error("empty_field", "field must not be empty")
         field = field.strip()
@@ -265,7 +232,6 @@ class SchemaExplorer:
         return d
 
     def _enum_preview(self, values: Iterable[str]) -> dict:
-        # Enum values keep their schema order (often meaningful); only preview the front.
         vals = [str(v) for v in values]
         shown = vals[: self.preview_limit]
         return {"enum_preview": shown, "enum_total": len(vals),

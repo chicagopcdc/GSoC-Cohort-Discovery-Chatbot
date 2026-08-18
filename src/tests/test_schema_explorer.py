@@ -1,19 +1,9 @@
 import sys
 from pathlib import Path
 
-
-def _find_upwards(relative: str) -> Path:
-    here = Path(__file__).resolve()
-    for parent in here.parents:
-        candidate = parent / relative
-        if candidate.exists():
-            return candidate
-    raise FileNotFoundError(f"could not find {relative} above {here}")
-
-
-_SERVICES = _find_upwards("backend/services")
-if str(_SERVICES.parent) not in sys.path:
-    sys.path.insert(0, str(_SERVICES.parent))
+_BACKEND = Path(__file__).resolve().parents[1] / "backend"
+if str(_BACKEND) not in sys.path:
+    sys.path.insert(0, str(_BACKEND))
 
 import pytest
 
@@ -29,7 +19,6 @@ def make_schema():
         FieldSpec("tumor_classification", "enum", ("Metastatic", "Localized", "Regional"), "Tumor stage", "tumor_assessments"),
         FieldSpec("tumor_site", "enum", ("Brain", "Skin", "Bone"), "", "tumor_assessments"),
         FieldSpec("histology", "enum", ("ARMS", "ERMS"), "", "histologies"),
-        # same field name under two paths, different enums -> ambiguous
         FieldSpec("stage", "enum", ("1", "2"), "", "tumor_assessments"),
         FieldSpec("stage", "enum", ("3", "4"), "", "histologies"),
     ]
@@ -106,7 +95,6 @@ class TestFindValue:
         assert "is a value of" in r.text
 
     def test_find_value_is_placement_precise(self):
-        # "1" is only a value of stage under tumor_assessments, not histologies
         r = explorer().find_value("1")
         assert r.data["fields"] == [{"field": "stage", "path": "tumor_assessments"}]
 
@@ -173,7 +161,7 @@ class TestDispatch:
 
 class TestPreviewLimit:
     def test_preview_caps_enum(self):
-        r = explorer(preview_limit=2).field_values("tumor_site")   # 3 values
+        r = explorer(preview_limit=2).field_values("tumor_site")
         assert r.data["enum_preview"] == ["Brain", "Skin"]
         assert r.data["enum_more_count"] == 1
         assert "(+1 more)" in r.text
