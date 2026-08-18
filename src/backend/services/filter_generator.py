@@ -58,8 +58,17 @@ _SCHEMA_REJECTION_MARKERS = (
 
 
 _REMOVAL_EDIT_RE = re.compile(
-    r"\b(?:remove|drop|without|exclude|delete|take\s+out)\b", re.IGNORECASE
+    r"\b(?:remove|drop|exclude|delete|take\s+out)\b", re.IGNORECASE
 )
+
+
+def _is_removal_edit(query: str) -> bool:
+    """Whether the request explicitly removes an existing filter condition.
+
+    "Without" is intentionally not a removal cue: elsewhere in the pipeline it
+    expresses a negative cohort constraint, such as "patients without relapse".
+    """
+    return _REMOVAL_EDIT_RE.search(query) is not None
 
 
 def _and_clauses(wire: dict) -> List[dict]:
@@ -638,7 +647,7 @@ class FilterGenerator:
 
             # A modification updates only the conditions it mentions. Removal
             # requests are left to the model because omission is their intent.
-            if current_filter is not None and not _REMOVAL_EDIT_RE.search(query):
+            if current_filter is not None and not _is_removal_edit(query):
                 wire = _merge_updated_filter(current_filter, wire)
 
             if rewritten.issues:

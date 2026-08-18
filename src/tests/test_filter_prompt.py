@@ -102,11 +102,11 @@ def test_pinned_values_keep_schema_order():
 def test_value_named_in_the_query_survives_truncation():
     """Truncation must not hide a value the query explicitly names.
 
-    molecular_abnormality carries 178 values and the display cap is 40, so the
-    shown slice is alphabetical. "MYCN non-amplified" does not match the schema
-    value "MYCN Amplification" literally, so the normalizer resolves nothing and
-    pins nothing -- leaving "ALK Amplification" as the only amplification value
-    the model can see, which is what it then emitted.
+    molecular_abnormality carries more values than the display cap, so the shown
+    slice is alphabetical. "MYCN non-amplified" does not match the schema value
+    "MYCN Amplification" literally, so the normalizer resolves nothing and pins
+    nothing -- leaving "ALK Amplification" as the only amplification value the
+    model can see, which is what it then emitted.
     """
     values = [f"AAA{i:03d} marker" for i in range(60)] + ["ALK Amplification", "MYCN Amplification"]
     nq = NormalizedQuery("INRG subjects whose tumors are MYCN non-amplified",
@@ -125,5 +125,5 @@ def test_a_generic_word_does_not_pin_every_value():
     content = _content(nq, [_candidate("stage", values)])
 
     assert "Stage 4s" in content
-    # "stage" is in every value, so it must not drag all 30 past the cap.
+    # "stage" is in every value, so it must not drag every value past the cap.
     assert "more)" in content, "the display cap was bypassed by a generic word"

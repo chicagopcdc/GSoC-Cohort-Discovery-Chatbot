@@ -15,7 +15,15 @@ _SERVICES = _find_upwards("backend/services")
 if str(_SERVICES.parent) not in sys.path:
     sys.path.insert(0, str(_SERVICES.parent))
 
-from services.filter_generator import _merge_updated_filter
+from services.filter_generator import _is_removal_edit, _merge_updated_filter
+
+
+def test_without_constraint_is_not_treated_as_filter_removal():
+    assert not _is_removal_edit("also include patients without relapse")
+
+
+def test_explicit_filter_removal_is_still_detected():
+    assert _is_removal_edit("remove the sex restriction")
 
 
 def test_updated_filter_preserves_top_level_and_merges_same_nested_path():
