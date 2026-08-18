@@ -23,6 +23,15 @@ def _request_timeout() -> float:
 
 REQUEST_TIMEOUT = _request_timeout()
 
+_TOOL_DESCRIPTIONS = {
+    "build_query": "Cohort filter",
+    "count_cohort": "Cohort count",
+    "explore_schema": "PCDC schema lookup",
+    "answer_from_docs": "PCDC documentation lookup",
+    "summarize_cohort": "Cohort summary",
+    "compare_cohort": "Cohort comparison",
+}
+
 # Authentication using Chainlit's built-in password auth
 @cl.password_auth_callback
 def auth_callback(username: str, password: str) -> Optional[cl.User]:
@@ -109,15 +118,7 @@ async def main(message: cl.Message):
 
         # One call per turn: the agent picks its own tools and keeps the cohort
         # across turns, keyed by session_id.
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{BACKEND_URL}/v2/chat",
-                json={"message": message.content, "session_id": session_id},
-                headers={"Content-Type": "application/json"},
-                timeout=REQUEST_TIMEOUT,
-            )
-            response.raise_for_status()
-            result = response.json()
+        result = await _request_agent(message.content, session_id)
 
         # The backend mints a session id when it gets none; keep whatever it
         # returns so later turns land in the same cohort.
@@ -196,10 +197,82 @@ def _format_reply(result: dict) -> str:
     if result.get("stopped"):
         parts.append("**Note**: the assistant hit its step limit before finishing this turn.")
 
-    # Which tools ran, the message counter and the session id are diagnostics,
-    # not something a researcher reading an answer needs. They stay in the
-    # /v2/chat response (`trace`, `session_id`) for anyone debugging the pipeline.
     return "\n\n".join(parts)
+
+
+def _trace_steps(trace) -> list[dict]:
+    """Keep only well-formed tool steps returned by the backend."""
+    steps = []
+    for step in trace or []:
+        if not isinstance(step, dict):
+            continue
+        tool = step.get("tool")
+        if not isinstance(tool, str) or not tool.strip():
+            continue
+        steps.append(step)
+    return steps
+
+
+def _tool_description(tool: str) -> str:
+    return _TOOL_DESCRIPTIONS.get(
+        tool,
+        tool.replace("_", " ").strip().capitalize(),
+    )
+
+
+def _format_tool_trace(trace) -> tuple[str, int]:
+    """Format backend tool calls for one compact, collapsible Chainlit step."""
+    steps = _trace_steps(trace)
+    lines = []
+    for index, item in enumerate(steps, start=1):
+        tool = item["tool"].strip()
+        status = "completed" if item.get("ok") is True else "failed"
+        lines.append(f"{index}. {_tool_description(tool)} · {status}")
+    return "\n".join(lines), len(steps)
+
+
+async def _request_agent(message_content: str, session_id: str | None) -> dict:
+    """Call the backend while showing user-facing agent and tool activity."""
+    caught_error = None
+    result = None
+
+    async with cl.Step(
+        name="Processing request",
+        type="run",
+        default_open=False,
+        show_input=False,
+    ) as activity:
+        activity.output = "Choosing whether this request needs a cohort tool..."
+        await activity.update()
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{BACKEND_URL}/v2/chat",
+                    json={"message": message_content, "session_id": session_id},
+                    headers={"Content-Type": "application/json"},
+                    timeout=REQUEST_TIMEOUT,
+                )
+                response.raise_for_status()
+                result = response.json()
+
+            trace_text, tool_count = _format_tool_trace(result.get("trace"))
+            if tool_count:
+                noun = "tool" if tool_count == 1 else "tools"
+                activity.name = f"Execution details · {tool_count} {noun} used"
+                activity.output = trace_text
+            else:
+                activity.name = "Execution details · no tools used"
+                activity.output = "No tool was called; the model answered directly."
+        except Exception as exc:
+            activity.name = "Execution details · request failed"
+            activity.output = "The request failed before tool activity was returned."
+            activity.is_error = True
+            caught_error = exc
+
+    if caught_error is not None:
+        raise caught_error
+    return result
 
 @cl.on_chat_resume
 async def on_chat_resume(thread):
