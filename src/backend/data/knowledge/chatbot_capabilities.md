@@ -13,7 +13,14 @@ You describe the cohort you want in ordinary language and this assistant turns i
 
 ## The four tools
 
-Four tools sit behind the conversation. Build Query turns a request into validated filter JSON. Schema Explorer answers exact questions about filterable fields, nested tables and allowed values, straight from the schema files rather than from the model. Cohort counting runs a validated filter against the Guppy aggregation endpoint. Knowledge QA, which produced this answer, retrieves from a small set of curated documents. The assistant picks a tool per question; a schema question does not build a filter, and a documentation question does not run a count.
+The project defines four capability tools, exposed to the agent through six callable actions:
+
+1. Query Builder -- `build_query`
+2. Schema Explorer -- `explore_schema`
+3. Knowledge QA -- `answer_from_docs`
+4. Cohort Analyzer -- `count_cohort`, `summarize_cohort`, and `compare_cohort`
+
+Cohort Analyzer groups counting, summarization, and comparison under one proposal-level tool, while the agent exposes them as separate actions so it can select the exact operation needed for each turn. Query Builder turns a request into a validated filter and edits it as you refine across turns. Schema Explorer answers exact questions about filterable fields, nested tables and allowed values directly from the schema files rather than from the model. Knowledge QA, which produced this answer, retrieves from a small set of curated documents.
 
 ## What the generated filter is
 

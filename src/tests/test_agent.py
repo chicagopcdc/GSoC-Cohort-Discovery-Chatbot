@@ -508,6 +508,8 @@ class TestCohortAnalysisTools:
         res = agent.chat("s1", "compare")
 
         assert "no cohort built yet" in res.steps[0].result["error"]
+
+
 class FakeKnowledge:
     def __init__(self, answer):
         self.answer_obj = answer

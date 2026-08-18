@@ -160,7 +160,6 @@ class KnowledgeQA:
             sources.append(snippet.label)
             snippet_dicts.append({
                 "source": snippet.label,
-                "path": snippet.path,
                 "text": text,
             })
 
