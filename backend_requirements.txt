@@ -1,15 +1,37 @@
-langchain==0.1.0
-langchain-openai==0.0.2
-python-dotenv==1.0.0
-fastapi>=0.100.0,<0.101.0
-uvicorn>=0.23.2,<0.24.0
+# Backend runtime dependencies for src/backend.
+#
+# Use Python 3.11. This lock set intentionally keeps the legacy
+# langchain-openai 0.0.x API used by app.py while using the newest Gen3/httpx
+# combination that resolves cleanly for this project.
+#
+# Install this file in backend_env only. The Chainlit frontend has its own
+# requirements file because the two environments have incompatible transitive
+# dependency constraints.
+
+# Web layer
+fastapi==0.100.1
+uvicorn==0.23.2
 pydantic==2.5.2
-requests==2.31.0
-regex==2023.10.3
-httpx==0.23.0
-pysqlite3-binary>=0.5.0
-chromadb==0.4.15
-langchain-community>=0.0.10
+python-dotenv==1.0.0
+httpx==0.28.1
+
+# Agent pipeline: the OpenAI SDK is used directly (services/agent.py,
+# services/candidate_retriever.py), not only through langchain. OpenAI is kept
+# on the latest v1 line because langchain-openai 0.0.2 requires openai<2.
+openai==1.109.1
+PyYAML==6.0.3
+numpy==1.26.4
+
+# Legacy /flat_graphql and /nested_graphql endpoints in app.py
+langchain-openai==0.0.2
+
+# Gen3 auth, imported by utils/credential_helper.py. Only exercised when
+# GUPPY_USE_CREDENTIALS=1; public aggregate counts need no credentials.
+gen3==4.28.2
+
+# Optional: PostgreSQL-backed Chainlit chat history and its test
 asyncpg==0.30.0
 psycopg2==2.9.10
-gen3==4.24.1
+
+# Legacy evaluation script (src/tests/validate_graphql_generation.py)
+requests==2.31.0
