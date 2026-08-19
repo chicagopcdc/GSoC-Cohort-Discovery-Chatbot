@@ -1,7 +1,6 @@
+import asyncio
 import sys
 from pathlib import Path
-
-import pytest
 
 
 def _find_upwards(relative: str) -> Path:
@@ -91,8 +90,7 @@ class TestSuccess:
         }
         assert "Authorization" not in call["headers"]
 
-    @pytest.mark.asyncio
-    async def test_async_count_subjects_uses_async_transport(self):
+    def test_async_count_subjects_uses_async_transport(self):
         calls = []
 
         async def transport(url, body, headers, timeout):
@@ -100,7 +98,9 @@ class TestSuccess:
             return make_response(total=7)
 
         client = PCDCGuppyClient(async_transport=transport)
-        res = await client.acount_subjects({"AND": [{"IN": {"sex": ["Male"]}}]})
+        res = asyncio.run(
+            client.acount_subjects({"AND": [{"IN": {"sex": ["Male"]}}]})
+        )
 
         assert res.ok
         assert res.total_count == 7
