@@ -272,17 +272,19 @@ class TestErrors:
         res = agent.chat("s1", "how many?")
         assert "error" in res.steps[0].result
 
-    def test_null_query_arg_is_rejected(self):
-        # {"query": null} must not become the literal string "None".
+    def test_null_query_arg_falls_back_to_original_message(self):
         sm = FakeSessionManager(("new", build_obj()))
         chat = ScriptedChat(
             tool_call("c1", "build_query", {"query": None}),
-            text_reply("What cohort would you like?"),
+            text_reply("Built."),
         )
         agent = CohortAgent(sm, chat_fn=chat)
-        res = agent.chat("s1", "?")
-        assert res.steps[0].result == {"error": "empty query"}
-        assert sm.turn_calls == []                        # build never attempted
+        res = agent.chat("s1", "Find patients in the INRG consortium")
+
+        assert res.steps[0].result["ok"] is True
+        assert sm.turn_calls == [
+            ("s1", "Find patients in the INRG consortium"),
+        ]
 
     def test_unknown_tool_errors(self):
         chat = ScriptedChat(tool_call("c1", "frobnicate", {}), text_reply("ok"))

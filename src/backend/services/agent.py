@@ -346,20 +346,19 @@ class CohortAgent:
                 # The model can emit {"query": null} or a non-string; neither
                 # may leak through as the literal string "None".
                 query = args.get("query")
-                if not isinstance(query, str):
-                    return {"error": "empty query"}
                 # The tool call can paraphrase away a leading cue such as
                 # "restrict". SessionManager uses that cue to distinguish an
                 # edit from a new cohort, so preserve the user's wording here.
                 is_modification = getattr(
                     self.session_manager, "looks_like_modification", None
                 )
-                if (
-                    original_message
-                    and callable(is_modification)
-                    and is_modification(original_message)
+                if original_message and (
+                    not isinstance(query, str)
+                    or (callable(is_modification) and is_modification(original_message))
                 ):
                     query = original_message
+                if not isinstance(query, str):
+                    return {"error": "empty query"}
                 return self._build(session_id, query)
             if name == "count_cohort":
                 return self._count(session_id)
