@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
@@ -28,7 +29,7 @@ class CountResult:
     def as_dict(self) -> dict:
         return {
             "ok": self.ok,
-            "count": self.total_count,
+            "total_count": self.total_count,
             "total_masked": self.total_masked,
             "errors": list(self.errors),
         }
@@ -68,7 +69,11 @@ class CohortCounter:
         if hasattr(self._guppy, "aexecute"):
             result = await self._guppy.aexecute(prepared.graphql, data_type=self._data_type)
         else:
-            result = self._guppy.execute(prepared.graphql, data_type=self._data_type)
+            result = await asyncio.to_thread(
+                self._guppy.execute,
+                prepared.graphql,
+                data_type=self._data_type,
+            )
         return self._from_guppy(result, prepared.graphql)
 
     def _prepare(self, filter_obj: GraphQLFilter | Dict[str, Any]) -> CountResult:
