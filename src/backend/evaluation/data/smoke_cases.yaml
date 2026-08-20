@@ -1,0 +1,112 @@
+# Small smoke set for quick regression checks.
+# C2 is intentionally ungradeable.
+
+- id: A1
+  tier: control
+  text: "Find male patients from the INRG consortium."
+  ground_truth:
+    AND:
+      - IN: {consortium: ["INRG"]}
+      - IN: {sex: ["Male"]}
+
+- id: A2
+  tier: control
+  text: "Find INRG consortium participants who have metastatic tumors located on the skin."
+  ground_truth:
+    AND:
+      - IN: {consortium: ["INRG"]}
+      - nested:
+          path: tumor_assessments
+          AND:
+            - IN: {tumor_classification: ["Metastatic"]}
+            - IN: {tumor_site: ["Skin"]}
+
+- id: B1
+  tier: smoking_gun
+  text: "Find INRG patients with Not Reported race."
+  ground_truth:
+    AND:
+      - IN: {consortium: ["INRG"]}
+      - IN: {race: ["Not Reported"]}
+
+- id: B2
+  tier: smoking_gun
+  text: "Find patients older than 5 years."
+  ground_truth:
+    AND:
+      - GT: {age_at_censor_status: 1826.25}
+
+- id: B3
+  tier: smoking_gun
+  text: "Find INRG patients who are NOT older than 5 with Not Reported race."
+  ground_truth:
+    AND:
+      - IN: {consortium: ["INRG"]}
+      - LTE: {age_at_censor_status: 1826.25}
+      - IN: {race: ["Not Reported"]}
+
+- id: C1
+  tier: lexical
+  text: "Find patients with brain tumors."
+  ground_truth:
+    AND:
+      - nested:
+          path: tumor_assessments
+          AND:
+            - IN: {tumor_site: ["Brain"]}
+
+- id: C2
+  tier: lexical
+  text: "Find INRG patients with chemo treatment."
+  notes: "No clean ground truth: 'chemo' has no single PCDC field (abbreviation gap, 3.2.7). Loaded as ungradeable."
+
+- id: D1
+  tier: structural
+  text: "Find patients from either INRG or NODAL consortium."
+  ground_truth:
+    OR:
+      - AND:
+          - IN: {consortium: ["INRG"]}
+      - AND:
+          - IN: {consortium: ["NODAL"]}
+
+- id: D2
+  tier: structural
+  text: "Find INRG patients between 0 and 18 years of age whose tumor is metastatic in the skin."
+  ground_truth:
+    AND:
+      - IN: {consortium: ["INRG"]}
+      - AND:
+          - GTE: {age_at_censor_status: 0}
+          - LTE: {age_at_censor_status: 6574.5}
+      - nested:
+          path: tumor_assessments
+          AND:
+            - IN: {tumor_classification: ["Metastatic"]}
+            - IN: {tumor_site: ["Skin"]}
+
+- id: E1_turn1
+  tier: multi_turn
+  session_id: e1-session
+  text: "Find INRG patients with metastatic tumors in the skin."
+  ground_truth:
+    AND:
+      - IN: {consortium: ["INRG"]}
+      - nested:
+          path: tumor_assessments
+          AND:
+            - IN: {tumor_classification: ["Metastatic"]}
+            - IN: {tumor_site: ["Skin"]}
+
+- id: E1_turn2
+  tier: multi_turn
+  session_id: e1-session
+  text: "Change consortium to NODAL."
+  ground_truth:
+    AND:
+      - IN: {consortium: ["NODAL"]}
+      - nested:
+          path: tumor_assessments
+          AND:
+            - IN: {tumor_classification: ["Metastatic"]}
+            - IN: {tumor_site: ["Skin"]}
