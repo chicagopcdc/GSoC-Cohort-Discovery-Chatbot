@@ -1,0 +1,11 @@
+# Test and development dependencies, on top of backend_requirements.txt.
+#   pip install -r backend_requirements.txt -r dev_requirements.txt
+
+pytest==9.1.1
+
+# The PostgreSQL connectivity checks are async; without this plugin pytest
+# reports them as failures rather than running or skipping them.
+pytest-asyncio==1.4.0
+
+# Filter diffing in src/tests/validate_graphql_generation.py
+deepdiff==9.1.0
