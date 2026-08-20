@@ -123,7 +123,7 @@ def _latest_warnings(steps) -> List[str]:
 
 def _latest_count(steps) -> Tuple[Optional[int], Optional[dict]]:
     for step in reversed(steps):
-        if step.tool == "count_cohort" and "total_count" in step.result:
+        if step.tool in ("count_cohort", "build_query") and "total_count" in step.result:
             return step.result["total_count"], step.result.get("histograms")
     return None, None
 
