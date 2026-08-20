@@ -1,4 +1,9 @@
 {
+    "chat": {
+        "input": {
+            "placeholder": "Describe a cohort or ask about the PCDC schema..."
+        }
+    },
     "components": {
         "atoms": {
             "buttons": {
