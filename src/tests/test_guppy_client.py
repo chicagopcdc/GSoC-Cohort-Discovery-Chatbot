@@ -2,6 +2,8 @@ import asyncio
 import sys
 from pathlib import Path
 
+import pytest
+
 
 def _find_upwards(relative: str) -> Path:
     here = Path(__file__).resolve()

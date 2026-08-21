@@ -1,6 +1,13 @@
+# Frontend runtime dependencies for src/frontend.
+#
+# Use Python 3.11, matching the backend. Install this file in frontend_env only;
+# backend_requirements.txt has incompatible transitive dependency constraints.
 chainlit==2.3.0
 python-dotenv==1.0.0
-langchain==0.1.0
-langchain-openai==0.0.2
-requests==2.31.0
-asyncpg==0.30.0
+
+# chainlit_app.py calls the backend over httpx directly.
+httpx==0.28.1
+
+# chainlit -> asyncer 0.0.7 imports sniffio, but anyio 4.14 dropped it from its
+# own dependencies, so nothing pulls it in on a clean resolve.
+sniffio==1.3.1
