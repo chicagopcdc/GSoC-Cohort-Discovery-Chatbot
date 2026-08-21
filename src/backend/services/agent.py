@@ -15,16 +15,23 @@ No clarify-tool (the model asks in plain text), no export or streaming.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
 from services.cohort_analyzer import CohortAnalyzer, format_comparison, format_summary
+from services.guppy_client import DEFAULT_PCDC_GUPPY_ENDPOINT
 from services.schema_explorer import SchemaExplorer, QUERY_TYPES
 from services.session_manager import SessionManager
 
 
 DEFAULT_AGENT_MODEL = "gpt-4o-mini"
+
+# Counting is the point of the tool and the PCDC aggregation endpoint is public,
+# so it is wired by default. Pass guppy_endpoint=None to build an agent that
+# cannot run queries at all.
+_DEFAULT_GUPPY_ENDPOINT = DEFAULT_PCDC_GUPPY_ENDPOINT
 
 # (messages, tools) -> the assistant message as a dict (role/content/tool_calls).
 ChatFn = Callable[[List[dict], List[dict]], dict]
@@ -59,6 +66,12 @@ answer_from_docs finds nothing, say the documentation does not cover it instead
 of answering from memory. If the request is ambiguous, ask one short clarifying
 question instead of calling a tool. Never invent counts or field names.
 """
+
+_CURRENT_COHORT_COUNT_RE = re.compile(
+    r"\b(?:how many|count|number of|cohort size)\b.*\b(?:current|this|the)\s+cohort\b",
+    re.IGNORECASE,
+)
+
 
 _TOOLS: List[dict] = [
     {
@@ -232,7 +245,7 @@ class CohortAgent:
         pcdc_path: Union[str, Path],
         gitops_path: Union[str, Path],
         *,
-        guppy_endpoint: Optional[str] = None,
+        guppy_endpoint: Optional[str] = _DEFAULT_GUPPY_ENDPOINT,
         token_provider=None,
         session_store=None,
         model: str = DEFAULT_AGENT_MODEL,
@@ -270,8 +283,28 @@ class CohortAgent:
         )
 
     def chat(self, session_id: str, message: str) -> AgentResult:
+        # A clear request to count an already built cohort does not need model
+        # routing. Keeping it local makes follow-up count requests reliable.
+        if (
+            session_id in self._last_build
+            and _CURRENT_COHORT_COUNT_RE.search(message)
+        ):
+            result = self._count(session_id)
+            step = AgentStep(tool="count_cohort", arguments={}, result=result)
+            if "total_count" in result:
+                return AgentResult(
+                    reply=f"The current cohort contains {result['total_count']:,} subjects.",
+                    session_id=session_id,
+                    steps=[step],
+                )
+            return AgentResult(
+                reply=f"I couldn't count the current cohort: {result['error']}",
+                session_id=session_id,
+                steps=[step],
+            )
+
         messages: List[dict] = [
-            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "system", "content": self._system_prompt_for(session_id)},
             {"role": "user", "content": message},
         ]
         steps: List[AgentStep] = []
@@ -299,7 +332,9 @@ class CohortAgent:
                 except json.JSONDecodeError:
                     args = {}
 
-                result = self._dispatch(session_id, name, args)
+                result = self._dispatch(
+                    session_id, name, args, original_message=message,
+                )
                 steps.append(AgentStep(tool=name, arguments=args, result=result))
                 messages.append({
                     "role": "tool",
@@ -315,18 +350,57 @@ class CohortAgent:
             stopped=True,
         )
 
+    def _system_prompt_for(self, session_id: str) -> str:
+        """The system prompt, plus the cohort this session already has.
+
+        Each turn starts a fresh message list, so nothing carries over on its own.
+        The cohort lives server-side in _last_build, but only the model chooses
+        which tool to call, and every analysis tool is documented as "after a
+        successful build_query" -- so without being told the cohort exists it
+        asks the user to describe one instead of calling the tool.
+        """
+        build = self._last_build.get(session_id)
+        if build is None or not getattr(build, "ok", False) or build.wire is None:
+            return _SYSTEM_PROMPT
+        return (
+            f"{_SYSTEM_PROMPT}\n"
+            "This session already built a cohort, so count_cohort can be called "
+            "on it right away without building it again. Its filter is:\n"
+            f"{json.dumps(build.wire, ensure_ascii=False)}\n"
+            "Read a follow-up as an edit of this cohort unless the user clearly "
+            "starts a new one.\n"
+        )
+
     def reset(self, session_id: str) -> None:
         self.session_manager.reset(session_id)
         self._last_build.pop(session_id, None)
 
     # --- tool dispatch 
 
-    def _dispatch(self, session_id: str, name: str, args: dict) -> dict:
+    def _dispatch(
+        self,
+        session_id: str,
+        name: str,
+        args: dict,
+        *,
+        original_message: Optional[str] = None,
+    ) -> dict:
         try:
             if name == "build_query":
                 # The model can emit {"query": null} or a non-string; neither
                 # may leak through as the literal string "None".
                 query = args.get("query")
+                # The tool call can paraphrase away a leading cue such as
+                # "restrict". SessionManager uses that cue to distinguish an
+                # edit from a new cohort, so preserve the user's wording here.
+                is_modification = getattr(
+                    self.session_manager, "looks_like_modification", None
+                )
+                if original_message and (
+                    not isinstance(query, str)
+                    or (callable(is_modification) and is_modification(original_message))
+                ):
+                    query = original_message
                 if not isinstance(query, str):
                     return {"error": "empty query"}
                 return self._build(session_id, query)
@@ -356,13 +430,22 @@ class CohortAgent:
         # Keep only a successful build; a failed one must not wipe the last good query.
         if build.ok:
             self._last_build[session_id] = build
-        return {
+        result = {
             "mode": turn.mode,
             "ok": build.ok,
             "filter": build.wire,
             "errors": list(build.errors),
             "warnings": list(build.warnings),
         }
+        # A modification changes the cohort, so report the size of its result
+        # even when the model does not make a separate count request.
+        if build.ok and turn.mode == "modify":
+            counted = self._count(session_id)
+            if "total_count" in counted:
+                result["total_count"] = counted["total_count"]
+            elif "error" in counted:
+                result["count_error"] = counted["error"]
+        return result
 
     def _count(self, session_id: str) -> dict:
         build = self._last_build.get(session_id)

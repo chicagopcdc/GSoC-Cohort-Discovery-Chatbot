@@ -16,6 +16,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from services.agent import CohortAgent
+from services.guppy_client import DEFAULT_PCDC_GUPPY_ENDPOINT
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -29,6 +30,10 @@ _agent_lock = threading.Lock()
 def _schema_date(p: Path) -> str:
     m = re.search(r"(\d{8})", p.name)
     return m.group(1) if m else ""
+
+
+def _env_flag(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _find_schema() -> Tuple[str, str]:
@@ -47,12 +52,18 @@ def _find_schema() -> Tuple[str, str]:
 
 def _build_agent() -> CohortAgent:
     pcdc, gitops = _find_schema()
-    guppy_endpoint = os.getenv("GUPPY_ENDPOINT") or None
 
+    # The PCDC aggregation endpoint serves counts anonymously, so credentials
+    # are opt-in. Set GUPPY_ENDPOINT to point somewhere else, or to "off" to
+    # disable counting; use GUPPY_USE_CREDENTIALS=1 only for a restricted host.
+    endpoint = os.getenv("GUPPY_ENDPOINT", "").strip()
+    guppy_endpoint = None if endpoint.lower() in ("off", "none", "disabled") else (
+        endpoint or DEFAULT_PCDC_GUPPY_ENDPOINT
+    )
     token_provider = None
-    if guppy_endpoint:
-        # Only wire credentials when there is actually an endpoint to call.
+    if guppy_endpoint and _env_flag("GUPPY_USE_CREDENTIALS"):
         from utils.credential_helper import generate_access_token
+
         token_provider = generate_access_token
 
     return CohortAgent.from_files(
@@ -112,7 +123,7 @@ def _latest_warnings(steps) -> List[str]:
 
 def _latest_count(steps) -> Tuple[Optional[int], Optional[dict]]:
     for step in reversed(steps):
-        if step.tool == "count_cohort" and "total_count" in step.result:
+        if step.tool in ("count_cohort", "build_query") and "total_count" in step.result:
             return step.result["total_count"], step.result.get("histograms")
     return None, None
 

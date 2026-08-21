@@ -4,8 +4,6 @@ import threading
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
-
 
 _BACKEND = Path(__file__).resolve().parents[1] / "backend"
 if str(_BACKEND) not in sys.path:
@@ -107,12 +105,13 @@ class TestCohortCounter:
         assert result.as_dict()["total_count"] == 5
         assert "count" not in result.as_dict()
 
-    @pytest.mark.asyncio
-    async def test_async_count_uses_async_client_path(self):
+    def test_async_count_uses_async_client_path(self):
         guppy = FakeGuppy(_result(total=8))
         counter = CohortCounter(_schema(), guppy)
 
-        res = await counter.acount({"AND": [{"IN": {"consortium": ["NODAL"]}}]})
+        res = asyncio.run(
+            counter.acount({"AND": [{"IN": {"consortium": ["NODAL"]}}]})
+        )
 
         assert res.ok
         assert res.total_count == 8

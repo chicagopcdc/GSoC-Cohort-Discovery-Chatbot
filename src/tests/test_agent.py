@@ -204,6 +204,38 @@ class TestHappyPath:
         res = agent.chat("s1", "x")
         assert res.steps[1].result == {"total_count": 5}
 
+    def test_current_cohort_count_bypasses_model_routing(self):
+        sm = FakeSessionManager(("new", build_obj(graphql={"query": "Q"})))
+        guppy = FakeGuppy(guppy_result(total=123))
+        chat = ScriptedChat(
+            tool_call("c1", "build_query", {"query": "find INRG females"}),
+            text_reply("Built."),
+        )
+        agent = CohortAgent(sm, guppy_client=guppy, chat_fn=chat)
+
+        agent.chat("s1", "find INRG females")
+        res = agent.chat("s1", "How many subjects are in the current cohort?")
+
+        assert res.reply == "The current cohort contains 123 subjects."
+        assert res.llm_calls == 0
+        assert [step.tool for step in res.steps] == ["count_cohort"]
+        assert len(chat.calls) == 2
+
+    def test_modification_keeps_the_users_routing_cue(self):
+        sm = FakeSessionManager(("modify", build_obj()))
+        sm.looks_like_modification = lambda text: text.lower().startswith("restrict")
+        chat = ScriptedChat(
+            tool_call("c1", "build_query", {"query": "patients with metastatic tumors"}),
+            text_reply("Updated."),
+        )
+        agent = CohortAgent(sm, chat_fn=chat)
+
+        agent.chat("s1", "Restrict the cohort to patients with metastatic tumors.")
+
+        assert sm.turn_calls == [
+            ("s1", "Restrict the cohort to patients with metastatic tumors.")
+        ]
+
 
 class TestFailedBuild:
     def test_failed_build_keeps_last_good_query(self):
@@ -240,17 +272,19 @@ class TestErrors:
         res = agent.chat("s1", "how many?")
         assert "error" in res.steps[0].result
 
-    def test_null_query_arg_is_rejected(self):
-        # {"query": null} must not become the literal string "None".
+    def test_null_query_arg_falls_back_to_original_message(self):
         sm = FakeSessionManager(("new", build_obj()))
         chat = ScriptedChat(
             tool_call("c1", "build_query", {"query": None}),
-            text_reply("What cohort would you like?"),
+            text_reply("Built."),
         )
         agent = CohortAgent(sm, chat_fn=chat)
-        res = agent.chat("s1", "?")
-        assert res.steps[0].result == {"error": "empty query"}
-        assert sm.turn_calls == []                        # build never attempted
+        res = agent.chat("s1", "Find patients in the INRG consortium")
+
+        assert res.steps[0].result["ok"] is True
+        assert sm.turn_calls == [
+            ("s1", "Find patients in the INRG consortium"),
+        ]
 
     def test_unknown_tool_errors(self):
         chat = ScriptedChat(tool_call("c1", "frobnicate", {}), text_reply("ok"))
@@ -508,6 +542,47 @@ class TestCohortAnalysisTools:
         res = agent.chat("s1", "compare")
 
         assert "no cohort built yet" in res.steps[0].result["error"]
+class TestCurrentCohortPrompt:
+    def test_system_message_states_the_current_cohort(self):
+        sm = FakeSessionManager(("new", build_obj(wire={"IN": {"sex": ["Male"]}})))
+        chat = ScriptedChat(
+            tool_call("c1", "build_query", {"query": "males"}),
+            text_reply("Built."),
+            text_reply("ok"),
+        )
+        agent = CohortAgent(sm, chat_fn=chat)
+
+        agent.chat("s1", "males")
+        agent.chat("s1", "Describe this cohort.")
+
+        system = chat.calls[-1]["messages"][0]["content"]
+        assert "count_cohort" in system
+        assert '"sex"' in system
+
+    def test_modify_turn_carries_the_new_count(self):
+        sm = FakeSessionManager(("modify", build_obj(graphql={"query": "Q"})))
+        guppy = FakeGuppy(guppy_result(total=77))
+        chat = ScriptedChat(
+            tool_call("c1", "build_query", {"query": "also limit to males"}),
+            text_reply("Now 77 subjects."),
+        )
+        agent = CohortAgent(sm, guppy_client=guppy, chat_fn=chat)
+        res = agent.chat("s1", "also limit to males")
+
+        assert res.steps[0].result["total_count"] == 77
+
+    def test_unavailable_execution_does_not_fail_the_edit(self):
+        sm = FakeSessionManager(("modify", build_obj(graphql={"query": "Q"})))
+        chat = ScriptedChat(
+            tool_call("c1", "build_query", {"query": "also males"}),
+            text_reply("Updated."),
+        )
+        agent = CohortAgent(sm, chat_fn=chat)
+        res = agent.chat("s1", "also males")
+
+        assert res.steps[0].result["ok"] is True
+        assert "total_count" not in res.steps[0].result
+        assert "count_error" in res.steps[0].result
 
 
 class FakeKnowledge:
