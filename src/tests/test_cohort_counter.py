@@ -1,8 +1,8 @@
+import asyncio
 import sys
+import threading
 from pathlib import Path
 from types import SimpleNamespace
-
-import pytest
 
 
 _BACKEND = Path(__file__).resolve().parents[1] / "backend"
@@ -48,6 +48,16 @@ class FakeGuppy:
         return self._result
 
 
+class SyncOnlyGuppy:
+    def __init__(self, result):
+        self._result = result
+        self.thread_id = None
+
+    def execute(self, graphql, *, data_type=None):
+        self.thread_id = threading.get_ident()
+        return self._result
+
+
 class TestCohortCounter:
     def test_valid_filter_is_counted_after_validation(self):
         guppy = FakeGuppy(_result(total=99))
@@ -86,16 +96,40 @@ class TestCohortCounter:
         assert res.ok
         assert res.total_count == 5
 
-    @pytest.mark.asyncio
-    async def test_async_count_uses_async_client_path(self):
+    def test_result_serializes_total_count_consistently(self):
+        guppy = FakeGuppy(_result(total=5))
+        counter = CohortCounter(_schema(), guppy)
+
+        result = counter.count({"AND": [{"IN": {"sex": ["Male"]}}]})
+
+        assert result.as_dict()["total_count"] == 5
+        assert "count" not in result.as_dict()
+
+    def test_async_count_uses_async_client_path(self):
         guppy = FakeGuppy(_result(total=8))
         counter = CohortCounter(_schema(), guppy)
 
-        res = await counter.acount({"AND": [{"IN": {"consortium": ["NODAL"]}}]})
+        res = asyncio.run(
+            counter.acount({"AND": [{"IN": {"consortium": ["NODAL"]}}]})
+        )
 
         assert res.ok
         assert res.total_count == 8
         assert guppy.calls[0]["async"] is True
+
+    def test_async_count_runs_sync_client_in_worker_thread(self):
+        guppy = SyncOnlyGuppy(_result(total=8))
+        counter = CohortCounter(_schema(), guppy)
+        event_loop_thread = threading.get_ident()
+
+        res = asyncio.run(
+            counter.acount({"AND": [{"IN": {"consortium": ["NODAL"]}}]})
+        )
+
+        assert res.ok
+        assert res.total_count == 8
+        assert guppy.thread_id is not None
+        assert guppy.thread_id != event_loop_thread
 
     def test_guppy_errors_are_returned(self):
         guppy = FakeGuppy(_result(total=None, ok=False, errors=("response had no _totalCount",)))

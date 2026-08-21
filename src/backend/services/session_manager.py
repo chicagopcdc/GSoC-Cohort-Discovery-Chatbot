@@ -78,7 +78,7 @@ class SessionManager:
         base = state.current_filter if state else None
         dt = data_type or (state.data_type if state else self.qb.default_data_type)
 
-        if base is not None and self._looks_like_modification(text):
+        if base is not None and self.looks_like_modification(text):
             build = self.qb.build(text, current_filter=base, data_type=dt)
             mode = "modify"
         else:
@@ -93,8 +93,12 @@ class SessionManager:
     def reset(self, session_id: str) -> None:
         self.store.clear(session_id)
 
-    def _looks_like_modification(self, text: str) -> bool:
+    def looks_like_modification(self, text: str) -> bool:
         t = text.strip().lower()
         if not t:
             return False
         return any(t.startswith(cue) or f" {cue}" in t for cue in self._cues)
+
+    # Compatibility for callers/tests that used the original private helper.
+    def _looks_like_modification(self, text: str) -> bool:
+        return self.looks_like_modification(text)
